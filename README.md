@@ -32,11 +32,11 @@ The most important things I've made for the project are:
   - A fully functional HUD.
 
 ## How I did it?
-I based my project on the "Building a 3D Game with LibGDX" book by Sebastian Di Giussepe, but I needed to make some changes to make that works in this LibGDX version, like use the Y axis to the gravity instead of the Z axis, and some other changes to make fix the errors and complete the book tutorial, like making my own HUD system instead of the described on the book.
+<p>I based my project on the "Building a 3D Game with LibGDX" book by Sebastian Di Giussepe, but I needed to make some changes to make that works in this LibGDX version, like use the Y axis to the gravity instead of the Z axis, and some other changes to make fix the errors and complete the book tutorial, like making my own HUD system instead of the described on the book.</p>
 
 ## Want to help me?
 You can give the project a star, or simply share this to anyone you know is working on a Java 3D Game Project.
 
-<center>
+<br>
 ## Thank you all for reading this and showing your interest in my project! Hope you liked it or found it useful. 
-</center>
+
