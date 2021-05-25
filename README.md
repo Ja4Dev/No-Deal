@@ -38,5 +38,5 @@ The most important things I've made for the project are:
 You can give the project a star, or simply share this to anyone you know is working on a Java 3D Game Project.
 
 <br>
-## Thank you all for reading this and showing your interest in my project! Hope you liked it or found it useful. 
+Thank you all for reading this and showing your interest in my project! Hope you liked it or found it useful. 
 
