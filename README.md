@@ -1,9 +1,9 @@
 # No-Deal
 A 3D First Person Shooter game template in the 1.9.10 version of LibGDX for Java 8.
+<br>
 
 ## Important Advice
 The menues of the game and some commentary lines in the code are fully writed on Spanish, but fortunately all the code is writen in English.
-<br>
 <br>
 
 ## Description
