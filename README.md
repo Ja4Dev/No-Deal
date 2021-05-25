@@ -4,6 +4,7 @@ A 3D First Person Shooter game template in the 1.9.10 version of LibGDX for Java
 ## Important Advice
 The menues of the game and some commentary lines in the code are fully writed on Spanish, but fortunately all the code is writen in English.
 <br>
+<br>
 
 ## Description
 <p>No Deal was an attempt to develop a simple first person shooter game I carried out as a final academic project for my technical high scool, in the year 2020.
