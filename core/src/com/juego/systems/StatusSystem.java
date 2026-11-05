@@ -1,7 +1,6 @@
 package com.juego.systems;
 
-import java.util.Iterator;
-
+import com.badlogic.ashley.core.ComponentMapper;
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.EntitySystem;
@@ -10,9 +9,11 @@ import com.badlogic.ashley.utils.ImmutableArray;
 import com.juego.components.StatusComponent;
 import com.juego.core.GameWorld;
 
+/** Removes dead entities from the engine and the physics world. */
 public class StatusSystem extends EntitySystem {
 	private ImmutableArray<Entity> entities;
-	private GameWorld gameWorld;
+	private final GameWorld gameWorld;
+	private final ComponentMapper<StatusComponent> sm = ComponentMapper.getFor(StatusComponent.class);
 
 	public StatusSystem(GameWorld gameWorld) {
 		this.gameWorld = gameWorld;
@@ -25,12 +26,9 @@ public class StatusSystem extends EntitySystem {
 
 	@Override
 	public void update(float deltaTime) {
-		Iterator iterator = entities.iterator();
-		while (iterator.hasNext()) {
-			Entity entity = (Entity) iterator.next();
-			if (!entity.getComponent(StatusComponent.class).alive) {
+		for (Entity entity : entities) {
+			if (!sm.get(entity).alive)
 				gameWorld.remove(entity);
-			}
 		}
 	}
 }

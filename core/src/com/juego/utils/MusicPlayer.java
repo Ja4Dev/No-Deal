@@ -55,6 +55,9 @@ public class MusicPlayer {
 			}
 		music[getTemaActual()].play();
 	}
-	
-	
+
+	public void dispose() {
+		for (Music track : music)
+			track.dispose();
+	}
 }

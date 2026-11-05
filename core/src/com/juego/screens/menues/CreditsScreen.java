@@ -55,9 +55,9 @@ public class CreditsScreen extends Menu implements Screen {
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("creditsMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("creditsMenu/title.png")));
-		creditsImage = new Image(new Texture(Gdx.files.internal("creditsMenu/credits.png")));
+		backgroundImage = new Image(loadTexture("creditsMenu/background.png"));
+		titleImage = new Image(loadTexture("creditsMenu/title.png"));
+		creditsImage = new Image(loadTexture("creditsMenu/credits.png"));
 		backButton = new TextButton("Volver", Assets.skin);			
 		
 	}
@@ -75,7 +75,7 @@ public class CreditsScreen extends Menu implements Screen {
 
 	@Override
 	public void dispose() {
-		stage.dispose();
+		super.dispose();
 	}
 
 	@Override

@@ -83,8 +83,8 @@ public class PauseMenu extends Menu{
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("pauseMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("pauseMenu/title.png")));
+		backgroundImage = new Image(loadTexture("pauseMenu/background.png"));
+		titleImage = new Image(loadTexture("pauseMenu/title.png"));
 		resumeButton = new TextButton("Reanudar", Assets.skin);
 		scoreButton = new TextButton("Puntuacion", Assets.skin);
 		menuButton = new TextButton("Menu Principal", Assets.skin);

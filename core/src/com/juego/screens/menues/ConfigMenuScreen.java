@@ -116,8 +116,8 @@ public class ConfigMenuScreen extends Menu implements Screen {
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("configMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("configMenu/title.png")));
+		backgroundImage = new Image(loadTexture("configMenu/background.png"));
+		titleImage = new Image(loadTexture("configMenu/title.png"));
 		backButton = new TextButton("Volver", Assets.skin);	
 		sound = new Label("Sonido", Assets.skin);
 		musicVolume = new Label("Musica", Assets.skin);
@@ -144,7 +144,7 @@ public class ConfigMenuScreen extends Menu implements Screen {
 
 	@Override
 	public void dispose() {
-		stage.dispose();
+		super.dispose();
 	}
 
 	@Override

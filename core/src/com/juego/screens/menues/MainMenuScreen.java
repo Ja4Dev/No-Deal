@@ -114,8 +114,8 @@ public class MainMenuScreen extends Menu implements Screen {
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("mainMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("mainMenu/title.png")));
+		backgroundImage = new Image(loadTexture("mainMenu/background.png"));
+		titleImage = new Image(loadTexture("mainMenu/title.png"));
 		playButton = new TextButton("Jugar Demo", Assets.skin);
 		configButton = new TextButton("Opciones", Assets.skin);
 		creditsButton = new TextButton("Creditos", Assets.skin);
@@ -139,7 +139,7 @@ public class MainMenuScreen extends Menu implements Screen {
 	
 	@Override
 	public void dispose() {
-	stage.dispose();
+	super.dispose();
 	}
 
 	@Override

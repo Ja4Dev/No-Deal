@@ -7,9 +7,10 @@ import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
 import com.badlogic.gdx.graphics.g3d.model.data.ModelData;
 import com.badlogic.gdx.graphics.g3d.utils.TextureProvider;
+import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.JsonReader;
 
-public abstract class Gun {
+public abstract class Gun implements Disposable {
 	public int damage;
 	public int magazine;
 	public boolean auto;
@@ -38,9 +39,18 @@ public abstract class Gun {
 		this.recoil = recoil;
 	}
 
+	/** Builds the model on first use and reuses it afterwards (switching guns used to leak a model each time). */
 	public Model getModel() {
-		Model model = new Model(modelData, new TextureProvider.FileTextureProvider());
+		if (model == null)
+			model = new Model(modelData, new TextureProvider.FileTextureProvider());
 		return model;
+	}
+
+	public void dispose() {
+		if (model != null) {
+			model.dispose();
+			model = null;
+		}
 	}
 	
 }

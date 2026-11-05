@@ -52,8 +52,8 @@ public class ControlsMenuScreen extends Menu implements Screen {
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("controlsMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("controlsMenu/title.png")));
+		backgroundImage = new Image(loadTexture("controlsMenu/background.png"));
+		titleImage = new Image(loadTexture("controlsMenu/title.png"));
 		backButton = new TextButton("Volver", Assets.skin);
 		stage.addActor(backgroundImage);
 		stage.addActor(titleImage);
@@ -73,7 +73,7 @@ public class ControlsMenuScreen extends Menu implements Screen {
 
 	@Override
 	public void dispose() {
-		stage.dispose();
+		super.dispose();
 	}
 
 	@Override

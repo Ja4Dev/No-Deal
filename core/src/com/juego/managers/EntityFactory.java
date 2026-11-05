@@ -19,7 +19,7 @@ import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.collision.btBoxShape;
 import com.badlogic.gdx.physics.bullet.collision.btBroadphaseProxy;
-import com.badlogic.gdx.physics.bullet.collision.btCapsuleShape;
+import com.badlogic.gdx.physics.bullet.collision.btCapsuleShapeZ;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionObject;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.collision.btPairCachingGhostObject;
@@ -80,7 +80,10 @@ public class EntityFactory {
 		CharacterComponent characterComponent = new CharacterComponent();
 		characterComponent.ghostObject = new btPairCachingGhostObject();
 		characterComponent.ghostObject.setWorldTransform(modelComponent.instance.transform);
-		characterComponent.ghostShape = new btCapsuleShape(2f, 2f);
+		// btKinematicCharacterController treats +Z as the default up axis and rotates the
+		// ghost object to match the requested up vector (+Y), so the capsule has to be
+		// built along Z to end up standing. A Y capsule ends up lying on its side.
+		characterComponent.ghostShape = new btCapsuleShapeZ(2f, 2f);
 		characterComponent.ghostObject.setCollisionShape(characterComponent.ghostShape);
 		characterComponent.ghostObject.setCollisionFlags(btCollisionObject.CollisionFlags.CF_CHARACTER_OBJECT);
 		characterComponent.characterController = new btKinematicCharacterController(characterComponent.ghostObject,
