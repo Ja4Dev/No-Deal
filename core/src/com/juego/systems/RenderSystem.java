@@ -20,6 +20,11 @@ import com.juego.graphics.SkyDome;
 import com.juego.graphics.Tracers;
 
 public class RenderSystem extends EntitySystem {
+	/**
+	 * Drawn after every other system has updated (movement, mouse look, shots),
+	 * so what's on screen is this frame's state, not last frame's.
+	 */
+	public static final int PRIORITY = 100;
 
 	private ImmutableArray<Entity> entities;
 	private ModelBatch batch;
@@ -32,6 +37,7 @@ public class RenderSystem extends EntitySystem {
 	private final SkyDome sky = new SkyDome();
 
 	public RenderSystem() {
+		super(PRIORITY);
 		perspectiveCamera = new PerspectiveCamera(FOV, Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
 		perspectiveCamera.far = 10000f;
 		environment = new Environment();

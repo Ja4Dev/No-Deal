@@ -16,10 +16,22 @@ import com.badlogic.gdx.physics.bullet.dynamics.btConstraintSolver;
 import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.physics.bullet.dynamics.btSequentialImpulseConstraintSolver;
+import com.badlogic.gdx.utils.Array;
 import com.juego.components.BulletComponent;
 import com.juego.components.CharacterComponent;
 
+/**
+ * The physics world. It advances in fixed steps of {@link #fixedTimeStep}, so
+ * movement is the same at any frame rate; {@link #interpolation()} says how
+ * far the current frame is between the last step and the next one, so the
+ * camera can move smoothly on monitors faster than the physics.
+ */
 public class BulletSystem extends EntitySystem implements EntityListener {
+
+	/** Runs code right before every physics step (e.g. the player's movement). */
+	public interface StepListener {
+		void beforeStep(float timeStep);
+	}
 
 	public final btCollisionConfiguration collisionConfiguration;
 	public final btCollisionDispatcher dispatcher;
@@ -30,6 +42,8 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 	private final MyContactListener contactListener;
 	public int maxSubSteps = 5;
 	public float fixedTimeStep = 1f / 60f;
+	private float accumulator;
+	private final Array<StepListener> stepListeners = new Array<>();
 
 	@Override
 	public void addedToEngine(Engine engine) {
@@ -51,7 +65,27 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 
 	@Override
 	public void update(float deltaTime) {
-		collisionWorld.stepSimulation(deltaTime, maxSubSteps, fixedTimeStep);
+		// After a long hitch, drop the time that doesn't fit instead of trying to catch up.
+		accumulator = Math.min(accumulator + deltaTime, maxSubSteps * fixedTimeStep);
+		while (accumulator >= fixedTimeStep) {
+			for (int i = 0; i < stepListeners.size; i++)
+				stepListeners.get(i).beforeStep(fixedTimeStep);
+			collisionWorld.stepSimulation(fixedTimeStep, 0); // exactly one step
+			accumulator -= fixedTimeStep;
+		}
+	}
+
+	/** From 0 (the last step just happened) to 1 (the next one is due). */
+	public float interpolation() {
+		return accumulator / fixedTimeStep;
+	}
+
+	public void addStepListener(StepListener listener) {
+		stepListeners.add(listener);
+	}
+
+	public void removeStepListener(StepListener listener) {
+		stepListeners.removeValue(listener, true);
 	}
 
 	public void dispose() {

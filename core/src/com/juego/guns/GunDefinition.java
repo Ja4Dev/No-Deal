@@ -16,8 +16,16 @@ public class GunDefinition {
 	public boolean automatic;
 	public float range;
 	public long fireDelayMs;
-	/** Camera kick (degrees of pitch) applied per shot. */
-	public float recoil;
+	/**
+	 * Spray pattern (see {@link Recoil}): for each bullet of a burst, its offset
+	 * from the aim in degrees, as {up, right}. The first entry is the first shot,
+	 * normally {0, 0}. Null means no pattern.
+	 */
+	public float[][] spray;
+	/** Quick jolt of the view on every shot, in degrees; it springs back on its own. */
+	public float punch;
+	/** Random inaccuracy, in degrees: standing still, extra per shot of the burst, running, and in the air. */
+	public float spreadBase, spreadPerShot, spreadMove, spreadAir;
 	/** Whether the gun can aim down sights (zoom). */
 	public boolean hasSight;
 	/** Internal path of the view model (.g3dj). */

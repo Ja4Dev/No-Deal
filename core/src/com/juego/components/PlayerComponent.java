@@ -10,7 +10,8 @@ import com.juego.guns.GunDefinition;
 /**
  * State of a player. It is also how the player systems talk to each other:
  * PlayerSystem writes the movement state, WeaponSystem reads it for bullet
- * spread and writes back recoil, and HudSystem owns the pause/scoreboard flags.
+ * spread and writes back how recoil moves the view, and HudSystem owns the
+ * pause/scoreboard flags.
  */
 public class PlayerComponent implements Component {
 
@@ -39,10 +40,17 @@ public class PlayerComponent implements Component {
 	public boolean scoreboard = false;
 
 	// Look and movement state (PlayerSystem)
+	/** Where the player aims, in degrees (yaw 0 = +Z; positive pitch looks down). Moved only by the mouse. */
 	public float yaw, pitch;
-	public boolean moving, running;
-	/** Pitch kick (degrees) to apply on the next camera update. Written by the WeaponSystem. */
-	public float pendingRecoil;
+	public boolean moving, running, onGround = true;
+	/** Horizontal velocity, units per second. */
+	public final Vector3 velocity = new Vector3();
+
+	// How the view is pushed away from the aim, in degrees up and to the right.
+	/** By the spray pattern while shooting (WeaponSystem); comes back down when the trigger is released. */
+	public float recoilUp, recoilRight;
+	/** Quick jolt from a shot or a hit; springs back on its own (PlayerSystem). */
+	public float punchUp, punchRight;
 
 	public PlayerComponent(String team, Supplier<Gun[]> loadout, int playerNumber) {
 		this.team = team;
@@ -175,7 +183,8 @@ public class PlayerComponent implements Component {
 	public void respawn() {
 		health = MAX_HEALTH;
 		dead = false;
-		pendingRecoil = 0;
+		recoilUp = recoilRight = punchUp = punchRight = 0;
+		velocity.setZero();
 		pendingDamage = 0;
 		resetLoadout();
 	}

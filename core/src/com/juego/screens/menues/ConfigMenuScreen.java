@@ -36,6 +36,7 @@ public class ConfigMenuScreen extends MenuScreen {
 		final Label sensitivityValue = new Label("", Assets.skin);
 		final CheckBox fullscreen = new CheckBox(" Pantalla Completa", Assets.skin);
 		TextButton controls = new TextButton("Controles", Assets.skin);
+		TextButton crosshair = new TextButton("Mira", Assets.skin);
 		TextButton back = new TextButton("Volver", Assets.skin);
 
 		music.setValue(Config.musicVolume);
@@ -56,7 +57,10 @@ public class ConfigMenuScreen extends MenuScreen {
 		row(table, "Sensibilidad", sensitivity, sensitivityValue);
 		section(table, "Video");
 		table.add(fullscreen).colspan(3).padBottom(24).row();
-		table.add(controls).colspan(3).width(192).height(48).padBottom(12).row();
+		Table screens = new Table();
+		screens.add(controls).width(192).height(48).padRight(16);
+		screens.add(crosshair).width(192).height(48);
+		table.add(screens).colspan(3).padBottom(12).row();
 		table.add(back).colspan(3).width(192).height(48).row();
 		stage.addActor(table);
 
@@ -95,6 +99,12 @@ public class ConfigMenuScreen extends MenuScreen {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
 				game.setScreen(new ControlsMenuScreen(game));
+			}
+		});
+		crosshair.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				game.setScreen(new CrosshairMenuScreen(game));
 			}
 		});
 		back.addListener(new ClickListener() {

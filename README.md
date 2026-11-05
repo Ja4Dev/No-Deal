@@ -28,17 +28,22 @@ The game uses an Entity Component System ([Ashley](https://github.com/libgdx/ash
 
 | System | Responsibility |
 | --- | --- |
-| `RenderSystem` | Draws the world, then the gun view model with its own camera |
-| `BulletSystem` | Steps the Bullet physics world at a fixed 60 Hz |
+| `RenderSystem` | Draws the world, then the gun view model with its own camera. Runs after every other system, so the frame shows this frame's movement and aim |
+| `BulletSystem` | Steps the Bullet physics world at a fixed 60 Hz; the camera is interpolated between steps, so it moves smoothly on faster monitors |
 | `NetworkSystem` | Online only: syncs the match with the server, moves the other players |
-| `PlayerSystem` | Mouse look, WASD movement, jumping, respawning |
-| `WeaponSystem` | Hitscan shooting, headshots, reloading, switching, zoom, bullet tracers |
+| `PlayerSystem` | Mouse look, CS-style movement (acceleration, friction, air control), jumping, respawning |
+| `WeaponSystem` | Hitscan shooting with spray recoil, headshots, reloading, switching, zoom, bullet tracers, view model bob and kick |
 | `GroundWeaponSystem` | Guns on the ground: dropping, picking up, level spawners |
 | `EnemySystem` | Offline only: spawns enemies and makes them chase the player |
 | `StatusSystem` | Removes dead entities and frees their physics objects |
-| `HudSystem` | HUD, pause menu, scoreboard toggle, damage feedback |
+| `HudSystem` | HUD, configurable crosshair, pause menu, scoreboard toggle, damage feedback |
 
-The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement flags, pending recoil, pause). Getting hit flashes the screen edges red, an arc around the crosshair points to where the shot came from, and the edges stay faintly red while health is low. Settings and key bindings are saved with libGDX `Preferences`, and any action can be bound to a key or a mouse button (`Controls`). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
+The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement, how recoil pushes the view, pause). Getting hit flashes the screen edges red, an arc around the crosshair points to where the shot came from, and the edges stay faintly red while health is low. Settings and key bindings are saved with libGDX `Preferences`, and any action can be bound to a key or a mouse button (`Controls`). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, spray pattern, inaccuracy, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
+
+### How it feels
+- **Recoil like CS 1.6.** Each gun has a fixed spray pattern (`spray` in `guns.json`): the first bullet goes where you aim, and holding the trigger the next ones climb and then wander left and right, the same way every time, so you can learn to pull the mouse against it. The view climbs with part of the pattern and comes back down when you let go. On top of that there is a random inaccuracy: tiny when standing still or walking, large when running or jumping. The rules live in `Recoil`, which is pure logic and unit-tested.
+- **Movement.** Quake/CS-style acceleration and friction (`PlayerMovement`): full speed in about 0.2 s, a full stop in about 0.25 s, momentum kept in the air with a little air control. The eyes are near the top of the head, and the mouse uses CS's scale (0.022 degrees per count), so a CS sensitivity feels the same here.
+- **Crosshair.** Style (classic, with a dot, dot only, T), length, thickness, gap, color, opacity and an outline, with a live preview in Settings > Mira. It can be dynamic: it opens up with the gun's real inaccuracy while moving and spraying.
 
 ## Multiplayer
 Deathmatch for up to 4 players over LAN, with a hand-written UDP protocol (no networking library).
@@ -100,7 +105,7 @@ Between the things that I couldn't add to the projects are:
   - The scoreboard. *(Added in 2026: hold Tab.)*
   - The skyboxes. *(Added in 2026: a generated sky dome, visible through the openings in the roof.)*
   - The raycasting shoots decals. *(Added in 2026: bullet holes that fade out, and faint tracers.)*
-  - The settings options saving. *(Added in 2026, along with rebindable controls and mouse sensitivity.)*
+  - The settings options saving. *(Added in 2026, along with rebindable controls, mouse sensitivity and a configurable crosshair.)*
   - The team selection menues.
   - The gun dropping and picking system. *(Added in 2026: press G, see Multiplayer.)*
 

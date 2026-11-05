@@ -1,6 +1,7 @@
 package com.juego.net;
 
 import com.badlogic.gdx.math.Vector3;
+import com.juego.utils.PlayerMovement;
 
 /**
  * Server-side sanity check of client-reported movement ("trust, but verify").
@@ -14,9 +15,9 @@ import com.badlogic.gdx.math.Vector3;
  * {@link #MAX_CLOCK_AHEAD_MS}.
  */
 public class MovementValidator {
-	/** Run speed (10) plus margin. */
-	public static final float MAX_HORIZONTAL_SPEED = 12.5f;
-	/** Jumping (15) and falling (up to Bullet's default fall speed of 55) plus margin. */
+	/** Top speed (running is 12, a little more with air strafing) plus margin. */
+	public static final float MAX_HORIZONTAL_SPEED = PlayerMovement.MAX_AIR_SPEED * 1.12f;
+	/** Jumping (19) and falling (up to Bullet's default fall speed of 55) plus margin. */
 	public static final float MAX_VERTICAL_SPEED = 60f;
 	public static final float SLACK = 0.5f;
 	public static final long MAX_CLOCK_AHEAD_MS = 250;

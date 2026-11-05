@@ -42,6 +42,7 @@ import com.juego.guns.Gun;
 import com.juego.guns.GunDefinition;
 import com.juego.systems.BulletSystem;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.PlayerMovement;
 
 /**
  * Builds the game's entities. Owned by a GameWorld: models it loads are
@@ -98,6 +99,8 @@ public class EntityFactory implements Disposable {
 		characterComponent.ghostObject.setCollisionFlags(btCollisionObject.CollisionFlags.CF_CHARACTER_OBJECT);
 		characterComponent.characterController = new btKinematicCharacterController(characterComponent.ghostObject,
 				characterComponent.ghostShape, STEP_HEIGHT, new Vector3(0, 1f, 0));
+		// Snappier than Bullet's default (29.4): jumps as high as before but shorter, like CS.
+		characterComponent.characterController.setGravity(new Vector3(0, -PlayerMovement.GRAVITY, 0));
 		characterComponent.ghostObject.userData = entity;
 		entity.add(characterComponent);
 		bulletSystem.collisionWorld.addCollisionObject(characterComponent.ghostObject,

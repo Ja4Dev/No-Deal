@@ -34,10 +34,9 @@ public class GroundWeapons {
 	/** How far in front of the player a thrown gun lands. */
 	public static final float THROW_DISTANCE = 3.5f;
 	/**
-	 * Looking at a gun means the angle to it is under ~25 degrees. The eye is
-	 * only about 2 units above the floor, so a wider cone would also catch guns
-	 * lying ahead while looking straight forward, and G would pick up instead
-	 * of drop.
+	 * Looking at a gun means the angle to it is under ~25 degrees. A wider cone
+	 * would also catch guns lying ahead while looking straight forward, and G
+	 * would pick up instead of drop.
 	 */
 	private static final float AIM_COS = 0.9f;
 
@@ -264,14 +263,19 @@ public class GroundWeapons {
 		return dx * dx + dz * dz <= radius * radius && Math.abs(w.position.y - center.y) <= PICKUP_HEIGHT + slack;
 	}
 
-	/** The reachable gun the player is looking at most directly, or null. */
-	public Weapon findAimed(Vector3 center, Vector3 viewDirection) {
+	/**
+	 * The reachable gun the player is looking at most directly, or null.
+	 *
+	 * @param center capsule center (for the reach)
+	 * @param eye    where the player looks from
+	 */
+	public Weapon findAimed(Vector3 center, Vector3 eye, Vector3 viewDirection) {
 		Weapon best = null;
 		float bestDot = AIM_COS;
 		for (Weapon w : weapons.values()) {
 			if (!inReach(w, center, 0))
 				continue;
-			float dot = tmp.set(w.position).sub(center).nor().dot(viewDirection);
+			float dot = tmp.set(w.position).sub(eye).nor().dot(viewDirection);
 			if (dot > bestDot) {
 				bestDot = dot;
 				best = w;
