@@ -139,6 +139,7 @@ public class PlayerSystem extends EntitySystem implements EntityListener {
 	}
 
 	private void respawn() {
+		gameWorld.groundWeapons().dropOnDeath(getPosition(translation));
 		playerComponent.respawn();
 		teleportToSpawn();
 	}

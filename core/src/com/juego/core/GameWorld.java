@@ -14,11 +14,13 @@ import com.juego.components.CharacterComponent;
 import com.juego.components.EnemyComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.managers.EntityFactory;
+import com.juego.guns.Gun;
 import com.juego.match.Match;
 import com.juego.net.GameClient;
 import com.juego.net.Protocol;
 import com.juego.systems.BulletSystem;
 import com.juego.systems.EnemySystem;
+import com.juego.systems.GroundWeaponSystem;
 import com.juego.systems.HudSystem;
 import com.juego.systems.NetworkSystem;
 import com.juego.systems.PlayerSystem;
@@ -48,6 +50,7 @@ public class GameWorld {
 	public NetworkSystem network;
 	private PlayerSystem playerSystem;
 	private WeaponSystem weaponSystem;
+	private GroundWeaponSystem groundWeaponSystem;
 	private EnemySystem enemySystem;
 	private StatusSystem statusSystem;
 	private HudSystem hudSystem;
@@ -69,11 +72,19 @@ public class GameWorld {
 		entityFactory = new EntityFactory(bulletSystem);
 		engine.addEntity(entityFactory.createLevel(LEVEL));
 		Vector3 spawn = session.isMultiplayer() ? session.client.getSpawn() : OFFLINE_SPAWN;
-		Entity player = entityFactory.createPlayer(spawn.x, spawn.y, spawn.z, "ct",
-				Assets.armory.create(Protocol.LOADOUT[0]), Assets.armory.create(Protocol.LOADOUT[1]), LOCAL_PLAYER);
+		Entity player = entityFactory.createPlayer(spawn.x, spawn.y, spawn.z, "ct", GameWorld::spawnLoadout,
+				LOCAL_PLAYER);
 		localPlayer = player.getComponent(PlayerComponent.class);
 		engine.addEntity(player);
 		offlineMatch.start(gameTimeMs);
+	}
+
+	/** The guns everyone spawns with, offline and online. */
+	private static Gun[] spawnLoadout() {
+		Gun[] guns = new Gun[Protocol.LOADOUT.length];
+		for (int i = 0; i < guns.length; i++)
+			guns[i] = Assets.armory.create(Protocol.LOADOUT[i]);
+		return guns;
 	}
 
 	private void addSystems() {
@@ -86,6 +97,7 @@ public class GameWorld {
 		engine.addSystem(bulletSystem = new BulletSystem());
 		engine.addSystem(playerSystem = new PlayerSystem(this, renderSystem.perspectiveCamera));
 		engine.addSystem(weaponSystem = new WeaponSystem(this, renderSystem.perspectiveCamera));
+		engine.addSystem(groundWeaponSystem = new GroundWeaponSystem(this, renderSystem.perspectiveCamera, LEVEL));
 		if (!session.isMultiplayer()) {
 			engine.addSystem(enemySystem = new EnemySystem(this));
 			engine.addSystem(statusSystem = new StatusSystem(this));
@@ -122,6 +134,15 @@ public class GameWorld {
 
 	public PlayerSystem playerSystem() {
 		return playerSystem;
+	}
+
+	public GroundWeaponSystem groundWeapons() {
+		return groundWeaponSystem;
+	}
+
+	/** Match time: offline it stands still while paused; online it is the wall clock. */
+	public long timeMs() {
+		return isMultiplayer() ? System.currentTimeMillis() : gameTimeMs;
 	}
 
 	/** Null until the local player exists. */
@@ -169,6 +190,7 @@ public class GameWorld {
 		case RESTARTED:
 			localPlayer.resetScore();
 			localPlayer.respawn();
+			groundWeaponSystem.reset();
 			playerSystem.respawnAtSpawn();
 			if (getHud() != null)
 				getHud().setCenterMessage(null);
@@ -225,6 +247,7 @@ public class GameWorld {
 		engine.removeAllEntities();
 		hudSystem.dispose();
 		weaponSystem.dispose();
+		groundWeaponSystem.dispose();
 		entityFactory.dispose();
 		renderSystem.dispose();
 		bulletSystem.dispose();

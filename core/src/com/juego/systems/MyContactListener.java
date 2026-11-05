@@ -1,15 +1,18 @@
 package com.juego.systems;
 
 import com.badlogic.ashley.core.Entity;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.ContactListener;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionObject;
 import com.juego.components.EnemyComponent;
+import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.components.StatusComponent;
 
 /** Enemies are kamikazes: touching a player hurts the player and destroys the enemy. */
 public class MyContactListener extends ContactListener {
 	public static final int ENEMY_CONTACT_DAMAGE = 10;
+	private final Vector3 source = new Vector3();
 
 	@Override
 	public void onContactStarted(btCollisionObject colObj0, btCollisionObject colObj1) {
@@ -28,6 +31,9 @@ public class MyContactListener extends ContactListener {
 			return false;
 		if (enemyStatus.alive) {
 			playerComponent.getDamage(ENEMY_CONTACT_DAMAGE);
+			ModelComponent enemyModel = enemy.getComponent(ModelComponent.class);
+			playerComponent.hurt(ENEMY_CONTACT_DAMAGE,
+					enemyModel == null ? null : enemyModel.instance.transform.getTranslation(source));
 			enemyStatus.alive = false;
 		}
 		return true;

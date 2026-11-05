@@ -6,6 +6,9 @@ import com.badlogic.ashley.core.EntityListener;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.juego.UI.HUD;
@@ -80,7 +83,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		boolean intermission = gameWorld.getMatchPhase() == Match.Phase.INTERMISSION;
 		long remaining = gameWorld.getMatchRemainingMs();
 		hud.setClock(intermission ? "Fin" : Match.formatClock(remaining));
-		hud.update(playerComponent.getHealth(), playerComponent.selectedGun);
+		showDamage();
+		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
 
 		// Opened from the pause menu, the scoreboard replaces it until the next click.
 		boolean scoreboardOverPause = playerComponent.pause && playerComponent.scoreboard;
@@ -99,6 +103,30 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		if (scoreboardOverPause && Gdx.input.justTouched())
 			playerComponent.scoreboard = false;
 	}
+
+	/** Turns the hits taken since last frame into the HUD's red flash, direction arc and a small view kick. */
+	private void showDamage() {
+		int damage = playerComponent.pendingDamage;
+		if (damage <= 0)
+			return;
+		playerComponent.pendingDamage = 0;
+		float direction = Float.NaN;
+		Vector3 source = playerComponent.lastDamageSource;
+		if (source != null) {
+			PerspectiveCamera camera = gameWorld.renderSystem.perspectiveCamera;
+			forward.set(camera.direction.x, 0, camera.direction.z).nor();
+			right.set(forward).crs(Vector3.Y);
+			toSource.set(source).sub(camera.position);
+			toSource.y = 0;
+			if (!toSource.isZero(0.01f))
+				direction = MathUtils.atan2(toSource.dot(right), toSource.dot(forward)) * MathUtils.radiansToDegrees;
+		}
+		hud.showDamage(damage, direction);
+		if (!playerComponent.isDead())
+			playerComponent.pendingRecoil += Math.min(2.5f, 0.6f + damage / 40f); // aim punch
+	}
+
+	private final Vector3 forward = new Vector3(), right = new Vector3(), toSource = new Vector3();
 
 	public void resize(int width, int height) {
 		if (hud != null)

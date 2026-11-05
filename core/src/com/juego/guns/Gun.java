@@ -14,6 +14,13 @@ public class Gun {
 		refill();
 	}
 
+	/** A gun picked up from the ground, with whatever ammo it had left (clamped to what it can hold). */
+	public Gun(GunDefinition def, int magazine, int reserve) {
+		this.def = def;
+		this.magazine = Math.max(0, Math.min(magazine, def.magazineSize));
+		this.reserve = def.reserveAmmo < 0 ? def.reserveAmmo : Math.max(0, Math.min(reserve, def.reserveAmmo));
+	}
+
 	public int getMagazine() {
 		return magazine;
 	}

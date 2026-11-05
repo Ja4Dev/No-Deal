@@ -23,7 +23,11 @@ class MessagesTest {
 		m.yaw = -170.5f;
 		m.pitch = 45f;
 		m.slot = 1;
+		m.magazine = 5;
+		m.reserve = -1;
 		Messages.PlayerState r = Messages.PlayerState.read(roundTrip(m));
+		assertEquals(5, r.magazine);
+		assertEquals(-1, r.reserve, "infinite reserve survives the trip");
 		assertEquals(m.sequence, r.sequence);
 		assertEquals(m.teleportId, r.teleportId);
 		assertEquals(m.clientTimeMs, r.clientTimeMs);
@@ -31,6 +35,74 @@ class MessagesTest {
 		assertEquals(m.yaw, r.yaw);
 		assertEquals(m.pitch, r.pitch);
 		assertEquals(1, r.slot);
+	}
+
+	@Test
+	void weaponMessagesRoundTrip() {
+		Messages.WeaponSpawn spawn = new Messages.WeaponSpawn();
+		spawn.weaponId = 70_000;
+		spawn.gun = "ak47";
+		spawn.from.set(1, 2, 3);
+		spawn.position.set(4, 0.5f, -6);
+		spawn.yaw = 123.5f;
+		spawn.magazine = 17;
+		spawn.reserve = 40;
+		spawn.droppedBy = 3;
+		Messages.WeaponSpawn s = Messages.WeaponSpawn.read(roundTrip(spawn));
+		assertEquals(70_000, s.weaponId);
+		assertEquals("ak47", s.gun);
+		assertEquals(spawn.from, s.from);
+		assertEquals(spawn.position, s.position);
+		assertEquals(123.5f, s.yaw);
+		assertEquals(17, s.magazine);
+		assertEquals(40, s.reserve);
+		assertEquals(3, s.droppedBy);
+
+		Messages.WeaponRemove remove = new Messages.WeaponRemove();
+		remove.weaponId = 70_000;
+		remove.pickerId = 4;
+		Messages.WeaponRemove r = Messages.WeaponRemove.read(roundTrip(remove));
+		assertEquals(70_000, r.weaponId);
+		assertEquals(4, r.pickerId);
+
+		Messages.DropWeapon drop = new Messages.DropWeapon();
+		drop.slot = 1;
+		drop.magazine = 3;
+		drop.reserve = -1;
+		Messages.DropWeapon d = Messages.DropWeapon.read(roundTrip(drop));
+		assertEquals(1, d.slot);
+		assertEquals(3, d.magazine);
+		assertEquals(-1, d.reserve);
+
+		Messages.PickupWeapon pickup = new Messages.PickupWeapon();
+		pickup.weaponId = 9;
+		pickup.magazine = 30;
+		pickup.reserve = 70;
+		Messages.PickupWeapon p = Messages.PickupWeapon.read(roundTrip(pickup));
+		assertEquals(9, p.weaponId);
+		assertEquals(30, p.magazine);
+		assertEquals(70, p.reserve);
+	}
+
+	@Test
+	void shotAndDamageRoundTrip() {
+		Messages.Shot shot = new Messages.Shot();
+		shot.shooterId = 2;
+		shot.gun = "magnum";
+		shot.origin.set(1, 4, 2);
+		shot.end.set(-20, 3, 40);
+		Messages.Shot s = Messages.Shot.read(roundTrip(shot));
+		assertEquals(2, s.shooterId);
+		assertEquals("magnum", s.gun);
+		assertEquals(shot.origin, s.origin);
+		assertEquals(shot.end, s.end);
+
+		Messages.Damage damage = new Messages.Damage();
+		damage.amount = 120; // a headshot can do more than 100
+		damage.source.set(7, 8, 9);
+		Messages.Damage d = Messages.Damage.read(roundTrip(damage));
+		assertEquals(120, d.amount);
+		assertEquals(damage.source, d.source);
 	}
 
 	@Test

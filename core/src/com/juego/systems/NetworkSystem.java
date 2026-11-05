@@ -174,9 +174,18 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			GameClient.PlayerInfo shooter = client.getPlayer(event.playerId);
 			if (shooter != null && shooter.interpolate(System.currentTimeMillis() - Protocol.INTERPOLATION_DELAY_MS,
 					position, yaw))
-				gameWorld.weaponSystem().playRemoteShot(event.detail, position);
+				gameWorld.weaponSystem().playRemoteShot(event.gun, position, event.from, event.position);
 			break;
 		}
+		case WEAPON_SPAWN:
+			gameWorld.groundWeapons().onServerSpawn(event);
+			break;
+		case WEAPON_REMOVE:
+			gameWorld.groundWeapons().onServerRemove(event);
+			break;
+		case DAMAGE:
+			playerComponent.hurt(event.detail, event.position);
+			break;
 		default:
 			break;
 		}
@@ -221,8 +230,9 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		if (playerComponent.isDead())
 			return;
 		gameWorld.playerSystem().getPosition(position);
-		int slot = playerComponent.selectedGun == playerComponent.primaryGun ? 0 : 1;
-		client.sendState(position, playerComponent.yaw, playerComponent.pitch, slot);
+		Gun gun = playerComponent.selectedGun();
+		client.sendState(position, playerComponent.yaw, playerComponent.pitch, playerComponent.selectedSlot,
+				gun == null ? 0 : gun.getMagazine(), gun == null ? 0 : gun.getReserve());
 	}
 
 	/**
@@ -250,7 +260,17 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 	private final Vector3 sphereCenter = new Vector3(), sphereCenter2 = new Vector3(), intersection = new Vector3();
 
 	public void sendFire(Gun gun, Vector3 origin, Vector3 direction) {
-		int slot = gun == playerComponent.primaryGun ? 0 : 1;
-		client.sendFire(slot, origin, direction);
+		client.sendFire(gun.def.slot.ordinal(), origin, direction);
+	}
+
+	/** Asks the server to throw the gun in {@code slot}; it leaves our hands when the server confirms. */
+	public void requestDrop(int slot, Gun gun) {
+		client.sendDrop(slot, gun.getMagazine(), gun.getReserve());
+	}
+
+	/** Asks the server for a gun on the ground; {@code replaced} (may be null) is thrown in its place. */
+	public void requestPickup(int weaponId, Gun replaced) {
+		client.sendPickup(weaponId, replaced == null ? 0 : replaced.getMagazine(),
+				replaced == null ? 0 : replaced.getReserve());
 	}
 }

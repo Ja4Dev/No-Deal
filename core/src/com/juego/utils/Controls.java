@@ -23,6 +23,7 @@ public final class Controls {
 		AIM("Apuntar", Binding.mouse(Input.Buttons.RIGHT)),
 		RELOAD("Recargar", Binding.key(Input.Keys.R)),
 		SWITCH_GUN("Cambiar arma", Binding.key(Input.Keys.Q)),
+		DROP("Soltar / agarrar arma", Binding.key(Input.Keys.G)),
 		SCOREBOARD("Puntuacion", Binding.key(Input.Keys.TAB)),
 		PAUSE("Pausa", Binding.key(Input.Keys.ESCAPE));
 

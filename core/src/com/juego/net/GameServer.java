@@ -21,6 +21,7 @@ import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.ObjectMap;
 import com.juego.guns.Armory;
+import com.juego.guns.GroundWeapons;
 import com.juego.guns.GunDefinition;
 import com.juego.match.Match;
 import com.juego.utils.CharacterShape;
@@ -44,6 +45,8 @@ public class GameServer implements Disposable {
 	private static final float FIRE_RATE_TOLERANCE = 0.75f;
 	private static final long CORRECTION_COOLDOWN_MS = 500;
 	private static final float KILL_PLANE_Y = -30f;
+	/** Extra reach allowed for pickups: the server sees players a little late. */
+	private static final float PICKUP_SLACK = 1.5f;
 
 	public static class Config {
 		public int port = Protocol.DEFAULT_PORT;
@@ -94,6 +97,9 @@ public class GameServer implements Disposable {
 		boolean hitboxInWorld;
 		float yaw, pitch;
 		int slot, health = 100, kills, deaths, teleportId, lastSequence = -1;
+		/** Guns carried, by slot (null = empty), and the ammo of the one in hand as the client reports it. */
+		final GunDefinition[] guns = new GunDefinition[GunDefinition.Slot.values().length];
+		int magazine, reserve;
 		boolean alive = true;
 		long respawnAtMs, lastCorrectionMs = Long.MIN_VALUE / 2;
 
@@ -126,6 +132,7 @@ public class GameServer implements Disposable {
 	private final Matrix4 tmpTransform = new Matrix4();
 	private final Vector3 tmp = new Vector3();
 	private final Match match;
+	private final GroundWeapons weapons;
 	private long nextSnapshotMs;
 	private int tick;
 	private Listener listener;
@@ -144,6 +151,26 @@ public class GameServer implements Disposable {
 		socket = new NetSocket(config.port);
 		match = new Match(new Match.Settings(config.timeLimitMinutes * 60_000L, config.fragLimit, config.intermissionMs));
 		match.start(clock.getAsLong());
+		weapons = new GroundWeapons(this::castLevel, new GroundWeapons.Listener() {
+			@Override
+			public void spawned(GroundWeapons.Weapon weapon) {
+				broadcastReliable(weaponSpawn(weapon, true), null);
+			}
+
+			@Override
+			public void removed(GroundWeapons.Weapon weapon, int pickerId) {
+				Messages.WeaponRemove m = new Messages.WeaponRemove();
+				m.weaponId = weapon.id;
+				m.pickerId = pickerId;
+				broadcastReliable(m, null);
+			}
+		});
+		JsonValue spawners = mapData.get("weapons");
+		if (spawners != null)
+			for (JsonValue s : spawners)
+				weapons.addSpawner(armory.get(s.getString("gun")), new Vector3(s.get("position").getFloat(0),
+						s.get("position").getFloat(1), s.get("position").getFloat(2)));
+		weapons.update(clock.getAsLong());
 		NetLog.info(TAG, "Listening on UDP port " + socket.getLocalPort() + " (map " + config.map + ", max "
 				+ config.maxPlayers + " players, " + config.timeLimitMinutes + " min"
 				+ (config.fragLimit > 0 ? " or " + config.fragLimit + " kills" : "") + ")");
@@ -221,6 +248,7 @@ public class GameServer implements Disposable {
 			}
 		}
 		updateMatch(now);
+		weapons.update(now);
 		if (now >= nextSnapshotMs) {
 			nextSnapshotMs = now + Protocol.SNAPSHOT_INTERVAL_MS;
 			broadcastSnapshot();
@@ -261,6 +289,12 @@ public class GameServer implements Disposable {
 			case Protocol.FIRE:
 				handleFire(player, Messages.Fire.read(message.payload), now);
 				break;
+			case Protocol.DROP_WEAPON:
+				handleDrop(player, Messages.DropWeapon.read(message.payload), now);
+				break;
+			case Protocol.PICKUP_WEAPON:
+				handlePickup(player, Messages.PickupWeapon.read(message.payload), now);
+				break;
 			case Protocol.DISCONNECT:
 				event(EventType.LEAVE, player.name + " salió de la partida");
 				removePlayer(player);
@@ -293,6 +327,7 @@ public class GameServer implements Disposable {
 		ServerPlayer player = new ServerPlayer(id, Messages.sanitizeName(hello.name), connection);
 		player.hitbox.setCollisionShape(hitboxShape);
 		player.hitbox.setUserValue(id);
+		resetLoadout(player);
 		byId.put(id, player);
 		byAddress.put(connection.address, player);
 		placeAtSpawn(player, now);
@@ -308,6 +343,8 @@ public class GameServer implements Disposable {
 			if (other != player)
 				connection.sendReliable(joined(other));
 		}
+		for (GroundWeapons.Weapon w : weapons.all())
+			connection.sendReliable(weaponSpawn(w, false)); // already lying there: no throw animation
 		broadcastReliable(joined(player), player);
 		event(EventType.JOIN,
 				player.name + " entró a la partida (#" + id + ", " + NetUtils.format(connection.address) + ")");
@@ -320,8 +357,11 @@ public class GameServer implements Disposable {
 		p.lastSequence = state.sequence;
 		p.yaw = state.yaw;
 		p.pitch = state.pitch;
-		if (state.slot == 0 || state.slot == 1)
+		if (state.slot >= 0 && state.slot < p.guns.length) {
 			p.slot = state.slot;
+			p.magazine = state.magazine;
+			p.reserve = state.reserve;
+		}
 		if (state.position.y < KILL_PLANE_Y) {
 			kill(p, null, false, "", now); // fell out of the map
 			return;
@@ -335,21 +375,16 @@ public class GameServer implements Disposable {
 	}
 
 	private void handleFire(ServerPlayer shooter, Messages.Fire fire, long now) {
-		if (!match.isPlaying() || !shooter.alive || fire.slot < 0 || fire.slot >= Protocol.LOADOUT.length)
+		if (!match.isPlaying() || !shooter.alive || fire.slot < 0 || fire.slot >= shooter.guns.length)
 			return;
-		GunDefinition gun = armory.get(Protocol.LOADOUT[fire.slot]);
+		GunDefinition gun = shooter.guns[fire.slot];
+		if (gun == null)
+			return; // that slot is empty: the gun was dropped
 		if (now - shooter.lastFireMs[fire.slot] < gun.fireDelayMs * FIRE_RATE_TOLERANCE)
 			return; // faster than the gun can shoot
 		if (fire.origin.dst(shooter.position) > MAX_FIRE_ORIGIN_DISTANCE || fire.direction.isZero())
 			return;
 		shooter.lastFireMs[fire.slot] = now;
-		Messages.Shot shot = new Messages.Shot();
-		shot.shooterId = shooter.id;
-		shot.slot = fire.slot;
-		for (ServerPlayer p : byId.values()) {
-			if (p != shooter)
-				p.connection.sendUnreliable(shot);
-		}
 		fire.direction.nor();
 		Vector3 to = tmp.set(fire.direction).scl(gun.range).add(fire.origin);
 
@@ -368,18 +403,143 @@ public class GameServer implements Disposable {
 					closest = i;
 				}
 			}
+			Vector3 end = closest < 0 ? to : callback.getHitPointWorld().at(closest);
+			broadcastShot(shooter, gun, fire.origin, end);
 			if (closest < 0)
 				return;
 			int hitId = callback.getCollisionObjects().atConst(closest).getUserValue();
 			ServerPlayer victim = byId.get(hitId);
 			if (victim == null || !victim.alive)
 				return; // hit the level
-			Vector3 point = callback.getHitPointWorld().at(closest);
-			boolean headshot = point.y >= victim.position.y + CharacterShape.HEAD_OFFSET;
+			boolean headshot = end.y >= victim.position.y + CharacterShape.HEAD_OFFSET;
 			int damage = gun.damage * (headshot ? 3 : 1);
 			victim.health -= damage;
+			Messages.Damage hurt = new Messages.Damage();
+			hurt.amount = damage;
+			hurt.source.set(fire.origin);
+			victim.connection.sendUnreliable(hurt);
 			if (victim.health <= 0)
 				kill(victim, shooter, headshot, gun.name, now);
+		} finally {
+			callback.dispose();
+		}
+	}
+
+	/** Tells the other players about a shot, for its sound and tracer. */
+	private void broadcastShot(ServerPlayer shooter, GunDefinition gun, Vector3 origin, Vector3 end) {
+		Messages.Shot shot = new Messages.Shot();
+		shot.shooterId = shooter.id;
+		shot.gun = gun.id;
+		shot.origin.set(origin);
+		shot.end.set(end);
+		for (ServerPlayer p : byId.values()) {
+			if (p != shooter)
+				p.connection.sendUnreliable(shot);
+		}
+	}
+
+	// ---- guns on the ground ----
+
+	private void handleDrop(ServerPlayer p, Messages.DropWeapon m, long now) {
+		if (!p.alive || !match.isPlaying() || m.slot < 0 || m.slot >= p.guns.length || p.guns[m.slot] == null)
+			return;
+		if (gunCount(p) < 2)
+			return; // the last gun can't be dropped
+		GunDefinition def = p.guns[m.slot];
+		p.guns[m.slot] = null;
+		weapons.toss(def, clampMagazine(def, m.magazine), clampReserve(def, m.reserve), p.position, p.yaw, p.id,
+				now);
+	}
+
+	private void handlePickup(ServerPlayer p, Messages.PickupWeapon m, long now) {
+		GroundWeapons.Weapon w = weapons.get(m.weaponId);
+		if (w == null || !p.alive || !match.isPlaying() || !GroundWeapons.inReach(w, p.position, PICKUP_SLACK))
+			return; // already taken by someone else, or too far
+		int slot = w.def.slot.ordinal();
+		GunDefinition replaced = p.guns[slot];
+		// The replaced gun is thrown first, so the client sees it leave the slot
+		// before the new one arrives.
+		if (replaced != null)
+			weapons.toss(replaced, clampMagazine(replaced, m.magazine), clampReserve(replaced, m.reserve),
+					p.position, p.yaw, p.id, now);
+		weapons.remove(w, p.id, now);
+		p.guns[slot] = w.def;
+	}
+
+	/** Drops the gun a dying player had in hand, where they stood. */
+	private void dropOnDeath(ServerPlayer p, long now) {
+		GunDefinition def = p.guns[p.slot];
+		if (def == null)
+			return;
+		p.guns[p.slot] = null;
+		weapons.dropAtFeet(def, clampMagazine(def, p.magazine), clampReserve(def, p.reserve), p.position, p.yaw,
+				p.id, now);
+	}
+
+	private void resetLoadout(ServerPlayer p) {
+		for (int i = 0; i < p.guns.length; i++)
+			p.guns[i] = null;
+		for (String id : Protocol.LOADOUT) {
+			GunDefinition def = armory.get(id);
+			p.guns[def.slot.ordinal()] = def;
+		}
+		p.slot = 0;
+		p.magazine = p.guns[0].magazineSize;
+		p.reserve = p.guns[0].reserveAmmo;
+	}
+
+	private static int gunCount(ServerPlayer p) {
+		int count = 0;
+		for (GunDefinition def : p.guns)
+			if (def != null)
+				count++;
+		return count;
+	}
+
+	private static int clampMagazine(GunDefinition def, int magazine) {
+		return Math.max(0, Math.min(magazine, def.magazineSize));
+	}
+
+	private static int clampReserve(GunDefinition def, int reserve) {
+		return def.reserveAmmo < 0 ? def.reserveAmmo : Math.max(0, Math.min(reserve, def.reserveAmmo));
+	}
+
+	private Messages.WeaponSpawn weaponSpawn(GroundWeapons.Weapon w, boolean thrown) {
+		Messages.WeaponSpawn m = new Messages.WeaponSpawn();
+		m.weaponId = w.id;
+		m.gun = w.def.id;
+		m.from.set(thrown ? w.from : w.position);
+		m.position.set(w.position);
+		m.yaw = w.yaw;
+		m.magazine = w.magazine;
+		m.reserve = w.reserve;
+		m.droppedBy = w.droppedBy;
+		return m;
+	}
+
+	private final Vector3 castTo = new Vector3();
+
+	/** Distance to the level (ignoring players) along a segment, for {@link GroundWeapons}. */
+	private float castLevel(Vector3 from, Vector3 to, Vector3 outHit) {
+		castTo.set(to); // 'to' may be one of GroundWeapons' temporaries: keep a copy
+		AllHitsRayResultCallback callback = new AllHitsRayResultCallback(from, castTo);
+		try {
+			world.rayTest(from, castTo, callback);
+			float best = 2f;
+			int closest = -1;
+			for (int i = 0; i < callback.getCollisionObjects().size(); i++) {
+				if (callback.getCollisionObjects().atConst(i).getUserValue() != Protocol.WORLD)
+					continue;
+				float fraction = callback.getHitFractions().atConst(i);
+				if (fraction < best) {
+					best = fraction;
+					closest = i;
+				}
+			}
+			if (closest < 0)
+				return -1;
+			outHit.set(callback.getHitPointWorld().at(closest));
+			return best * from.dst(castTo);
 		} finally {
 			callback.dispose();
 		}
@@ -411,9 +571,11 @@ public class GameServer implements Disposable {
 				p.deaths = 0;
 				p.alive = true;
 				p.health = 100;
+				resetLoadout(p);
 				placeAtSpawn(p, now);
 				teleport(p, p.position, Protocol.RESPAWN, true, now);
 			}
+			weapons.reset(now);
 			event(EventType.MATCH, "Empieza una nueva partida");
 			break;
 		default:
@@ -448,6 +610,9 @@ public class GameServer implements Disposable {
 		kill.headshot = headshot;
 		kill.gun = gun;
 		broadcastReliable(kill, null);
+		// After the KILL, so the victim's client is already dead when its gun hits the floor.
+		if (killer != null)
+			dropOnDeath(victim, now); // falling out of the map takes the gun with you
 		if (killer == null)
 			event(EventType.KILL, victim.name + " se cayó del mapa");
 		else
@@ -458,6 +623,7 @@ public class GameServer implements Disposable {
 	private void respawn(ServerPlayer p, long now) {
 		p.alive = true;
 		p.health = 100;
+		resetLoadout(p);
 		placeAtSpawn(p, now);
 		teleport(p, p.position, Protocol.RESPAWN, true, now);
 	}

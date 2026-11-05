@@ -1,7 +1,11 @@
 package com.juego.components;
 
+import java.util.function.Supplier;
+
 import com.badlogic.ashley.core.Component;
+import com.badlogic.gdx.math.Vector3;
 import com.juego.guns.Gun;
+import com.juego.guns.GunDefinition;
 
 /**
  * State of a player. It is also how the player systems talk to each other:
@@ -20,9 +24,15 @@ public class PlayerComponent implements Component {
 	public final String team;
 	public final int playerNumber;
 
-	public final Gun primaryGun;
-	public final Gun secondaryGun;
-	public Gun selectedGun;
+	/** Guns carried, indexed by {@link GunDefinition.Slot#ordinal()}. A slot is null after dropping its gun. */
+	public final Gun[] guns = new Gun[GunDefinition.Slot.values().length];
+	public int selectedSlot;
+	/** Makes the guns a player spawns with (primary, secondary). */
+	private final Supplier<Gun[]> loadout;
+
+	/** Damage taken since the HUD last showed it, and where the last hit came from (null if unknown). */
+	public int pendingDamage;
+	public Vector3 lastDamageSource;
 
 	// UI state (HudSystem)
 	public boolean pause = false;
@@ -34,12 +44,79 @@ public class PlayerComponent implements Component {
 	/** Pitch kick (degrees) to apply on the next camera update. Written by the WeaponSystem. */
 	public float pendingRecoil;
 
-	public PlayerComponent(String team, Gun primaryGun, Gun secondaryGun, int playerNumber) {
+	public PlayerComponent(String team, Supplier<Gun[]> loadout, int playerNumber) {
 		this.team = team;
-		this.primaryGun = primaryGun;
-		this.secondaryGun = secondaryGun;
-		this.selectedGun = primaryGun;
+		this.loadout = loadout;
 		this.playerNumber = playerNumber;
+		resetLoadout();
+	}
+
+	// ---- guns ----
+
+	/** The gun in hand. Null only while dead after the gun was dropped. */
+	public Gun selectedGun() {
+		return guns[selectedSlot];
+	}
+
+	public int gunCount() {
+		int count = 0;
+		for (Gun gun : guns)
+			if (gun != null)
+				count++;
+		return count;
+	}
+
+	/** Puts a gun in its slot and takes it in hand. @return the gun that was in that slot, or null */
+	public Gun equip(Gun gun) {
+		int slot = gun.def.slot.ordinal();
+		Gun previous = guns[slot];
+		guns[slot] = gun;
+		selectedSlot = slot;
+		return previous;
+	}
+
+	/** Empties a slot; if it was the gun in hand, takes the other one. @return the removed gun */
+	public Gun removeGun(int slot) {
+		Gun removed = guns[slot];
+		guns[slot] = null;
+		if (selectedSlot == slot)
+			switchGun();
+		return removed;
+	}
+
+	/** Takes the next gun carried. @return false if there is no other gun */
+	public boolean switchGun() {
+		for (int i = 1; i < guns.length; i++) {
+			int slot = (selectedSlot + i) % guns.length;
+			if (guns[slot] != null) {
+				selectedSlot = slot;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void resetLoadout() {
+		Gun[] spawnGuns = loadout.get();
+		for (int i = 0; i < guns.length; i++)
+			guns[i] = null;
+		for (Gun gun : spawnGuns)
+			guns[gun.def.slot.ordinal()] = gun;
+		selectedSlot = GunDefinition.Slot.PRIMARY.ordinal();
+		if (guns[selectedSlot] == null)
+			switchGun();
+	}
+
+	/** Notes a hit for the HUD's damage effect. {@code source} may be null. */
+	public void hurt(int damage, Vector3 source) {
+		pendingDamage += damage;
+		if (source != null) {
+			if (lastDamageSource == null)
+				lastDamageSource = new Vector3();
+			lastDamageSource.set(source);
+		} else {
+			lastDamageSource = null;
+		}
 	}
 
 	public int getHealth() {
@@ -94,13 +171,12 @@ public class PlayerComponent implements Component {
 		deaths = 0;
 	}
 
-	/** Restores health and ammo after a death. Repositioning is handled by the PlayerSystem. */
+	/** Restores health and the spawn loadout after a death. Repositioning is handled by the PlayerSystem. */
 	public void respawn() {
 		health = MAX_HEALTH;
 		dead = false;
 		pendingRecoil = 0;
-		primaryGun.refill();
-		secondaryGun.refill();
-		selectedGun = primaryGun;
+		pendingDamage = 0;
+		resetLoadout();
 	}
 }

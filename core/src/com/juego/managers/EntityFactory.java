@@ -1,15 +1,19 @@
 package com.juego.managers;
 
+import java.util.function.Supplier;
+
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.badlogic.gdx.physics.bullet.collision.btBroadphaseProxy;
 import com.badlogic.gdx.physics.bullet.collision.btCapsuleShapeZ;
@@ -20,18 +24,22 @@ import com.badlogic.gdx.physics.bullet.dynamics.btKinematicCharacterController;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.ObjectMap;
 import com.juego.bullet.MotionState;
 import com.juego.components.AnimationComponent;
 import com.juego.components.BulletComponent;
 import com.juego.components.CharacterComponent;
 import com.juego.components.EnemyComponent;
+import com.juego.components.GroundWeaponComponent;
 import com.juego.components.GunComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.components.RemotePlayerComponent;
 import com.juego.components.StatusComponent;
 import com.juego.core.Assets;
+import com.juego.guns.GroundWeapons;
 import com.juego.guns.Gun;
+import com.juego.guns.GunDefinition;
 import com.juego.systems.BulletSystem;
 import com.juego.utils.CharacterShape;
 
@@ -49,6 +57,10 @@ public class EntityFactory implements Disposable {
 	private final BulletSystem bulletSystem;
 	private final Model characterModel;
 	private final Array<String> acquired = new Array<>();
+	/** Gun models already loaded, by path: every gun on the ground shares its model. */
+	private final ObjectMap<String, Model> gunModels = new ObjectMap<>();
+	/** Bounds of each gun model, by path: {center, dimensions}. */
+	private final ObjectMap<String, Vector3[]> gunBounds = new ObjectMap<>();
 
 	public EntityFactory(BulletSystem bulletSystem) {
 		this.bulletSystem = bulletSystem;
@@ -95,10 +107,10 @@ public class EntityFactory implements Disposable {
 		return entity;
 	}
 
-	public Entity createPlayer(float x, float y, float z, String team, Gun primaryGun, Gun secondaryGun,
-			int playerNumber) {
+	/** @param loadout makes the guns the player spawns (and respawns) with */
+	public Entity createPlayer(float x, float y, float z, String team, Supplier<Gun[]> loadout, int playerNumber) {
 		Entity entity = createCharacter(x, y, z);
-		entity.add(new PlayerComponent(team, primaryGun, secondaryGun, playerNumber));
+		entity.add(new PlayerComponent(team, loadout, playerNumber));
 		return entity;
 	}
 
@@ -120,15 +132,43 @@ public class EntityFactory implements Disposable {
 	}
 
 	/** First-person view model of a gun. Drawn by the RenderSystem with its own camera. */
-	public Entity createGunView(Gun gun) {
-		float[] offset = gun.def.viewOffset;
-		ModelComponent modelComponent = new ModelComponent(acquireModel(gun.def.model), offset[0], offset[1],
-				offset[2]);
+	public Entity createGunView(GunDefinition def) {
+		float[] offset = def.viewOffset;
+		ModelComponent modelComponent = new ModelComponent(gunModel(def), offset[0], offset[1], offset[2]);
 		Entity gunEntity = new Entity();
 		gunEntity.add(modelComponent);
 		gunEntity.add(new GunComponent());
 		gunEntity.add(new AnimationComponent(modelComponent.instance));
 		return gunEntity;
+	}
+
+	/** A gun lying on the ground (or being thrown there). */
+	public Entity createGroundWeapon(GroundWeapons.Weapon weapon, long nowMs) {
+		Model model = gunModel(weapon.def);
+		Vector3[] bounds = gunBounds.get(weapon.def.model);
+		if (bounds == null) {
+			BoundingBox box = new ModelInstance(model).calculateBoundingBox(new BoundingBox());
+			bounds = new Vector3[] { box.getCenter(new Vector3()), box.getDimensions(new Vector3()) };
+			gunBounds.put(weapon.def.model, bounds);
+		}
+		Entity entity = new Entity();
+		ModelComponent modelComponent = new ModelComponent(model, weapon.position.x, weapon.position.y,
+				weapon.position.z);
+		entity.add(modelComponent);
+		GroundWeaponComponent ground = new GroundWeaponComponent(weapon, nowMs, bounds[0], bounds[1].z,
+				bounds[1].x);
+		ground.update(modelComponent.instance.transform, nowMs);
+		entity.add(ground);
+		return entity;
+	}
+
+	private Model gunModel(GunDefinition def) {
+		Model model = gunModels.get(def.model);
+		if (model == null) {
+			model = acquireModel(def.model);
+			gunModels.put(def.model, model);
+		}
+		return model;
 	}
 
 	/** A level: its model plus a static triangle-mesh collider built from the model's nodes. */

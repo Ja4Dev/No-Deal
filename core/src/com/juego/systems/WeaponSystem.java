@@ -23,6 +23,7 @@ import com.juego.components.StatusComponent;
 import com.juego.core.Assets;
 import com.juego.core.GameWorld;
 import com.juego.guns.Gun;
+import com.juego.guns.GunDefinition;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
 import com.juego.utils.SpatialAudio;
@@ -45,8 +46,11 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private PlayerComponent playerComponent;
 	private CharacterComponent characterComponent;
 
-	private final ObjectMap<Gun, Entity> viewModels = new ObjectMap<>();
-	private final ObjectMap<Gun, Sound> shotSounds = new ObjectMap<>();
+	/** First-person model and shot sound of every gun in the game, by gun id: any gun can be picked up. */
+	private final ObjectMap<String, Entity> viewModels = new ObjectMap<>();
+	private final ObjectMap<String, Sound> shotSounds = new ObjectMap<>();
+	/** The gun in hand last frame, to notice when it changes (switch, drop, pickup, respawn). */
+	private Gun heldGun;
 	private final Array<String> acquired = new Array<>();
 	private Sound reloadSound;
 	private long lastShotTime;
@@ -63,6 +67,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private final Vector3 hitNormal = new Vector3();
 	private final Vector3 targetCenter = new Vector3();
 	private final Matrix4 targetTransform = new Matrix4();
+	private final Vector3 muzzle = new Vector3();
+	private final Vector3 tmp = new Vector3();
 
 	public WeaponSystem(GameWorld gameWorld, PerspectiveCamera camera) {
 		this.gameWorld = gameWorld;
@@ -82,9 +88,9 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		playerComponent = entity.getComponent(PlayerComponent.class);
 		characterComponent = entity.getComponent(CharacterComponent.class);
 		reloadSound = acquire(RELOAD_SOUND);
-		for (Gun gun : new Gun[] { playerComponent.primaryGun, playerComponent.secondaryGun }) {
-			viewModels.put(gun, gameWorld.entityFactory.createGunView(gun));
-			shotSounds.put(gun, acquire(gun.def.sound));
+		for (GunDefinition def : Assets.armory.all()) {
+			viewModels.put(def.id, gameWorld.entityFactory.createGunView(def));
+			shotSounds.put(def.id, acquire(def.sound));
 		}
 		syncViewModel();
 	}
@@ -110,14 +116,13 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	}
 
 	private void handleInput() {
-		Gun gun = playerComponent.selectedGun;
+		Gun gun = playerComponent.selectedGun();
+		if (gun == null)
+			return;
 		if (Controls.isJustPressed(Action.RELOAD))
 			reload(gun);
 		if (Controls.isJustPressed(Action.SWITCH_GUN)) {
-			if (zoomed)
-				toggleZoom();
-			playerComponent.selectedGun = gun == playerComponent.primaryGun ? playerComponent.secondaryGun
-					: playerComponent.primaryGun;
+			playerComponent.switchGun();
 			return;
 		}
 		long now = System.currentTimeMillis();
@@ -132,7 +137,13 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	}
 
 	private void syncViewModel() {
-		gameWorld.renderSystem.gun = viewModels.get(playerComponent.selectedGun);
+		Gun gun = playerComponent.selectedGun();
+		if (gun != heldGun) {
+			heldGun = gun;
+			if (zoomed)
+				toggleZoom(); // a different gun never starts aimed
+		}
+		gameWorld.renderSystem.gun = gun == null ? null : viewModels.get(gun.def.id);
 	}
 
 	private void toggleZoom() {
@@ -161,7 +172,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			reload(gun);
 			return;
 		}
-		shotSounds.get(gun).play(Config.fxVolume / 100);
+		shotSounds.get(gun.def.id).play(Config.fxVolume / 100);
 		playerComponent.pendingRecoil += gun.def.recoil;
 
 		spread = calculateSpread();
@@ -180,6 +191,9 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 
 		if (target != null && target.getComponent(CharacterComponent.class) == null)
 			leaveImpactMark(ray);
+		if (rayTestCB.hasHit())
+			rayTestCB.getHitPointWorld(hitPoint);
+		gameWorld.renderSystem.tracers.add(muzzlePosition(muzzle), rayTestCB.hasHit() ? hitPoint : rayTo);
 		if (gameWorld.network != null) {
 			// Online the server re-traces the shot and decides the damage; the local
 			// ray above is only for the impact mark.
@@ -225,18 +239,35 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	}
 
 	/**
-	 * Plays another player's shot (online), panned and attenuated by where it
-	 * came from. Both players carry the same loadout, so slot 0/1 maps to the
-	 * same sounds as our own primary/secondary gun.
+	 * Roughly where the first-person gun's barrel ends, in world space, so our
+	 * own tracers seem to leave the gun. The view model is drawn with its own
+	 * camera, but with the same field of view, so a point at the same offset
+	 * from the eye lands on the same spot of the screen.
 	 */
-	public void playRemoteShot(int slot, Vector3 position) {
+	private Vector3 muzzlePosition(Vector3 out) {
+		tmp.set(camera.direction).crs(camera.up).nor(); // right
+		return out.set(camera.position).mulAdd(camera.direction, 3.2f).mulAdd(tmp, 0.9f).mulAdd(camera.up, -0.75f);
+	}
+
+	/**
+	 * Another player's shot (online): its sound, panned and attenuated by
+	 * where it came from, and its tracer.
+	 *
+	 * @param shooter where the shooter is drawn (for the sound)
+	 * @param origin  where the server says the bullet started (the shooter's eye)
+	 */
+	public void playRemoteShot(String gunId, Vector3 shooter, Vector3 origin, Vector3 end) {
 		if (playerComponent == null)
 			return;
-		Gun gun = slot == 0 ? playerComponent.primaryGun : playerComponent.secondaryGun;
-		float volume = Config.fxVolume / 100 * SpatialAudio.volume(camera.position, position);
-		if (volume < 0.01f)
+		// Start the tracer a little in front of the eye, at about gun height.
+		tmp.set(end).sub(origin).nor();
+		muzzle.set(origin).mulAdd(tmp, 2f).add(0, -0.7f, 0);
+		gameWorld.renderSystem.tracers.add(muzzle, end);
+		Sound sound = shotSounds.get(gunId);
+		float volume = Config.fxVolume / 100 * SpatialAudio.volume(camera.position, shooter);
+		if (sound == null || volume < 0.01f)
 			return;
-		shotSounds.get(gun).play(volume, 1f, SpatialAudio.pan(camera.position, camera.direction, camera.up, position));
+		sound.play(volume, 1f, SpatialAudio.pan(camera.position, camera.direction, camera.up, shooter));
 	}
 
 	private void reload(Gun gun) {

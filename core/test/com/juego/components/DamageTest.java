@@ -2,6 +2,7 @@ package com.juego.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -11,15 +12,20 @@ import com.juego.guns.GunDefinition;
 
 class DamageTest {
 
-	private static Gun gun(int magazineSize, int reserve) {
+	private static final GunDefinition RIFLE = def(GunDefinition.Slot.PRIMARY, 30, 70);
+	private static final GunDefinition PISTOL = def(GunDefinition.Slot.SECONDARY, 6, -1);
+	private static final GunDefinition OTHER_RIFLE = def(GunDefinition.Slot.PRIMARY, 30, 70);
+
+	private static GunDefinition def(GunDefinition.Slot slot, int magazineSize, int reserve) {
 		GunDefinition def = new GunDefinition();
+		def.slot = slot;
 		def.magazineSize = magazineSize;
 		def.reserveAmmo = reserve;
-		return new Gun(def);
+		return def;
 	}
 
 	private static PlayerComponent player() {
-		return new PlayerComponent("ct", gun(30, 70), gun(6, -1), 1);
+		return new PlayerComponent("ct", () -> new Gun[] { new Gun(RIFLE), new Gun(PISTOL) }, 1);
 	}
 
 	@Test
@@ -44,17 +50,60 @@ class DamageTest {
 	@Test
 	void respawnRestoresHealthAmmoAndLoadout() {
 		PlayerComponent p = player();
-		p.selectedGun = p.secondaryGun;
-		p.primaryGun.consumeRound();
-		p.primaryGun.reload();
+		p.guns[0].consumeRound();
+		p.guns[0].reload();
+		p.equip(new Gun(OTHER_RIFLE, 3, 0)); // picked up another rifle...
+		p.removeGun(1); // ...and dropped the pistol
 		p.getDamage(100);
 		p.respawn();
 		assertFalse(p.isDead());
 		assertEquals(PlayerComponent.MAX_HEALTH, p.getHealth());
-		assertEquals(30, p.primaryGun.getMagazine());
-		assertEquals(70, p.primaryGun.getReserve());
-		assertEquals(p.primaryGun, p.selectedGun);
+		assertEquals(RIFLE, p.guns[0].def, "back to the spawn loadout");
+		assertEquals(PISTOL, p.guns[1].def);
+		assertEquals(30, p.guns[0].getMagazine());
+		assertEquals(70, p.guns[0].getReserve());
+		assertEquals(p.guns[0], p.selectedGun());
 		assertEquals(1, p.getDeaths(), "deaths are kept across respawns");
+	}
+
+	@Test
+	void droppingAndPickingUpGuns() {
+		PlayerComponent p = player();
+		assertEquals(2, p.gunCount());
+		Gun rifle = p.removeGun(0);
+		assertEquals(RIFLE, rifle.def);
+		assertEquals(1, p.selectedSlot, "dropping the gun in hand takes the other one");
+		assertFalse(p.switchGun(), "nothing to switch to");
+
+		Gun picked = new Gun(OTHER_RIFLE, 12, 40);
+		assertNull(p.equip(picked), "the primary slot was empty");
+		assertEquals(picked, p.selectedGun(), "a picked-up gun goes to the hand");
+		Gun swapped = p.equip(new Gun(RIFLE));
+		assertEquals(picked, swapped, "a gun for a full slot replaces the one there");
+		assertTrue(p.switchGun());
+		assertEquals(PISTOL, p.selectedGun().def);
+	}
+
+	@Test
+	void pickedUpGunsKeepTheirAmmoWithinLimits() {
+		Gun gun = new Gun(RIFLE, 12, 40);
+		assertEquals(12, gun.getMagazine());
+		assertEquals(40, gun.getReserve());
+		Gun cheated = new Gun(RIFLE, 500, 9999);
+		assertEquals(30, cheated.getMagazine());
+		assertEquals(70, cheated.getReserve());
+		assertTrue(new Gun(PISTOL, 2, 50).hasInfiniteReserve());
+	}
+
+	@Test
+	void hitsAreQueuedForTheHud() {
+		PlayerComponent p = player();
+		p.hurt(10, new com.badlogic.gdx.math.Vector3(1, 2, 3));
+		p.hurt(5, new com.badlogic.gdx.math.Vector3(4, 5, 6));
+		assertEquals(15, p.pendingDamage);
+		assertEquals(new com.badlogic.gdx.math.Vector3(4, 5, 6), p.lastDamageSource, "the latest hit's direction");
+		p.hurt(1, null);
+		assertNull(p.lastDamageSource, "unknown direction");
 	}
 
 	@Test

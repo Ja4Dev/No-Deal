@@ -24,6 +24,8 @@ public class GunDefinition {
 	public String model;
 	/** Internal path of the shot sound. */
 	public String sound;
+	/** Length of the gun lying on the ground, in world units (a character is 6 units tall). */
+	public float worldLength = 2.5f;
 	/** Position of the view model relative to the gun camera. */
 	public float[] viewOffset = new float[3];
 }

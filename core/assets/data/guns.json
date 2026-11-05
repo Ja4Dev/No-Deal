@@ -13,7 +13,8 @@
 		"hasSight": true,
 		"model": "models/M4A1.g3dj",
 		"sound": "sounds/M4A1-1Shot.wav",
-		"viewOffset": [2.5, -2, -2.5]
+		"viewOffset": [2.5, -2, -2.5],
+		"worldLength": 3
 	},
 	{
 		"id": "ak47",
@@ -29,7 +30,8 @@
 		"hasSight": false,
 		"model": "models/Ak47.g3dj",
 		"sound": "sounds/AK47-1Shot.wav",
-		"viewOffset": [2, -0.75, -4]
+		"viewOffset": [2, -0.75, -4],
+		"worldLength": 3
 	},
 	{
 		"id": "magnum",
@@ -45,6 +47,7 @@
 		"hasSight": false,
 		"model": "models/Magnum.g3dj",
 		"sound": "sounds/Magnum-1Shot.wav",
-		"viewOffset": [2.75, -1.5, -4]
+		"viewOffset": [2.75, -1.5, -4],
+		"worldLength": 1.2
 	}
 ]

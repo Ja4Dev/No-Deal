@@ -94,6 +94,8 @@ public final class Messages {
 		public final Vector3 position = new Vector3();
 		public float yaw, pitch;
 		public int slot;
+		/** Ammo of the gun in hand, so the server can drop it with the right ammo if the player dies. */
+		public int magazine, reserve;
 
 		public byte type() {
 			return Protocol.PLAYER_STATE;
@@ -103,6 +105,7 @@ public final class Messages {
 			out.putInt(sequence).putInt(teleportId).putLong(clientTimeMs);
 			writeVector(out, position);
 			out.putFloat(yaw).putFloat(pitch).put((byte) slot);
+			out.putShort((short) magazine).putShort((short) reserve);
 		}
 
 		public static PlayerState read(ByteBuffer in) {
@@ -114,6 +117,50 @@ public final class Messages {
 			m.yaw = in.getFloat();
 			m.pitch = in.getFloat();
 			m.slot = in.get();
+			m.magazine = in.getShort();
+			m.reserve = in.getShort();
+			return m;
+		}
+	}
+
+	/** Throw the gun in a slot, with the ammo it has left. */
+	public static class DropWeapon implements Message {
+		public int slot, magazine, reserve;
+
+		public byte type() {
+			return Protocol.DROP_WEAPON;
+		}
+
+		public void write(ByteBuffer out) {
+			out.put((byte) slot).putShort((short) magazine).putShort((short) reserve);
+		}
+
+		public static DropWeapon read(ByteBuffer in) {
+			DropWeapon m = new DropWeapon();
+			m.slot = in.get();
+			m.magazine = in.getShort();
+			m.reserve = in.getShort();
+			return m;
+		}
+	}
+
+	/** Take a gun from the ground. The ammo is the one of the gun it replaces (thrown in its place), if any. */
+	public static class PickupWeapon implements Message {
+		public int weaponId, magazine, reserve;
+
+		public byte type() {
+			return Protocol.PICKUP_WEAPON;
+		}
+
+		public void write(ByteBuffer out) {
+			out.putInt(weaponId).putShort((short) magazine).putShort((short) reserve);
+		}
+
+		public static PickupWeapon read(ByteBuffer in) {
+			PickupWeapon m = new PickupWeapon();
+			m.weaponId = in.getInt();
+			m.magazine = in.getShort();
+			m.reserve = in.getShort();
 			return m;
 		}
 	}
@@ -286,22 +333,110 @@ public final class Messages {
 		}
 	}
 
+	/** Someone fired: which gun (for the sound) and where the bullet went (for the tracer). */
 	public static class Shot implements Message {
 		public int shooterId;
-		public int slot;
+		public String gun = "";
+		public final Vector3 origin = new Vector3();
+		/** Where the bullet stopped: what it hit, or the end of the gun's range. */
+		public final Vector3 end = new Vector3();
 
 		public byte type() {
 			return Protocol.SHOT;
 		}
 
 		public void write(ByteBuffer out) {
-			out.put((byte) shooterId).put((byte) slot);
+			out.put((byte) shooterId);
+			writeString(out, gun, 16);
+			writeVector(out, origin);
+			writeVector(out, end);
 		}
 
 		public static Shot read(ByteBuffer in) {
 			Shot m = new Shot();
 			m.shooterId = in.get() & 0xFF;
-			m.slot = in.get();
+			m.gun = readString(in);
+			readVector(in, m.origin);
+			readVector(in, m.end);
+			return m;
+		}
+	}
+
+	public static class WeaponSpawn implements Message {
+		public int weaponId;
+		public String gun = "";
+		public final Vector3 from = new Vector3();
+		public final Vector3 position = new Vector3();
+		public float yaw;
+		public int magazine, reserve;
+		/** {@link Protocol#WORLD} for guns placed by the level. */
+		public int droppedBy;
+
+		public byte type() {
+			return Protocol.WEAPON_SPAWN;
+		}
+
+		public void write(ByteBuffer out) {
+			out.putInt(weaponId);
+			writeString(out, gun, 16);
+			writeVector(out, from);
+			writeVector(out, position);
+			out.putFloat(yaw).putShort((short) magazine).putShort((short) reserve).put((byte) droppedBy);
+		}
+
+		public static WeaponSpawn read(ByteBuffer in) {
+			WeaponSpawn m = new WeaponSpawn();
+			m.weaponId = in.getInt();
+			m.gun = readString(in);
+			readVector(in, m.from);
+			readVector(in, m.position);
+			m.yaw = in.getFloat();
+			m.magazine = in.getShort();
+			m.reserve = in.getShort();
+			m.droppedBy = in.get() & 0xFF;
+			return m;
+		}
+	}
+
+	public static class WeaponRemove implements Message {
+		public int weaponId;
+		/** Who took it, or {@link Protocol#WORLD} if it despawned. */
+		public int pickerId;
+
+		public byte type() {
+			return Protocol.WEAPON_REMOVE;
+		}
+
+		public void write(ByteBuffer out) {
+			out.putInt(weaponId).put((byte) pickerId);
+		}
+
+		public static WeaponRemove read(ByteBuffer in) {
+			WeaponRemove m = new WeaponRemove();
+			m.weaponId = in.getInt();
+			m.pickerId = in.get() & 0xFF;
+			return m;
+		}
+	}
+
+	/** You got hit for {@code amount}, by a shot fired from {@code source}. */
+	public static class Damage implements Message {
+		public int amount;
+		public final Vector3 source = new Vector3();
+
+		public byte type() {
+			return Protocol.DAMAGE;
+		}
+
+		public void write(ByteBuffer out) {
+			out.put((byte) Math.min(amount, 255));
+			writeVector(out, source);
+		}
+
+		public static Damage read(ByteBuffer in) {
+			Damage m = new Damage();
+			m.amount = in.get() & 0xFF;
+			readVector(in, m.source);
 			return m;
 		}
 	}

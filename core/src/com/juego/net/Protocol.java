@@ -14,7 +14,7 @@ package com.juego.net;
 public final class Protocol {
 	public static final short MAGIC = 0x4E44; // "ND"
 	/** Bumped on any incompatible change; checked in HELLO. */
-	public static final int VERSION = 2;
+	public static final int VERSION = 3;
 	public static final int DEFAULT_PORT = 25559;
 	public static final int MAX_PLAYERS = 4;
 	/** Keeps datagrams under the typical internet MTU to avoid IP fragmentation. */
@@ -35,7 +35,7 @@ public final class Protocol {
 	/** Remote players are drawn this far in the past, so there are always two snapshots to blend. */
 	public static final long INTERPOLATION_DELAY_MS = 100;
 
-	// Fixed loadout for multiplayer: slot 0 = primary, slot 1 = secondary.
+	/** What every player spawns with: slot 0 = primary, slot 1 = secondary. */
 	public static final String[] LOADOUT = { "m4a1", "magnum" };
 
 	// Message types.
@@ -54,6 +54,16 @@ public final class Protocol {
 	public static final byte MATCH_END = 13;
 	/** Someone fired: lets the other clients play the shot with directional sound. Unreliable. */
 	public static final byte SHOT = 14;
+	/** Client asks to throw the gun in a slot. Reliable. */
+	public static final byte DROP_WEAPON = 15;
+	/** Client asks to take a gun from the ground. Reliable. */
+	public static final byte PICKUP_WEAPON = 16;
+	/** A gun appeared on the ground (thrown, dropped on death, or from a spawner). Reliable. */
+	public static final byte WEAPON_SPAWN = 17;
+	/** A gun left the ground (taken, despawned or reset). Reliable. */
+	public static final byte WEAPON_REMOVE = 18;
+	/** Sent to a player who got hit, with where the shot came from (for the HUD). Unreliable. */
+	public static final byte DAMAGE = 19;
 
 	/** Player id used as "killer" when a player dies by falling out of the map. */
 	public static final int WORLD = 0;
