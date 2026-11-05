@@ -14,7 +14,7 @@ package com.juego.net;
 public final class Protocol {
 	public static final short MAGIC = 0x4E44; // "ND"
 	/** Bumped on any incompatible change; checked in HELLO. */
-	public static final int VERSION = 1;
+	public static final int VERSION = 2;
 	public static final int DEFAULT_PORT = 25559;
 	public static final int MAX_PLAYERS = 4;
 	/** Keeps datagrams under the typical internet MTU to avoid IP fragmentation. */
@@ -27,6 +27,11 @@ public final class Protocol {
 	public static final long STATE_INTERVAL_MS = 1000 / 30;
 	public static final long SNAPSHOT_INTERVAL_MS = 1000 / 20;
 	public static final long RESPAWN_DELAY_MS = 3000;
+	// Default match rules (the dedicated server can override them).
+	public static final int DEFAULT_TIME_LIMIT_MINUTES = 10;
+	public static final int DEFAULT_FRAG_LIMIT = 20;
+	public static final long INTERMISSION_MS = 10_000;
+
 	/** Remote players are drawn this far in the past, so there are always two snapshots to blend. */
 	public static final long INTERPOLATION_DELAY_MS = 100;
 
@@ -46,6 +51,9 @@ public final class Protocol {
 	public static final byte RESPAWN = 10;
 	public static final byte SET_POSITION = 11;
 	public static final byte DISCONNECT = 12;
+	public static final byte MATCH_END = 13;
+	/** Someone fired: lets the other clients play the shot with directional sound. Unreliable. */
+	public static final byte SHOT = 14;
 
 	/** Player id used as "killer" when a player dies by falling out of the map. */
 	public static final int WORLD = 0;

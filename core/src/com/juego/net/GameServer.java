@@ -22,6 +22,7 @@ import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.ObjectMap;
 import com.juego.guns.Armory;
 import com.juego.guns.GunDefinition;
+import com.juego.match.Match;
 import com.juego.utils.CharacterShape;
 
 /**
@@ -48,6 +49,10 @@ public class GameServer implements Disposable {
 		public int port = Protocol.DEFAULT_PORT;
 		public int maxPlayers = Protocol.MAX_PLAYERS;
 		public String map = "Bank";
+		public int timeLimitMinutes = Protocol.DEFAULT_TIME_LIMIT_MINUTES;
+		/** 0 = no frag limit. */
+		public int fragLimit = Protocol.DEFAULT_FRAG_LIMIT;
+		public long intermissionMs = Protocol.INTERMISSION_MS;
 	}
 
 	private static class ServerPlayer {
@@ -93,6 +98,7 @@ public class GameServer implements Disposable {
 	private final Array<Connection.Message> received = new Array<>();
 	private final Matrix4 tmpTransform = new Matrix4();
 	private final Vector3 tmp = new Vector3();
+	private final Match match;
 	private long nextSnapshotMs;
 	private int tick;
 
@@ -108,8 +114,11 @@ public class GameServer implements Disposable {
 		mapObject.setUserValue(Protocol.WORLD);
 		world.addCollisionObject(mapObject);
 		socket = new NetSocket(config.port);
+		match = new Match(new Match.Settings(config.timeLimitMinutes * 60_000L, config.fragLimit, config.intermissionMs));
+		match.start(clock.getAsLong());
 		NetLog.info(TAG, "Listening on UDP port " + socket.getLocalPort() + " (map " + config.map + ", max "
-				+ config.maxPlayers + " players)");
+				+ config.maxPlayers + " players, " + config.timeLimitMinutes + " min"
+				+ (config.fragLimit > 0 ? " or " + config.fragLimit + " kills" : "") + ")");
 	}
 
 	public int getPort() {
@@ -118,6 +127,13 @@ public class GameServer implements Disposable {
 
 	public int getPlayerCount() {
 		return byId.size;
+	}
+
+	/** E.g. "playing, 7:42 left", for the dedicated server console. */
+	public String describeMatch() {
+		long remaining = match.remainingMs(clock.getAsLong());
+		return match.isPlaying() ? "playing, " + Match.formatClock(remaining) + " left"
+				: "intermission, next match in " + Match.formatClock(remaining);
 	}
 
 	/** One line per player, for the dedicated server console. */
@@ -143,6 +159,7 @@ public class GameServer implements Disposable {
 				respawn(p, now);
 			}
 		}
+		updateMatch(now);
 		if (now >= nextSnapshotMs) {
 			nextSnapshotMs = now + Protocol.SNAPSHOT_INTERVAL_MS;
 			broadcastSnapshot();
@@ -207,6 +224,8 @@ public class GameServer implements Disposable {
 			NetLog.info(TAG, "Rejected " + connection.address + ": " + reason);
 			return null;
 		}
+		if (byId.size == 0)
+			match.start(now); // first player into an empty server gets a full match
 		int id = 1;
 		while (byId.containsKey(id))
 			id++;
@@ -221,6 +240,7 @@ public class GameServer implements Disposable {
 		welcome.playerId = id;
 		welcome.teleportId = player.teleportId;
 		welcome.map = config.map;
+		welcome.fragLimit = config.fragLimit;
 		welcome.spawn.set(player.position);
 		connection.sendReliable(welcome);
 		for (ServerPlayer other : byId.values()) {
@@ -253,7 +273,7 @@ public class GameServer implements Disposable {
 	}
 
 	private void handleFire(ServerPlayer shooter, Messages.Fire fire, long now) {
-		if (!shooter.alive || fire.slot < 0 || fire.slot >= Protocol.LOADOUT.length)
+		if (!match.isPlaying() || !shooter.alive || fire.slot < 0 || fire.slot >= Protocol.LOADOUT.length)
 			return;
 		GunDefinition gun = armory.get(Protocol.LOADOUT[fire.slot]);
 		if (now - shooter.lastFireMs[fire.slot] < gun.fireDelayMs * FIRE_RATE_TOLERANCE)
@@ -261,6 +281,13 @@ public class GameServer implements Disposable {
 		if (fire.origin.dst(shooter.position) > MAX_FIRE_ORIGIN_DISTANCE || fire.direction.isZero())
 			return;
 		shooter.lastFireMs[fire.slot] = now;
+		Messages.Shot shot = new Messages.Shot();
+		shot.shooterId = shooter.id;
+		shot.slot = fire.slot;
+		for (ServerPlayer p : byId.values()) {
+			if (p != shooter)
+				p.connection.sendUnreliable(shot);
+		}
 		fire.direction.nor();
 		Vector3 to = tmp.set(fire.direction).scl(gun.range).add(fire.origin);
 
@@ -297,6 +324,52 @@ public class GameServer implements Disposable {
 	}
 
 	// ---- game state ----
+
+	private void updateMatch(long now) {
+		int topKills = 0;
+		for (ServerPlayer p : byId.values())
+			topKills = Math.max(topKills, p.kills);
+		switch (match.update(now, topKills)) {
+		case ENDED: {
+			ServerPlayer winner = leader();
+			Messages.MatchEnd end = new Messages.MatchEnd();
+			end.winnerId = winner == null ? Protocol.WORLD : winner.id;
+			end.reason = match.getEndReason().ordinal();
+			broadcastReliable(end, null);
+			NetLog.info(TAG, "Match over (" + match.getEndReason() + "), winner: "
+					+ (winner == null ? "nobody" : winner.name + " with " + winner.kills + " kills"));
+			break;
+		}
+		case RESTARTED:
+			// A copy: placeAtSpawn and teleport iterate the players too, and libGDX map
+			// iterators can't be nested.
+			for (ServerPlayer p : byId.values().toArray()) {
+				p.kills = 0;
+				p.deaths = 0;
+				p.alive = true;
+				p.health = 100;
+				placeAtSpawn(p, now);
+				teleport(p, p.position, Protocol.RESPAWN, true, now);
+			}
+			NetLog.info(TAG, "New match started");
+			break;
+		default:
+			break;
+		}
+	}
+
+	/** Most kills; ties go to fewer deaths, then to whoever joined first. Null if nobody scored. */
+	private ServerPlayer leader() {
+		ServerPlayer best = null;
+		for (ServerPlayer p : byId.values()) {
+			if (p.kills == 0)
+				continue;
+			if (best == null || p.kills > best.kills || (p.kills == best.kills
+					&& (p.deaths < best.deaths || (p.deaths == best.deaths && p.id < best.id))))
+				best = p;
+		}
+		return best;
+	}
 
 	private void kill(ServerPlayer victim, ServerPlayer killer, boolean headshot, String gun, long now) {
 		victim.health = 0;
@@ -407,6 +480,8 @@ public class GameServer implements Disposable {
 			return;
 		Messages.Snapshot snapshot = new Messages.Snapshot();
 		snapshot.tick = tick++;
+		snapshot.phase = match.getPhase().ordinal();
+		snapshot.remainingMs = (int) Math.min(Integer.MAX_VALUE, match.remainingMs(clock.getAsLong()));
 		for (ServerPlayer p : byId.values()) {
 			Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
 			e.playerId = p.id;

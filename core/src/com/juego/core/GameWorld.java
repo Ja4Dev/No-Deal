@@ -6,11 +6,16 @@ import com.badlogic.ashley.core.Family;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
+import com.badlogic.gdx.utils.Array;
 import com.juego.UI.HUD;
+import com.juego.UI.Scoreboard;
 import com.juego.components.BulletComponent;
 import com.juego.components.CharacterComponent;
+import com.juego.components.EnemyComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.managers.EntityFactory;
+import com.juego.match.Match;
+import com.juego.net.GameClient;
 import com.juego.net.Protocol;
 import com.juego.systems.BulletSystem;
 import com.juego.systems.EnemySystem;
@@ -20,6 +25,7 @@ import com.juego.systems.PlayerSystem;
 import com.juego.systems.RenderSystem;
 import com.juego.systems.StatusSystem;
 import com.juego.systems.WeaponSystem;
+import com.juego.utils.Config;
 
 /**
  * One match: the ECS engine, its systems, the physics world and every entity
@@ -47,6 +53,14 @@ public class GameWorld {
 	private HudSystem hudSystem;
 	private DebugDrawer debugDrawer;
 	private boolean leaving;
+	private PlayerComponent localPlayer;
+
+	// Offline rounds: kill as many bots as possible in 5 minutes. They run on game
+	// time, which stands still while the pause menu is open.
+	private static final long OFFLINE_ROUND_MS = 5 * 60_000;
+	private static final long OFFLINE_INTERMISSION_MS = 8_000;
+	private final Match offlineMatch = new Match(new Match.Settings(OFFLINE_ROUND_MS, 0, OFFLINE_INTERMISSION_MS));
+	private long gameTimeMs;
 
 	public GameWorld(Core game, GameSession session) {
 		this.game = game;
@@ -55,8 +69,11 @@ public class GameWorld {
 		entityFactory = new EntityFactory(bulletSystem);
 		engine.addEntity(entityFactory.createLevel(LEVEL));
 		Vector3 spawn = session.isMultiplayer() ? session.client.getSpawn() : OFFLINE_SPAWN;
-		engine.addEntity(entityFactory.createPlayer(spawn.x, spawn.y, spawn.z, "ct",
-				Assets.armory.create(Protocol.LOADOUT[0]), Assets.armory.create(Protocol.LOADOUT[1]), LOCAL_PLAYER));
+		Entity player = entityFactory.createPlayer(spawn.x, spawn.y, spawn.z, "ct",
+				Assets.armory.create(Protocol.LOADOUT[0]), Assets.armory.create(Protocol.LOADOUT[1]), LOCAL_PLAYER);
+		localPlayer = player.getComponent(PlayerComponent.class);
+		engine.addEntity(player);
+		offlineMatch.start(gameTimeMs);
 	}
 
 	private void addSystems() {
@@ -99,6 +116,10 @@ public class GameWorld {
 		return game.getHostedPort();
 	}
 
+	public WeaponSystem weaponSystem() {
+		return weaponSystem;
+	}
+
 	public PlayerSystem playerSystem() {
 		return playerSystem;
 	}
@@ -120,8 +141,12 @@ public class GameWorld {
 		// Offline, the pause menu freezes the world. Online the match goes on.
 		if (!session.isMultiplayer()) {
 			boolean running = !hudSystem.isPaused();
+			if (running) {
+				gameTimeMs += (long) (delta * 1000);
+				updateOfflineMatch();
+			}
 			bulletSystem.setProcessing(running);
-			enemySystem.setProcessing(running);
+			enemySystem.setProcessing(running && offlineMatch.isPlaying());
 			statusSystem.setProcessing(running);
 		}
 		engine.update(delta);
@@ -130,6 +155,58 @@ public class GameWorld {
 			bulletSystem.collisionWorld.debugDrawWorld();
 			debugDrawer.end();
 		}
+	}
+
+	private void updateOfflineMatch() {
+		switch (offlineMatch.update(gameTimeMs, 0)) {
+		case ENDED:
+			for (Entity enemy : engine.getEntitiesFor(Family.all(EnemyComponent.class).get()).toArray(Entity.class))
+				remove(enemy);
+			if (getHud() != null)
+				getHud().setCenterMessage("¡Tiempo! Eliminaste " + localPlayer.kills
+						+ (localPlayer.kills == 1 ? " bot" : " bots"));
+			break;
+		case RESTARTED:
+			localPlayer.resetScore();
+			localPlayer.respawn();
+			playerSystem.respawnAtSpawn();
+			if (getHud() != null)
+				getHud().setCenterMessage(null);
+			break;
+		default:
+			break;
+		}
+	}
+
+	// ---- Match information for the HUD ----
+
+	public Match.Phase getMatchPhase() {
+		return isMultiplayer() ? session.client.getMatchPhase() : offlineMatch.getPhase();
+	}
+
+	public long getMatchRemainingMs() {
+		return isMultiplayer() ? session.client.getMatchRemainingMs() : offlineMatch.remainingMs(gameTimeMs);
+	}
+
+	/** Shooting is only allowed while a match is being played (not between matches). */
+	public boolean canFight() {
+		return getMatchPhase() == Match.Phase.PLAYING;
+	}
+
+	public String getScoreboardTitle() {
+		if (!isMultiplayer())
+			return "Un jugador: elimina todos los bots que puedas";
+		int fragLimit = session.client.getFragLimit();
+		return fragLimit > 0 ? "Deathmatch: gana el primero en llegar a " + fragLimit + " bajas" : "Deathmatch";
+	}
+
+	public void getScoreRows(Array<Scoreboard.Row> out) {
+		if (!isMultiplayer()) {
+			out.add(new Scoreboard.Row().set(Config.playerName, localPlayer.kills, localPlayer.getDeaths(), true));
+			return;
+		}
+		for (GameClient.PlayerInfo p : session.client.getPlayers())
+			out.add(new Scoreboard.Row().set(p.name, p.kills, p.deaths, p.id == session.client.getLocalId()));
 	}
 
 	public void resize(int width, int height) {

@@ -6,16 +6,20 @@ import com.badlogic.ashley.core.EntityListener;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.juego.UI.HUD;
 import com.juego.UI.PauseMenu;
+import com.juego.UI.Scoreboard;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
-import com.juego.utils.Config;
+import com.juego.match.Match;
+import com.juego.utils.Controls;
+import com.juego.utils.Controls.Action;
 
 /**
- * The local player's 2D overlay: HUD, pause menu and scoreboard toggle. Added
- * last so it draws on top of the 3D scene.
+ * The local player's 2D overlay: HUD (with the match clock), pause menu and
+ * scoreboard. Added last so it draws on top of the 3D scene.
  */
 public class HudSystem extends EntitySystem implements EntityListener, Disposable {
 	private final GameWorld gameWorld;
@@ -23,6 +27,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	private PlayerComponent playerComponent;
 	private HUD hud;
 	private PauseMenu pauseMenu;
+	private Scoreboard scoreboard;
+	private final Array<Scoreboard.Row> rows = new Array<>();
 
 	public HudSystem(GameWorld gameWorld) {
 		this.gameWorld = gameWorld;
@@ -41,6 +47,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		playerComponent = entity.getComponent(PlayerComponent.class);
 		hud = new HUD();
 		pauseMenu = new PauseMenu(playerComponent, gameWorld);
+		scoreboard = new Scoreboard();
 	}
 
 	@Override
@@ -62,13 +69,35 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	public void update(float delta) {
 		if (player == null)
 			return;
-		if (Gdx.input.isKeyJustPressed(Config.pauseKey))
+		if (Controls.isJustPressed(Action.PAUSE)) {
 			playerComponent.pause = !playerComponent.pause;
+			playerComponent.scoreboard = false;
+		}
 		Gdx.input.setCursorCatched(!playerComponent.pause);
 		if (!playerComponent.pause) // while paused the pause menu's button controls it
-			playerComponent.scoreboard = Gdx.input.isKeyPressed(Config.scoreboardsKey);
+			playerComponent.scoreboard = Controls.isPressed(Action.SCOREBOARD);
+
+		boolean intermission = gameWorld.getMatchPhase() == Match.Phase.INTERMISSION;
+		long remaining = gameWorld.getMatchRemainingMs();
+		hud.setClock(intermission ? "Fin" : Match.formatClock(remaining));
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun);
-		pauseMenu.update(delta);
+
+		// Opened from the pause menu, the scoreboard replaces it until the next click.
+		boolean scoreboardOverPause = playerComponent.pause && playerComponent.scoreboard;
+		pauseMenu.setInteractive(!scoreboardOverPause);
+		if (!scoreboardOverPause)
+			pauseMenu.update(delta);
+		if (playerComponent.scoreboard || intermission) {
+			rows.clear();
+			gameWorld.getScoreRows(rows);
+			String footer = scoreboardOverPause ? "Clic para volver"
+					: intermission ? "Nueva partida en " + (remaining + 999) / 1000 + " s"
+							: "Quedan " + Match.formatClock(remaining);
+			scoreboard.update(gameWorld.getScoreboardTitle(), rows, footer);
+			scoreboard.draw();
+		}
+		if (scoreboardOverPause && Gdx.input.justTouched())
+			playerComponent.scoreboard = false;
 	}
 
 	public void resize(int width, int height) {
@@ -76,6 +105,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			hud.resize(width, height);
 		if (pauseMenu != null)
 			pauseMenu.resize(width, height);
+		if (scoreboard != null)
+			scoreboard.resize(width, height);
 	}
 
 	@Override
@@ -84,5 +115,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			hud.dispose();
 		if (pauseMenu != null)
 			pauseMenu.dispose();
+		if (scoreboard != null)
+			scoreboard.dispose();
 	}
 }

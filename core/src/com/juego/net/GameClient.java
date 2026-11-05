@@ -11,6 +11,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.IntMap;
+import com.juego.match.Match;
 
 /**
  * Client side of a multiplayer match. Holds a model of the match (who is
@@ -84,12 +85,14 @@ public class GameClient implements Disposable {
 	/** Something that happened in the match, for the game to react to once. */
 	public static class Event {
 		public enum Type {
-			JOINED, LEFT, KILL, RESPAWN, SET_POSITION
+			JOINED, LEFT, KILL, RESPAWN, SET_POSITION, MATCH_END, MATCH_START, SHOT
 		}
 
 		public final Type type;
 		public int playerId, killerId;
 		public boolean headshot;
+		/** MATCH_END: ordinal of Match.EndReason. SHOT: gun slot. */
+		public int detail;
 		public String gun = "";
 		public final Vector3 position = new Vector3();
 
@@ -107,11 +110,14 @@ public class GameClient implements Disposable {
 	private int localId, teleportId, sequence;
 	private String mapName = "";
 	private String localName = "";
+	private int fragLimit;
 	private final Vector3 spawn = new Vector3();
 	private final IntMap<PlayerInfo> players = new IntMap<>();
 	private final ArrayDeque<Event> events = new ArrayDeque<>();
 	private final Array<Connection.Message> received = new Array<>();
 	private final Messages.PlayerState state = new Messages.PlayerState();
+	private Match.Phase matchPhase = Match.Phase.PLAYING;
+	private long matchRemainingMs, matchSampleMs;
 
 	public GameClient(LongSupplier clock) {
 		this.clock = clock;
@@ -166,6 +172,7 @@ public class GameClient implements Disposable {
 			localId = welcome.playerId;
 			teleportId = welcome.teleportId;
 			mapName = welcome.map;
+			fragLimit = welcome.fragLimit;
 			spawn.set(welcome.spawn);
 			players.put(localId, new PlayerInfo(localId, localName));
 			status = Status.CONNECTED;
@@ -193,6 +200,12 @@ public class GameClient implements Disposable {
 		case Protocol.SNAPSHOT: {
 			Messages.Snapshot snapshot = Messages.Snapshot.read(in);
 			long now = clock.getAsLong();
+			Match.Phase phase = Match.Phase.values()[MathUtils.clamp(snapshot.phase, 0, Match.Phase.values().length - 1)];
+			if (phase == Match.Phase.PLAYING && matchPhase == Match.Phase.INTERMISSION)
+				events.add(new Event(Event.Type.MATCH_START));
+			matchPhase = phase;
+			matchRemainingMs = snapshot.remainingMs;
+			matchSampleMs = now;
 			for (Messages.Snapshot.Entry entry : snapshot.players) {
 				PlayerInfo p = players.get(entry.playerId);
 				if (p == null)
@@ -237,6 +250,23 @@ public class GameClient implements Disposable {
 			Event e = new Event(message.type == Protocol.RESPAWN ? Event.Type.RESPAWN : Event.Type.SET_POSITION);
 			e.playerId = m.playerId;
 			e.position.set(m.position);
+			events.add(e);
+			break;
+		}
+		case Protocol.MATCH_END: {
+			Messages.MatchEnd m = Messages.MatchEnd.read(in);
+			matchPhase = Match.Phase.INTERMISSION;
+			Event e = new Event(Event.Type.MATCH_END);
+			e.playerId = m.winnerId;
+			e.detail = m.reason;
+			events.add(e);
+			break;
+		}
+		case Protocol.SHOT: {
+			Messages.Shot m = Messages.Shot.read(in);
+			Event e = new Event(Event.Type.SHOT);
+			e.playerId = m.shooterId;
+			e.detail = m.slot;
 			events.add(e);
 			break;
 		}
@@ -289,6 +319,20 @@ public class GameClient implements Disposable {
 			}
 		}
 		status = Status.DISCONNECTED;
+	}
+
+	/** 0 = no frag limit. */
+	public int getFragLimit() {
+		return fragLimit;
+	}
+
+	public Match.Phase getMatchPhase() {
+		return matchPhase;
+	}
+
+	/** Time left in the current phase, counted down locally between snapshots. */
+	public long getMatchRemainingMs() {
+		return Math.max(0, matchRemainingMs - (clock.getAsLong() - matchSampleMs));
 	}
 
 	public Event pollEvent() {

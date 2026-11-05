@@ -157,6 +157,8 @@ public final class Messages {
 	public static class Welcome implements Message {
 		public int playerId;
 		public int teleportId;
+		/** 0 = no frag limit. */
+		public int fragLimit;
 		public String map = "";
 		public final Vector3 spawn = new Vector3();
 
@@ -165,7 +167,7 @@ public final class Messages {
 		}
 
 		public void write(ByteBuffer out) {
-			out.put((byte) playerId).putInt(teleportId);
+			out.put((byte) playerId).putInt(teleportId).putShort((short) fragLimit);
 			writeString(out, map, 32);
 			writeVector(out, spawn);
 		}
@@ -174,6 +176,7 @@ public final class Messages {
 			Welcome m = new Welcome();
 			m.playerId = in.get() & 0xFF;
 			m.teleportId = in.getInt();
+			m.fragLimit = in.getShort() & 0xFFFF;
 			m.map = readString(in);
 			readVector(in, m.spawn);
 			return m;
@@ -261,6 +264,48 @@ public final class Messages {
 		}
 	}
 
+	public static class MatchEnd implements Message {
+		/** {@link Protocol#WORLD} if nobody scored. */
+		public int winnerId;
+		/** Ordinal of {@link com.juego.match.Match.EndReason}. */
+		public int reason;
+
+		public byte type() {
+			return Protocol.MATCH_END;
+		}
+
+		public void write(ByteBuffer out) {
+			out.put((byte) winnerId).put((byte) reason);
+		}
+
+		public static MatchEnd read(ByteBuffer in) {
+			MatchEnd m = new MatchEnd();
+			m.winnerId = in.get() & 0xFF;
+			m.reason = in.get();
+			return m;
+		}
+	}
+
+	public static class Shot implements Message {
+		public int shooterId;
+		public int slot;
+
+		public byte type() {
+			return Protocol.SHOT;
+		}
+
+		public void write(ByteBuffer out) {
+			out.put((byte) shooterId).put((byte) slot);
+		}
+
+		public static Shot read(ByteBuffer in) {
+			Shot m = new Shot();
+			m.shooterId = in.get() & 0xFF;
+			m.slot = in.get();
+			return m;
+		}
+	}
+
 	/** A player (re)appears at a position. Also used to correct a rejected movement (SET_POSITION). */
 	public static class Teleport implements Message {
 		private final byte type;
@@ -300,6 +345,10 @@ public final class Messages {
 		}
 
 		public int tick;
+		/** Ordinal of {@link com.juego.match.Match.Phase}. */
+		public int phase;
+		/** Time left in the current phase. */
+		public int remainingMs;
 		public final Array<Entry> players = new Array<>();
 
 		public byte type() {
@@ -307,7 +356,7 @@ public final class Messages {
 		}
 
 		public void write(ByteBuffer out) {
-			out.putInt(tick).put((byte) players.size);
+			out.putInt(tick).put((byte) phase).putInt(remainingMs).put((byte) players.size);
 			for (Entry e : players) {
 				out.put((byte) e.playerId).put((byte) (e.alive ? 1 : 0)).put((byte) e.health);
 				out.putShort((short) e.kills).putShort((short) e.deaths).put((byte) e.slot);
@@ -319,6 +368,8 @@ public final class Messages {
 		public static Snapshot read(ByteBuffer in) {
 			Snapshot m = new Snapshot();
 			m.tick = in.getInt();
+			m.phase = in.get();
+			m.remainingMs = in.getInt();
 			int count = in.get() & 0xFF;
 			for (int i = 0; i < count; i++) {
 				Entry e = new Entry();

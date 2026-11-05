@@ -16,6 +16,8 @@ import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
 import com.juego.utils.Config;
+import com.juego.utils.Controls;
+import com.juego.utils.Controls.Action;
 
 /** Local player movement: mouse look, WASD walking, jumping and respawning. */
 public class PlayerSystem extends EntitySystem implements EntityListener {
@@ -82,7 +84,7 @@ public class PlayerSystem extends EntitySystem implements EntityListener {
 		if (!playerComponent.pause && !playerComponent.isDead()) {
 			updateCameraRotation();
 			updateWalkDirection();
-			if (Gdx.input.isKeyJustPressed(Config.jumpKey) && characterComponent.characterController.onGround()) {
+			if (Controls.isJustPressed(Action.JUMP) && characterComponent.characterController.onGround()) {
 				characterComponent.characterController.setJumpSpeed(1f);
 				characterComponent.characterController.jump(JUMP_VELOCITY);
 			}
@@ -110,16 +112,16 @@ public class PlayerSystem extends EntitySystem implements EntityListener {
 		forward.set(camera.direction.x, 0, camera.direction.z).nor();
 		right.set(forward).crs(Vector3.Y);
 		Vector3 walkDirection = characterComponent.walkDirection;
-		if (Gdx.input.isKeyPressed(Config.forwardKey))
+		if (Controls.isPressed(Action.FORWARD))
 			walkDirection.add(forward);
-		if (Gdx.input.isKeyPressed(Config.backwardKey))
+		if (Controls.isPressed(Action.BACKWARD))
 			walkDirection.sub(forward);
-		if (Gdx.input.isKeyPressed(Config.leftKey))
+		if (Controls.isPressed(Action.LEFT))
 			walkDirection.sub(right);
-		if (Gdx.input.isKeyPressed(Config.rightKey))
+		if (Controls.isPressed(Action.RIGHT))
 			walkDirection.add(right);
 		playerComponent.moving = !walkDirection.isZero();
-		playerComponent.running = !Gdx.input.isKeyPressed(Config.walkKey);
+		playerComponent.running = !Controls.isPressed(Action.WALK);
 
 		// Normalized so diagonals aren't faster. The character controller expects a
 		// displacement per physics step, not per rendered frame.
@@ -138,6 +140,11 @@ public class PlayerSystem extends EntitySystem implements EntityListener {
 
 	private void respawn() {
 		playerComponent.respawn();
+		teleportToSpawn();
+	}
+
+	/** Back to where the player first spawned (a new offline round). */
+	public void respawnAtSpawn() {
 		teleportToSpawn();
 	}
 

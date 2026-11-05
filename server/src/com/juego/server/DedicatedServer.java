@@ -22,7 +22,7 @@ import com.juego.net.Protocol;
  * hosting, without a window, GPU or local player.
  *
  * <pre>
- * java -jar NoDeal-server.jar [--port 25559] [--max-players 4]
+ * java -jar NoDeal-server.jar [--port 25559] [--max-players 4] [--time-limit 10] [--frag-limit 20]
  * </pre>
  *
  * Console commands: {@code status}, {@code help}, {@code quit}.
@@ -50,6 +50,12 @@ public class DedicatedServer extends ApplicationAdapter {
 				case "--max-players":
 					config.maxPlayers = Integer.parseInt(args[++i]);
 					break;
+				case "--time-limit":
+					config.timeLimitMinutes = Integer.parseInt(args[++i]);
+					break;
+				case "--frag-limit":
+					config.fragLimit = Integer.parseInt(args[++i]);
+					break;
 				case "--help":
 				case "-h":
 					printUsage();
@@ -62,6 +68,10 @@ public class DedicatedServer extends ApplicationAdapter {
 				throw new IllegalArgumentException("--port must be between 1 and 65535");
 			if (config.maxPlayers < 1 || config.maxPlayers > 32)
 				throw new IllegalArgumentException("--max-players must be between 1 and 32");
+			if (config.timeLimitMinutes < 1 || config.timeLimitMinutes > 120)
+				throw new IllegalArgumentException("--time-limit must be between 1 and 120 minutes");
+			if (config.fragLimit < 0 || config.fragLimit > 999)
+				throw new IllegalArgumentException("--frag-limit must be between 0 (none) and 999");
 		} catch (RuntimeException e) {
 			System.err.println("Error: " + e.getMessage());
 			printUsage();
@@ -75,7 +85,10 @@ public class DedicatedServer extends ApplicationAdapter {
 	private static void printUsage() {
 		System.out.println("No Deal dedicated server (protocol v" + Protocol.VERSION + ")");
 		System.out.println("Usage: java -jar NoDeal-server.jar [--port " + Protocol.DEFAULT_PORT + "] [--max-players "
-				+ Protocol.MAX_PLAYERS + "]");
+				+ Protocol.MAX_PLAYERS + "] [--time-limit " + Protocol.DEFAULT_TIME_LIMIT_MINUTES + "] [--frag-limit "
+				+ Protocol.DEFAULT_FRAG_LIMIT + "]");
+		System.out.println("  --time-limit  match length in minutes");
+		System.out.println("  --frag-limit  kills that win the match early (0 = play the full time)");
 	}
 
 	@Override
@@ -127,7 +140,7 @@ public class DedicatedServer extends ApplicationAdapter {
 		case "status":
 		case "players":
 			System.out.print(server.getPlayerCount() + "/" + config.maxPlayers + " players on port "
-					+ server.getPort() + "\n" + server.describePlayers());
+					+ server.getPort() + ", " + server.describeMatch() + "\n" + server.describePlayers());
 			break;
 		case "quit":
 		case "exit":

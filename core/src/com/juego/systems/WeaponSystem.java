@@ -25,6 +25,9 @@ import com.juego.core.GameWorld;
 import com.juego.guns.Gun;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
+import com.juego.utils.SpatialAudio;
+import com.juego.utils.Controls;
+import com.juego.utils.Controls.Action;
 
 /** The local player's guns: hitscan shooting, reloading, switching and aiming down sights. */
 public class WeaponSystem extends EntitySystem implements EntityListener, Disposable {
@@ -57,6 +60,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private final Vector3 rayFrom = new Vector3();
 	private final Vector3 rayTo = new Vector3();
 	private final Vector3 hitPoint = new Vector3();
+	private final Vector3 hitNormal = new Vector3();
 	private final Vector3 targetCenter = new Vector3();
 	private final Matrix4 targetTransform = new Matrix4();
 
@@ -100,16 +104,16 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	public void update(float deltaTime) {
 		if (player == null)
 			return;
-		if (!playerComponent.pause && !playerComponent.isDead())
+		if (!playerComponent.pause && !playerComponent.isDead() && gameWorld.canFight())
 			handleInput();
 		syncViewModel(); // the selected gun can also change on respawn
 	}
 
 	private void handleInput() {
 		Gun gun = playerComponent.selectedGun;
-		if (Gdx.input.isKeyJustPressed(Config.reloadKey))
+		if (Controls.isJustPressed(Action.RELOAD))
 			reload(gun);
-		if (Gdx.input.isKeyJustPressed(Config.changeGunKey)) {
+		if (Controls.isJustPressed(Action.SWITCH_GUN)) {
 			if (zoomed)
 				toggleZoom();
 			playerComponent.selectedGun = gun == playerComponent.primaryGun ? playerComponent.secondaryGun
@@ -118,12 +122,12 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		}
 		long now = System.currentTimeMillis();
 		if (now - lastShotTime >= gun.def.fireDelayMs && now - lastReloadTime >= RELOAD_DELAY_MS) {
-			boolean trigger = gun.def.automatic ? Gdx.input.isButtonPressed(Config.fireButton)
-					: Gdx.input.isButtonJustPressed(Config.fireButton);
+			boolean trigger = gun.def.automatic ? Controls.isPressed(Action.FIRE)
+					: Controls.isJustPressed(Action.FIRE);
 			if (trigger)
 				fire(gun);
 		}
-		if (Gdx.input.isButtonJustPressed(Config.zoomButton) && gun.def.hasSight)
+		if (Controls.isJustPressed(Action.AIM) && gun.def.hasSight)
 			toggleZoom();
 	}
 
@@ -163,11 +167,6 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		spread = calculateSpread();
 		Ray ray = camera.getPickRay(Gdx.graphics.getWidth() / 2f + spread, Gdx.graphics.getHeight() / 2f);
 		rayFrom.set(ray.origin);
-		if (gameWorld.network != null) {
-			// Online the server re-traces the shot and decides the damage.
-			gameWorld.network.sendFire(gun, rayFrom, ray.direction);
-			return;
-		}
 		rayTo.set(ray.direction).scl(gun.def.range).add(rayFrom);
 		// The callback is reused, so its previous result has to be cleared.
 		rayTestCB.setCollisionObject(null);
@@ -175,8 +174,30 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		rayTestCB.setRayFromWorld(rayFrom);
 		rayTestCB.setRayToWorld(rayTo);
 		gameWorld.bulletSystem.collisionWorld.rayTest(rayFrom, rayTo, rayTestCB);
-		if (rayTestCB.hasHit() && rayTestCB.getCollisionObject().userData instanceof Entity)
-			applyHit((Entity) rayTestCB.getCollisionObject().userData, gun.def.damage);
+		Entity target = rayTestCB.hasHit() && rayTestCB.getCollisionObject().userData instanceof Entity
+				? (Entity) rayTestCB.getCollisionObject().userData
+				: null;
+
+		if (target != null && target.getComponent(CharacterComponent.class) == null)
+			leaveImpactMark(ray);
+		if (gameWorld.network != null) {
+			// Online the server re-traces the shot and decides the damage; the local
+			// ray above is only for the impact mark.
+			gameWorld.network.sendFire(gun, rayFrom, ray.direction);
+		} else if (target != null) {
+			applyHit(target, gun.def.damage);
+		}
+	}
+
+	/** The local ray hit level geometry: leave a bullet hole there. */
+	private void leaveImpactMark(Ray ray) {
+		rayTestCB.getHitPointWorld(hitPoint);
+		// Online, other players aren't in the local physics world: don't mark the wall
+		// behind a player the shot actually hit.
+		if (gameWorld.network != null && gameWorld.network.isRemotePlayerCloserThan(ray, rayFrom.dst(hitPoint)))
+			return;
+		rayTestCB.getHitNormalWorld(hitNormal);
+		gameWorld.renderSystem.impactMarks.add(hitPoint, hitNormal);
 	}
 
 	private void applyHit(Entity target, int damage) {
@@ -201,6 +222,21 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			else
 				otherPlayer.getDamage(damage);
 		}
+	}
+
+	/**
+	 * Plays another player's shot (online), panned and attenuated by where it
+	 * came from. Both players carry the same loadout, so slot 0/1 maps to the
+	 * same sounds as our own primary/secondary gun.
+	 */
+	public void playRemoteShot(int slot, Vector3 position) {
+		if (playerComponent == null)
+			return;
+		Gun gun = slot == 0 ? playerComponent.primaryGun : playerComponent.secondaryGun;
+		float volume = Config.fxVolume / 100 * SpatialAudio.volume(camera.position, position);
+		if (volume < 0.01f)
+			return;
+		shotSounds.get(gun).play(volume, 1f, SpatialAudio.pan(camera.position, camera.direction, camera.up, position));
 	}
 
 	private void reload(Gun gun) {

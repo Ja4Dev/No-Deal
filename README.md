@@ -37,7 +37,7 @@ The game uses an Entity Component System ([Ashley](https://github.com/libgdx/ash
 | `StatusSystem` | Removes dead entities and frees their physics objects |
 | `HudSystem` | HUD, pause menu and scoreboard toggle |
 
-The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement flags, pending recoil, pause). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
+The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement flags, pending recoil, pause). Settings and key bindings are saved with libGDX `Preferences`, and any action can be bound to a key or a mouse button (`Controls`). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
 
 ## Multiplayer
 Deathmatch for up to 4 players over LAN, with a hand-written UDP protocol (no networking library).
@@ -46,9 +46,10 @@ Deathmatch for up to 4 players over LAN, with a hand-written UDP protocol (no ne
 - **Join a match**: *Unirse a partida*, enter the host's IP and port (default UDP `25559`).
 - **Dedicated server**: the same server without a window or GPU, for a machine that only hosts:
   ```bash
-  java -jar NoDeal-server-1.0.jar --port 25559 --max-players 4
+  java -jar NoDeal-server-1.0.jar --port 25559 --max-players 4 --time-limit 10 --frag-limit 20
   ```
-  Console commands: `status` (list players), `quit` (notify everyone and stop).
+  Console commands: `status` (match clock and players), `quit` (notify everyone and stop).
+- **Match rules**: a match lasts 10 minutes or until someone reaches 20 kills. Then the scoreboard shows the winner for 10 seconds, scores reset and everyone respawns. Offline, rounds last 5 minutes against the bots, and the clock stops while the game is paused.
 
 ### How it works
 ```
@@ -88,13 +89,13 @@ The most important things I've made for the project are:
 ## What I couldn't do
 Between the things that I couldn't add to the projects are:
   - The networking. *(Added in 2026: see [Multiplayer](#multiplayer).)*
-  - The directional sound.
+  - The directional sound. *(Added in 2026: other players' shots are panned and attenuated by distance.)*
   - The player's model.
-  - The timer.
-  - The scoreboard.
-  - The skyboxes.
-  - The raycasting shoots decals.
-  - The settings options saving.
+  - The timer. *(Added in 2026: timed matches, see Multiplayer.)*
+  - The scoreboard. *(Added in 2026: hold Tab.)*
+  - The skyboxes. *(Added in 2026: a generated sky dome, visible through the openings in the roof.)*
+  - The raycasting shoots decals. *(Added in 2026: bullet holes that fade out.)*
+  - The settings options saving. *(Added in 2026, along with rebindable controls and mouse sensitivity.)*
   - The team selection menues.
   - The gun dropping and picking system.
 

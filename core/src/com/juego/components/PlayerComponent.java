@@ -88,6 +88,12 @@ public class PlayerComponent implements Component {
 		dead = true;
 	}
 
+	/** New match: scores back to zero. */
+	public void resetScore() {
+		kills = 0;
+		deaths = 0;
+	}
+
 	/** Restores health and ammo after a death. Repositioning is handled by the PlayerSystem. */
 	public void respawn() {
 		health = MAX_HEALTH;

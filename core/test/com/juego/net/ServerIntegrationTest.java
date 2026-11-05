@@ -49,7 +49,10 @@ class ServerIntegrationTest {
 
 	@BeforeEach
 	void startServer() throws IOException {
-		GameServer.Config config = new GameServer.Config();
+		startServer(new GameServer.Config());
+	}
+
+	private void startServer(GameServer.Config config) throws IOException {
 		config.port = 0; // any free port
 		config.maxPlayers = 2;
 		config.map = "Test";
@@ -153,6 +156,50 @@ class ServerIntegrationTest {
 		assertTrue(respawn.position.epsilonEquals(SPAWN_A) || respawn.position.epsilonEquals(SPAWN_B));
 		assertTrue(b.getPlayer(b.getLocalId()).alive);
 		assertEquals(100, b.getPlayer(b.getLocalId()).health);
+	}
+
+	@Test
+	void matchEndsAtFragLimitAndRestartsWithFreshScores() throws IOException {
+		server.dispose();
+		GameServer.Config config = new GameServer.Config();
+		config.fragLimit = 1;
+		config.intermissionMs = 800;
+		startServer(config);
+
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED
+				&& b.getPlayer(a.getLocalId()) != null);
+		assertEquals(com.juego.match.Match.Phase.PLAYING, a.getMatchPhase());
+		pumpUntil("first snapshot", 1000, () -> a.getMatchRemainingMs() > 0);
+		long remaining = a.getMatchRemainingMs();
+		assertTrue(remaining > 9 * 60_000 && remaining <= 10 * 60_000, "10 minute clock, got " + remaining);
+
+		a.sendFire(0, SPAWN_A, new Vector3(SPAWN_B).add(0, 2.5f, 0).sub(SPAWN_A));
+		pumpUntil("match end", 2000, () -> find(eventsA, GameClient.Event.Type.MATCH_END) != null
+				&& find(eventsB, GameClient.Event.Type.MATCH_END) != null);
+		GameClient.Event end = find(eventsB, GameClient.Event.Type.MATCH_END);
+		assertEquals(a.getLocalId(), end.playerId, "A wins");
+		assertEquals(com.juego.match.Match.EndReason.FRAG_LIMIT.ordinal(), end.detail);
+		GameClient.Event shot = find(eventsB, GameClient.Event.Type.SHOT);
+		assertNotNull(shot, "the victim heard the shot");
+		assertEquals(a.getLocalId(), shot.playerId);
+		assertTrue(find(eventsA, GameClient.Event.Type.SHOT) == null, "shooters don't get their own SHOT");
+		pumpUntil("intermission seen", 1000, () -> b.getMatchPhase() == com.juego.match.Match.Phase.INTERMISSION);
+
+		// Shots during the intermission don't count.
+		sleep(200);
+		eventsB.clear();
+		a.sendFire(0, SPAWN_A, new Vector3(SPAWN_B).add(0, -1, 0).sub(SPAWN_A));
+		pumpFor(150);
+		assertTrue(find(eventsB, GameClient.Event.Type.SHOT) == null, "fire ignored during intermission");
+
+		pumpUntil("new match", 3000, () -> find(eventsB, GameClient.Event.Type.MATCH_START) != null
+				&& b.getPlayer(a.getLocalId()).kills == 0 && b.getPlayer(b.getLocalId()).deaths == 0);
+		assertTrue(b.getPlayer(b.getLocalId()).alive);
+		assertNotNull(find(eventsB, GameClient.Event.Type.RESPAWN), "everyone respawns for the new match");
+		pumpUntil("A sees the new match too", 1000, () -> a.getMatchPhase() == com.juego.match.Match.Phase.PLAYING);
 	}
 
 	/** Regression: moved hitboxes must be found by ray tests (their broadphase AABB has to follow them). */

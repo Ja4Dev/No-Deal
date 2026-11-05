@@ -37,6 +37,8 @@ class MessagesTest {
 	void snapshotRoundTrip() {
 		Messages.Snapshot m = new Messages.Snapshot();
 		m.tick = 42;
+		m.phase = 1;
+		m.remainingMs = 599_999;
 		for (int id = 1; id <= Protocol.MAX_PLAYERS; id++) {
 			Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
 			e.playerId = id;
@@ -52,6 +54,8 @@ class MessagesTest {
 		}
 		Messages.Snapshot r = Messages.Snapshot.read(roundTrip(m));
 		assertEquals(42, r.tick);
+		assertEquals(1, r.phase);
+		assertEquals(599_999, r.remainingMs);
 		assertEquals(Protocol.MAX_PLAYERS, r.players.size);
 		for (int i = 0; i < r.players.size; i++) {
 			Messages.Snapshot.Entry a = m.players.get(i), b = r.players.get(i);

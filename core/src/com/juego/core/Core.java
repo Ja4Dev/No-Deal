@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.net.GameServer;
 import com.juego.screens.menues.MainMenuScreen;
+import com.juego.utils.Config;
 import com.juego.utils.MusicPlayer;
 
 public class Core extends ApplicationAdapter {
@@ -25,6 +26,9 @@ public class Core extends ApplicationAdapter {
 	@Override
 	public void create() {
 		Bullet.init();
+		Config.load();
+		if (Config.fullscreen)
+			Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
 		Assets.init();
 		Gdx.input.setCatchKey(Input.Keys.BACK, true);
 		musicPlayer = new MusicPlayer();

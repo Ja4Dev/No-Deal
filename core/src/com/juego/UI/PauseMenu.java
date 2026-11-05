@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -87,6 +88,11 @@ public class PauseMenu extends Menu{
 		resumeButton = new TextButton("Reanudar", Assets.skin);
 		scoreButton = new TextButton("Puntuacion", Assets.skin);
 		menuButton = new TextButton("Menu Principal", Assets.skin);
+	}
+
+	/** Hidden behind the scoreboard, the buttons must not react to clicks. */
+	public void setInteractive(boolean interactive) {
+		stage.getRoot().setTouchable(interactive ? Touchable.enabled : Touchable.disabled);
 	}
 
 	public void update(float delta) {

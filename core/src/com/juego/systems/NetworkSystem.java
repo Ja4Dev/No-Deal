@@ -5,7 +5,9 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.EntityListener;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
+import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Quaternion;
+import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.IntArray;
@@ -18,6 +20,7 @@ import com.juego.guns.Gun;
 import com.juego.net.GameClient;
 import com.juego.net.NetUtils;
 import com.juego.net.Protocol;
+import com.juego.utils.CharacterShape;
 
 /**
  * Bridges the online match ({@link GameClient}) and the ECS world: sends the
@@ -153,6 +156,27 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			if (me)
 				gameWorld.playerSystem().teleport(event.position);
 			break;
+		case MATCH_END: {
+			String message = event.playerId == Protocol.WORLD ? "Fin de la partida"
+					: event.playerId == client.getLocalId() ? "¡Ganaste la partida!"
+							: "Ganó " + name(event.playerId);
+			feed(message);
+			if (hud() != null)
+				hud().setCenterMessage(message);
+			break;
+		}
+		case MATCH_START:
+			feed("Nueva partida");
+			if (hud() != null && !playerComponent.isDead())
+				hud().setCenterMessage(null);
+			break;
+		case SHOT: {
+			GameClient.PlayerInfo shooter = client.getPlayer(event.playerId);
+			if (shooter != null && shooter.interpolate(System.currentTimeMillis() - Protocol.INTERPOLATION_DELAY_MS,
+					position, yaw))
+				gameWorld.weaponSystem().playRemoteShot(event.detail, position);
+			break;
+		}
 		default:
 			break;
 		}
@@ -200,6 +224,30 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		int slot = playerComponent.selectedGun == playerComponent.primaryGun ? 0 : 1;
 		client.sendState(position, playerComponent.yaw, playerComponent.pitch, slot);
 	}
+
+	/**
+	 * Whether the ray passes through another player's body before {@code distance}.
+	 * Remote players have no local physics, so their capsule is approximated by
+	 * two spheres (head and legs).
+	 */
+	public boolean isRemotePlayerCloserThan(Ray ray, float distance) {
+		for (IntMap.Entry<Entity> entry : remotes.entries()) {
+			ModelComponent model = entry.value.getComponent(ModelComponent.class);
+			if (!model.visible)
+				continue;
+			model.instance.transform.getTranslation(sphereCenter);
+			for (float offset : SPHERE_OFFSETS) {
+				sphereCenter2.set(sphereCenter).add(0, offset, 0);
+				if (Intersector.intersectRaySphere(ray, sphereCenter2, CharacterShape.RADIUS, intersection)
+						&& intersection.dst(ray.origin) < distance)
+					return true;
+			}
+		}
+		return false;
+	}
+
+	private static final float[] SPHERE_OFFSETS = { -CharacterShape.CYLINDER / 2, CharacterShape.CYLINDER / 2 };
+	private final Vector3 sphereCenter = new Vector3(), sphereCenter2 = new Vector3(), intersection = new Vector3();
 
 	public void sendFire(Gun gun, Vector3 origin, Vector3 direction) {
 		int slot = gun == playerComponent.primaryGun ? 0 : 1;

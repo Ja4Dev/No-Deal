@@ -73,6 +73,11 @@ public class HUD extends Menu {
 		}
 	}
 
+	/** Text of the clock widget at the top (match time left). */
+	public void setClock(String text) {
+		timeLabel.setText(text);
+	}
+
 	/** Big centered message, e.g. "Te eliminó X". Null or empty hides it. */
 	public void setCenterMessage(String message) {
 		centerLabel.setText(message == null ? "" : message);
@@ -88,7 +93,7 @@ public class HUD extends Menu {
 		feedLabel.pack();
 		feedLabel.setPosition(stage.getWidth() - 12, stage.getHeight() - 12, Align.topRight);
 		centerLabel.pack();
-		centerLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.62f, Align.center);
+		centerLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.8f, Align.center);
 	}
 
 	public void update(int health, Gun gun) {
