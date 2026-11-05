@@ -1,8 +1,6 @@
 package com.juego.managers;
 
 import com.badlogic.ashley.core.Entity;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.assets.loaders.ModelLoader;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.g3d.Material;
@@ -10,14 +8,9 @@ import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
-import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
-import com.badlogic.gdx.graphics.g3d.model.data.ModelData;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
-import com.badlogic.gdx.graphics.g3d.utils.TextureProvider;
 import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.physics.bullet.Bullet;
-import com.badlogic.gdx.physics.bullet.collision.btBoxShape;
 import com.badlogic.gdx.physics.bullet.collision.btBroadphaseProxy;
 import com.badlogic.gdx.physics.bullet.collision.btCapsuleShapeZ;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionObject;
@@ -25,8 +18,8 @@ import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
 import com.badlogic.gdx.physics.bullet.collision.btPairCachingGhostObject;
 import com.badlogic.gdx.physics.bullet.dynamics.btKinematicCharacterController;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
-import com.badlogic.gdx.utils.JsonReader;
-import com.juego.core.Assets;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Disposable;
 import com.juego.bullet.MotionState;
 import com.juego.components.AnimationComponent;
 import com.juego.components.BulletComponent;
@@ -36,47 +29,49 @@ import com.juego.components.GunComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.components.StatusComponent;
+import com.juego.core.Assets;
 import com.juego.guns.Gun;
-import com.juego.guns.PrimaryGun;
 import com.juego.systems.BulletSystem;
 
-public class EntityFactory {
+/**
+ * Builds the game's entities. Owned by a GameWorld: models it loads are
+ * released, and the placeholder character model destroyed, on {@link #dispose()}.
+ */
+public class EntityFactory implements Disposable {
+	/** Character capsule: radius 2, cylinder 2 -> 6 units tall, centered on its origin. */
+	public static final float CHARACTER_RADIUS = 2f;
+	public static final float CHARACTER_CYLINDER = 2f;
+	private static final String CHARACTER_TEXTURE = "badlogic.jpg";
+	private static final float STEP_HEIGHT = .35f;
 
-	private static ModelBuilder modelBuilder;
-	private static Texture playerTexture;
-	private static Model playerModel;
+	private final BulletSystem bulletSystem;
+	private final Model characterModel;
+	private final Array<String> acquired = new Array<>();
 
-	public static Entity createStaticEntity(Model model, float x, float y, float z) {
-		final BoundingBox boundingBox = new BoundingBox();
-		model.calculateBoundingBox(boundingBox);
-		Vector3 tmpV = new Vector3();
-		btCollisionShape col = new btBoxShape(
-				tmpV.set(boundingBox.getWidth() * 0.5f, boundingBox.getHeight() * 0.5f, boundingBox.getDepth() * 0.5f));
-		Entity entity = new Entity();
-		ModelComponent modelComponent = new ModelComponent(model, x, y, z);
-		entity.add(modelComponent);
-		BulletComponent bulletComponent = new BulletComponent();
-		bulletComponent.bodyInfo = new btRigidBody.btRigidBodyConstructionInfo(0, null, col, Vector3.Zero);
-		bulletComponent.body = new btRigidBody(bulletComponent.bodyInfo);
-		bulletComponent.body.userData = entity;
-		bulletComponent.motionState = new MotionState(modelComponent.instance.transform);
-		((btRigidBody) bulletComponent.body).setMotionState(bulletComponent.motionState);
-		entity.add(bulletComponent);
-		return entity;
-	}
-
-	static {
-		modelBuilder = new ModelBuilder();
-		playerTexture = new Texture(Gdx.files.internal("badlogic.jpg"));
-		Material material = new Material(TextureAttribute.createDiffuse(playerTexture),
+	public EntityFactory(BulletSystem bulletSystem) {
+		this.bulletSystem = bulletSystem;
+		Texture texture = acquire(CHARACTER_TEXTURE, Texture.class);
+		Material material = new Material(TextureAttribute.createDiffuse(texture),
 				ColorAttribute.createSpecular(1, 1, 1, 1), FloatAttribute.createShininess(8f));
-		playerModel = modelBuilder.createCapsule(2f, 6f, 16, material, VertexAttributes.Usage.Position
-				| VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates);
+		float height = CHARACTER_CYLINDER + 2 * CHARACTER_RADIUS;
+		characterModel = new ModelBuilder().createCapsule(CHARACTER_RADIUS, height, 16, material,
+				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal
+						| VertexAttributes.Usage.TextureCoordinates);
 	}
 
-	private static Entity createCharacter(BulletSystem bulletSystem, float x, float y, float z) {
+	private <T> T acquire(String path, Class<T> type) {
+		acquired.add(path);
+		return Assets.acquire(path, type);
+	}
+
+	private Model acquireModel(String path) {
+		acquired.add(path);
+		return Assets.acquireModel(path);
+	}
+
+	private Entity createCharacter(float x, float y, float z) {
 		Entity entity = new Entity();
-		ModelComponent modelComponent = new ModelComponent(playerModel, x, y, z);
+		ModelComponent modelComponent = new ModelComponent(characterModel, x, y, z);
 		entity.add(modelComponent);
 		CharacterComponent characterComponent = new CharacterComponent();
 		characterComponent.ghostObject = new btPairCachingGhostObject();
@@ -84,36 +79,39 @@ public class EntityFactory {
 		// btKinematicCharacterController treats +Z as the default up axis and rotates the
 		// ghost object to match the requested up vector (+Y), so the capsule has to be
 		// built along Z to end up standing. A Y capsule ends up lying on its side.
-		characterComponent.ghostShape = new btCapsuleShapeZ(2f, 2f);
+		characterComponent.ghostShape = new btCapsuleShapeZ(CHARACTER_RADIUS, CHARACTER_CYLINDER);
 		characterComponent.ghostObject.setCollisionShape(characterComponent.ghostShape);
 		characterComponent.ghostObject.setCollisionFlags(btCollisionObject.CollisionFlags.CF_CHARACTER_OBJECT);
 		characterComponent.characterController = new btKinematicCharacterController(characterComponent.ghostObject,
-				characterComponent.ghostShape, .35f, new Vector3(0, 1f, 0));
+				characterComponent.ghostShape, STEP_HEIGHT, new Vector3(0, 1f, 0));
 		characterComponent.ghostObject.userData = entity;
 		entity.add(characterComponent);
-		bulletSystem.collisionWorld.addCollisionObject(entity.getComponent(CharacterComponent.class).ghostObject,
+		bulletSystem.collisionWorld.addCollisionObject(characterComponent.ghostObject,
 				(short) btBroadphaseProxy.CollisionFilterGroups.CharacterFilter,
-				(short) (btBroadphaseProxy.CollisionFilterGroups.AllFilter));
-		bulletSystem.collisionWorld.addAction(entity.getComponent(CharacterComponent.class).characterController);
+				(short) btBroadphaseProxy.CollisionFilterGroups.AllFilter);
+		bulletSystem.collisionWorld.addAction(characterComponent.characterController);
 		return entity;
 	}
 
-	public static Entity createPlayer(BulletSystem bulletSystem, float x, float y, float z, String team, PrimaryGun primaryGun, int numJugador) {
-		Entity entity = createCharacter(bulletSystem, x, y, z);
-		entity.add(new PlayerComponent(team, primaryGun, numJugador));
+	public Entity createPlayer(float x, float y, float z, String team, Gun primaryGun, Gun secondaryGun,
+			int playerNumber) {
+		Entity entity = createCharacter(x, y, z);
+		entity.add(new PlayerComponent(team, primaryGun, secondaryGun, playerNumber));
 		return entity;
 	}
 
-	public static Entity createEnemy(BulletSystem bulletSystem, float x, float y, float z) {
-		Entity entity = createCharacter(bulletSystem, x, y, z);
+	public Entity createEnemy(float x, float y, float z) {
+		Entity entity = createCharacter(x, y, z);
 		entity.add(new EnemyComponent(EnemyComponent.STATE.HUNTING));
 		entity.add(new StatusComponent());
 		return entity;
 	}
 
-	public static Entity loadGun(float x, float y, float z, Gun gun) {
-		Model model = gun.getModel();
-		ModelComponent modelComponent = new ModelComponent(model, x, y, z);
+	/** First-person view model of a gun. Drawn by the RenderSystem with its own camera. */
+	public Entity createGunView(Gun gun) {
+		float[] offset = gun.def.viewOffset;
+		ModelComponent modelComponent = new ModelComponent(acquireModel(gun.def.model), offset[0], offset[1],
+				offset[2]);
 		Entity gunEntity = new Entity();
 		gunEntity.add(modelComponent);
 		gunEntity.add(new GunComponent());
@@ -121,12 +119,11 @@ public class EntityFactory {
 		return gunEntity;
 	}
 
-	public static Entity loadScene(int x, int y, int z, String name) {
+	/** A level: its model plus a static triangle-mesh collider built from the model's nodes. */
+	public Entity createLevel(String mapName) {
+		Model model = acquireModel("maps/" + mapName + ".g3dj");
 		Entity entity = new Entity();
-		ModelLoader<?> modelLoader = new G3dModelLoader(new JsonReader());
-		ModelData modelData = modelLoader.loadModelData(Gdx.files.internal("maps/" + name + ".g3dj"));
-		Model model = new Model(modelData, Assets.modelTextureProvider());
-		ModelComponent modelComponent = new ModelComponent(model, x, y, z);
+		ModelComponent modelComponent = new ModelComponent(model, 0, 0, 0);
 		entity.add(modelComponent);
 		BulletComponent bulletComponent = new BulletComponent();
 		btCollisionShape shape = Bullet.obtainStaticNodeShape(model.nodes);
@@ -139,4 +136,11 @@ public class EntityFactory {
 		return entity;
 	}
 
+	@Override
+	public void dispose() {
+		characterModel.dispose();
+		for (String path : acquired)
+			Assets.release(path);
+		acquired.clear();
+	}
 }

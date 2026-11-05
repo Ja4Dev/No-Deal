@@ -18,7 +18,6 @@ import com.juego.components.EnemyComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
-import com.juego.managers.EntityFactory;
 
 public class EnemySystem extends EntitySystem implements EntityListener {
 	private static final float ENEMY_SPEED = 3f;
@@ -52,7 +51,7 @@ public class EnemySystem extends EntitySystem implements EntityListener {
 		if (player == null)
 			return;
 		if (entities.size() < 1) {
-			engine.addEntity(EntityFactory.createEnemy(gameWorld.bulletSystem, random.nextInt(40) - 20, 10,
+			engine.addEntity(gameWorld.entityFactory.createEnemy(random.nextInt(40) - 20, 10,
 					random.nextInt(40) - 20));
 		}
 		mm.get(player).instance.transform.getTranslation(playerPosition);

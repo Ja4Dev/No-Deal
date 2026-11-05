@@ -17,20 +17,18 @@ import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.utils.Config;
 
-public class ControlsMenuScreen extends Menu implements Screen {
+public class ControlsMenuScreen extends MenuScreen {
 
-	private Core game;
 	Image backgroundImage, titleImage;
 	TextButton backButton;
 	TextButton forwardButton,backwardButton, leftButton, rightButton, jumpButton, walkButton, reloadButton, changeGunButton, scoreboardsButton, fireButton, zoomButton, pauseButton;
 	Label forward,backward, left, right, jump, walk, reload, changeGun, scoreboards, fire, zoom, pause;
 	
 	public ControlsMenuScreen(Core game) {
-		this.game = game;
+		super(game);
 		setWidgets();
 		configureWidgers();
 		setListeners();
-		Gdx.input.setInputProcessor(stage);
 	}
 
 	private void setListeners() {
@@ -60,44 +58,6 @@ public class ControlsMenuScreen extends Menu implements Screen {
 		stage.addActor(backButton);
 	}
 
-	@Override
-	public void render(float delta) {
-	stage.act(delta);
-	stage.draw();
-	}
 	
-	@Override
-	public void resize(int width, int height) {
-	stage.getViewport().update(width, height);
-	}
-
-	@Override
-	public void dispose() {
-		super.dispose();
-	}
-
-	@Override
-	public void show() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void pause() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void resume() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void hide() {
-		// TODO Auto-generated method stub
-		
-	}
 
 }

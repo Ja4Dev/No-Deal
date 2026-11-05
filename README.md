@@ -9,6 +9,7 @@ Requirements: **JDK 17** or newer (a JRE is not enough).
 ```bash
 ./gradlew desktop:run    # run the game (use gradlew.bat on Windows cmd)
 ./gradlew desktop:dist   # build a runnable jar in desktop/build/libs/
+./gradlew test           # run the unit tests (no window needed)
 ```
 
 Run from the project root: the `run` task sets `core/assets` as the working directory so assets resolve correctly.
@@ -19,6 +20,21 @@ Unfortunately, the project couldn't end as I wanted, but I think I got a really 
 
 **IMPORTANT ADVICE:** The menues of the game and some commentary lines in the code are writed on Spanish, but fortunately all the code is fully writen in English.
 
+
+## Code structure
+The game uses an Entity Component System ([Ashley](https://github.com/libgdx/ashley)): components only hold data, and each system owns one responsibility.
+
+| System | Responsibility |
+| --- | --- |
+| `RenderSystem` | Draws the world, then the gun view model with its own camera |
+| `BulletSystem` | Steps the Bullet physics world at a fixed 60 Hz |
+| `PlayerSystem` | Mouse look, WASD movement, jumping, respawning |
+| `WeaponSystem` | Hitscan shooting, headshots, reloading, switching, zoom |
+| `EnemySystem` | Spawns enemies and makes them chase the player |
+| `StatusSystem` | Removes dead entities and frees their physics objects |
+| `HudSystem` | HUD, pause menu and scoreboard toggle |
+
+Systems share state through `PlayerComponent` rather than referencing each other. Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
 
 ## What I did
 The most important things I've made for the project are:

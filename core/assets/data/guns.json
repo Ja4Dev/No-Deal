@@ -1,0 +1,50 @@
+[
+	{
+		"id": "m4a1",
+		"name": "M4A1",
+		"slot": "PRIMARY",
+		"damage": 34,
+		"magazineSize": 30,
+		"reserveAmmo": 70,
+		"automatic": true,
+		"range": 50,
+		"fireDelayMs": 150,
+		"recoil": 1,
+		"hasSight": true,
+		"model": "models/M4A1.g3dj",
+		"sound": "sounds/M4A1-1Shot.mp3",
+		"viewOffset": [2.5, -2, -2.5]
+	},
+	{
+		"id": "ak47",
+		"name": "AK-47",
+		"slot": "PRIMARY",
+		"damage": 30,
+		"magazineSize": 30,
+		"reserveAmmo": 70,
+		"automatic": true,
+		"range": 50,
+		"fireDelayMs": 100,
+		"recoil": 2,
+		"hasSight": false,
+		"model": "models/Ak47.g3dj",
+		"sound": "sounds/AK47-1Shot.mp3",
+		"viewOffset": [2, -0.75, -4]
+	},
+	{
+		"id": "magnum",
+		"name": "Magnum",
+		"slot": "SECONDARY",
+		"damage": 40,
+		"magazineSize": 6,
+		"reserveAmmo": -1,
+		"automatic": false,
+		"range": 25,
+		"fireDelayMs": 500,
+		"recoil": 5,
+		"hasSight": false,
+		"model": "models/Magnum.g3dj",
+		"sound": "sounds/Magnum-1Shot.mp3",
+		"viewOffset": [2.75, -1.5, -4]
+	}
+]

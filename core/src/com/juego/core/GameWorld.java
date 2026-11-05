@@ -8,85 +8,70 @@ import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
 import com.juego.components.BulletComponent;
 import com.juego.components.CharacterComponent;
-import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
-import com.juego.guns.Gun;
-import com.juego.guns.M4A1;
-import com.juego.guns.PrimaryGun;
 import com.juego.managers.EntityFactory;
 import com.juego.systems.BulletSystem;
 import com.juego.systems.EnemySystem;
+import com.juego.systems.HudSystem;
 import com.juego.systems.PlayerSystem;
 import com.juego.systems.RenderSystem;
 import com.juego.systems.StatusSystem;
+import com.juego.systems.WeaponSystem;
 
+/** One match: the ECS engine, its systems, the physics world and every entity in it. */
 public class GameWorld {
+	private static final String LEVEL = "Bank";
+	private static final int LOCAL_PLAYER = 1;
 
-	private Engine engine;
-	private Entity p1, map;
+	public final Core game;
+	public final boolean debug = false;
+	private final Engine engine = new Engine();
 	public BulletSystem bulletSystem;
-	public PlayerSystem playerSystem;
 	public RenderSystem renderSystem;
+	public EntityFactory entityFactory;
+	private PlayerSystem playerSystem;
+	private WeaponSystem weaponSystem;
 	private EnemySystem enemySystem;
 	private StatusSystem statusSystem;
+	private HudSystem hudSystem;
 	private DebugDrawer debugDrawer;
-	public boolean debug = false;
-	public Core game;
-	public int jugador = 1;
 
 	public GameWorld(Core game) {
 		this.game = game;
 		Bullet.init();
-		setDebug();
 		addSystems();
-		addEntities();
-	}
-
-	private void setDebug() {
-		if (debug) {
-			debugDrawer = new DebugDrawer();
-			debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_MAX_DEBUG_DRAW_MODE);
-		}
-	}
-
-	private void addEntities() {
-		loadLevel("Bank");
-		createPlayers(3, 5, 3, "ct", new M4A1());
-	}
-
-	private void loadLevel(String mapName) {
-		map = EntityFactory.loadScene(0, 0, 0, mapName);
-		engine.addEntity(map);
-	}
-
-	private void createPlayers(float x, float y, float z, String team, PrimaryGun primaryGun) {
-		p1 = EntityFactory.createPlayer(bulletSystem, x, y, z, team, primaryGun, 1);
-		engine.addEntity(p1);
-
-		// Gun view models are drawn by the RenderSystem with their own camera, so they
-		// are not added to the engine. Both are built once and swapped when switching.
-		PlayerComponent player = p1.getComponent(PlayerComponent.class);
-		playerSystem.setGuns(createGunEntity(player.primaryGun), createGunEntity(player.secondaryGun));
-	}
-
-	private Entity createGunEntity(Gun gun) {
-		return EntityFactory.loadGun(gun.modelPos[0], gun.modelPos[1], gun.modelPos[2], gun);
+		entityFactory = new EntityFactory(bulletSystem);
+		engine.addEntity(entityFactory.createLevel(LEVEL));
+		engine.addEntity(entityFactory.createPlayer(3, 5, 3, "ct", Assets.armory.create("m4a1"),
+				Assets.armory.create("magnum"), LOCAL_PLAYER));
 	}
 
 	private void addSystems() {
-		engine = new Engine();
+		// Update order matters: physics before the systems that read positions,
+		// and the HUD last so it draws on top of the 3D scene.
 		engine.addSystem(renderSystem = new RenderSystem());
 		engine.addSystem(bulletSystem = new BulletSystem());
 		engine.addSystem(playerSystem = new PlayerSystem(this, renderSystem.perspectiveCamera));
+		engine.addSystem(weaponSystem = new WeaponSystem(this, renderSystem.perspectiveCamera));
 		engine.addSystem(enemySystem = new EnemySystem(this));
 		engine.addSystem(statusSystem = new StatusSystem(this));
-		if (debug)
-			bulletSystem.collisionWorld.setDebugDrawer(this.debugDrawer);
+		engine.addSystem(hudSystem = new HudSystem(this));
+		if (debug) {
+			debugDrawer = new DebugDrawer();
+			debugDrawer.setDebugMode(btIDebugDraw.DebugDrawModes.DBG_MAX_DEBUG_DRAW_MODE);
+			bulletSystem.collisionWorld.setDebugDrawer(debugDrawer);
+		}
+	}
+
+	/** Whether the entity is the player controlled from this machine (relevant once there is multiplayer). */
+	public boolean isLocalPlayer(Entity entity) {
+		PlayerComponent player = entity.getComponent(PlayerComponent.class);
+		return player != null && player.playerNumber == LOCAL_PLAYER;
 	}
 
 	public void render(float delta) {
 		// While the pause menu is open the world freezes: no physics, no enemies.
-		boolean running = !playerSystem.isPaused();
+		boolean running = !hudSystem.isPaused();
 		bulletSystem.setProcessing(running);
 		enemySystem.setProcessing(running);
 		statusSystem.setProcessing(running);
@@ -100,22 +85,7 @@ public class GameWorld {
 
 	public void resize(int width, int height) {
 		renderSystem.resize(width, height);
-		playerSystem.pauseMenu.resize(width, height);
-	}
-
-	public void dispose() {
-		for (Entity entity : engine.getEntitiesFor(Family.one(BulletComponent.class, CharacterComponent.class).get()))
-			bulletSystem.destroyBody(entity);
-		engine.removeAllEntities();
-		map.getComponent(ModelComponent.class).model.dispose();
-		PlayerComponent player = p1.getComponent(PlayerComponent.class);
-		player.primaryGun.dispose();
-		player.secondaryGun.dispose();
-		playerSystem.dispose();
-		renderSystem.dispose();
-		bulletSystem.dispose();
-		if (debugDrawer != null)
-			debugDrawer.dispose();
+		hudSystem.resize(width, height);
 	}
 
 	public void remove(Entity entity) {
@@ -123,4 +93,16 @@ public class GameWorld {
 		engine.removeEntity(entity);
 	}
 
+	public void dispose() {
+		for (Entity entity : engine.getEntitiesFor(Family.one(BulletComponent.class, CharacterComponent.class).get()))
+			bulletSystem.destroyBody(entity);
+		engine.removeAllEntities();
+		hudSystem.dispose();
+		weaponSystem.dispose();
+		entityFactory.dispose();
+		renderSystem.dispose();
+		bulletSystem.dispose();
+		if (debugDrawer != null)
+			debugDrawer.dispose();
+	}
 }

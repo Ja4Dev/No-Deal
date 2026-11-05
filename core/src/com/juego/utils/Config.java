@@ -19,5 +19,5 @@ public class Config {
 	public static int fireButton = Input.Buttons.LEFT;
 	public static int zoomButton = Input.Buttons.RIGHT;
 	public static int pauseKey = Input.Keys.ESCAPE;
-	public static float sensivity = 2.5f;
+	public static float sensitivity = 2.5f;
 }

@@ -1,26 +1,26 @@
 package com.juego.UI;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.juego.core.Assets;
 import com.juego.core.Core;
 
+/** A Scene2D stage at the game's virtual resolution, plus the textures it uses. */
 public abstract class Menu implements Disposable {
 	protected Stage stage;
-	private final Array<Texture> textures = new Array<>();
+	private final Array<String> texturePaths = new Array<>();
 
 	public Menu() {
 		stage = new Stage(new FitViewport(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT));
 	}
 
-	/** Loads a texture that will be released automatically when the menu is disposed. */
+	/** Loads a texture that is released automatically when the menu is disposed. */
 	protected Texture loadTexture(String path) {
-		Texture texture = new Texture(Gdx.files.internal(path));
-		textures.add(texture);
-		return texture;
+		texturePaths.add(path);
+		return Assets.acquire(path, Texture.class);
 	}
 
 	public void resize(int width, int height) {
@@ -30,9 +30,8 @@ public abstract class Menu implements Disposable {
 	@Override
 	public void dispose() {
 		stage.dispose();
-		for (Texture texture : textures)
-			texture.dispose();
-		textures.clear();
+		for (String path : texturePaths)
+			Assets.release(path);
+		texturePaths.clear();
 	}
-
 }

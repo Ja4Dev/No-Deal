@@ -1,57 +1,62 @@
 package com.juego.guns;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.assets.loaders.ModelLoader;
-import com.badlogic.gdx.audio.Sound;
-import com.badlogic.gdx.graphics.g3d.Model;
-import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
-import com.badlogic.gdx.graphics.g3d.model.data.ModelData;
-import com.badlogic.gdx.graphics.g3d.utils.TextureProvider;
-import com.badlogic.gdx.utils.Disposable;
-import com.badlogic.gdx.utils.JsonReader;
-import com.juego.core.Assets;
+/**
+ * Runtime state of a gun the player is carrying: what's in the magazine and in
+ * reserve. Everything static lives in its {@link GunDefinition}.
+ */
+public class Gun {
+	public final GunDefinition def;
+	private int magazine;
+	private int reserve;
 
-public abstract class Gun implements Disposable {
-	public int damage;
-	public int magazine;
-	public boolean auto;
-	public float range;
-	public int delay;
-	public int magazineSize;
-	public Sound sound;
-	public boolean sight;
-	private ModelLoader modelLoader;
-	protected ModelData modelData;
-	private Model model;
-	public float[] modelPos = new float[3];
-	public float recoil;
-	
-	public Gun(int damage, int magazine, int magazineSize, boolean auto, float range, int delay, Sound sound, boolean sight, String modelName, float recoil) {
-		modelLoader = new G3dModelLoader(new JsonReader());
-		this.damage = damage;
-		this.magazine = magazine;
-		this.magazineSize = magazineSize;
-		this.auto = auto;
-		this.range = range;
-		this.delay = delay;
-		this.sound = sound;
-		this.sight = sight;
-		modelData = modelLoader.loadModelData(Gdx.files.internal("models/" + modelName));
-		this.recoil = recoil;
+	public Gun(GunDefinition def) {
+		this.def = def;
+		refill();
 	}
 
-	/** Builds the model on first use and reuses it afterwards (switching guns used to leak a model each time). */
-	public Model getModel() {
-		if (model == null)
-			model = new Model(modelData, Assets.modelTextureProvider());
-		return model;
+	public int getMagazine() {
+		return magazine;
 	}
 
-	public void dispose() {
-		if (model != null) {
-			model.dispose();
-			model = null;
-		}
+	public int getReserve() {
+		return reserve;
 	}
-	
+
+	public boolean hasInfiniteReserve() {
+		return def.reserveAmmo < 0;
+	}
+
+	public boolean isEmpty() {
+		return magazine <= 0;
+	}
+
+	/** Spends one round. @return false if the magazine was empty. */
+	public boolean consumeRound() {
+		if (isEmpty())
+			return false;
+		magazine--;
+		return true;
+	}
+
+	public boolean canReload() {
+		return magazine < def.magazineSize && (hasInfiniteReserve() || reserve > 0);
+	}
+
+	/** Moves rounds from the reserve into the magazine. @return false if nothing was reloaded. */
+	public boolean reload() {
+		if (!canReload())
+			return false;
+		int needed = def.magazineSize - magazine;
+		int loaded = hasInfiniteReserve() ? needed : Math.min(needed, reserve);
+		magazine += loaded;
+		if (!hasInfiniteReserve())
+			reserve -= loaded;
+		return true;
+	}
+
+	/** Full magazine and starting reserve, as when the player spawns. */
+	public void refill() {
+		magazine = def.magazineSize;
+		reserve = def.reserveAmmo;
+	}
 }

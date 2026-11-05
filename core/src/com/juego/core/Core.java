@@ -17,7 +17,7 @@ public class Core extends ApplicationAdapter {
 
 	@Override
 	public void create() {
-		new Assets();
+		Assets.init();
 		Gdx.input.setCatchKey(Input.Keys.BACK, true);
 		musicPlayer = new MusicPlayer();
 		setScreen(new MainMenuScreen(this));

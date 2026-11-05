@@ -15,18 +15,16 @@ import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.screens.GameScreen;
 
-public class CreditsScreen extends Menu implements Screen {
+public class CreditsScreen extends MenuScreen {
 	
-	Core game;
 	Image backgroundImage, titleImage, creditsImage;
 	TextButton backButton;
 	
 	public CreditsScreen(Core game) {
-		this.game = game;
+		super(game);
 		setWidgets();
 		configureWidgers();
 		setListeners();
-		Gdx.input.setInputProcessor(stage);
 	}
 
 	private void setListeners() {
@@ -62,44 +60,6 @@ public class CreditsScreen extends Menu implements Screen {
 		
 	}
 
-	@Override
-	public void render(float delta) {
-	stage.act(delta);
-	stage.draw();
-	}
 	
-	@Override
-	public void resize(int width, int height) {
-	stage.getViewport().update(width, height);
-	}
-
-	@Override
-	public void dispose() {
-		super.dispose();
-	}
-
-	@Override
-	public void show() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void pause() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void resume() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void hide() {
-		// TODO Auto-generated method stub
-		
-	}
 
 }

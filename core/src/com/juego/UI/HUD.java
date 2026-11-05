@@ -12,7 +12,7 @@ public class HUD extends Menu {
 	private final Label ammoLabel;
 	private final Label timeLabel;
 
-	public HUD(int health, int ammo) {
+	public HUD() {
 		Image healthWidget = new Image(loadTexture("HUD/HealthWidget.png"));
 		healthWidget.setPosition(10, 11);
 		Image ammoWidget = new Image(loadTexture("HUD/AmmoWidget.png"));
@@ -27,10 +27,10 @@ public class HUD extends Menu {
 		// sizes don't overwrite each other.
 		font = new BitmapFont();
 		Label.LabelStyle style = new Label.LabelStyle(font, Color.GREEN);
-		healthLabel = new Label(Integer.toString(health), style);
+		healthLabel = new Label("100", style); // initial text sizes the label (layout)
 		healthLabel.setFontScale(2f);
 		healthLabel.setPosition(62.5f, 27.5f);
-		ammoLabel = new Label(Integer.toString(ammo), style);
+		ammoLabel = new Label("70", style);
 		ammoLabel.setFontScale(2f);
 		ammoLabel.setPosition(stage.getWidth() - 97.5f, 27.5f);
 		timeLabel = new Label("15:00", style);
@@ -46,17 +46,12 @@ public class HUD extends Menu {
 		stage.addActor(timeLabel);
 	}
 
-	/** Primary gun: shows magazine and reserve ammo. */
-	public void update(int health, int ammo, Gun gun) {
-		healthLabel.setText(health);
-		ammoLabel.setText(gun.magazine + "/" + ammo);
-		draw();
-	}
-
-	/** Secondary gun: infinite reserve, shows only the magazine. */
 	public void update(int health, Gun gun) {
 		healthLabel.setText(health);
-		ammoLabel.setText(gun.magazine);
+		if (gun.hasInfiniteReserve())
+			ammoLabel.setText(gun.getMagazine());
+		else
+			ammoLabel.setText(gun.getMagazine() + "/" + gun.getReserve());
 		draw();
 	}
 

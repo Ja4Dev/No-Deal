@@ -19,19 +19,17 @@ import com.juego.core.Core;
 import com.juego.screens.GameScreen;
 import com.juego.utils.MusicPlayer;
 
-public class MainMenuScreen extends Menu implements Screen {
-	Core game;
+public class MainMenuScreen extends MenuScreen {
 	Image backgroundImage, titleImage;
 	TextButton playButton, configButton, creditsButton, quitButton;
 	Label musicPlayer;
 	TextButton musicPause, musicNext, musicPrev;
 
 	public MainMenuScreen(Core game) {
-		this.game = game;
+		super(game);
 		setWidgets();
 		configureWidgers();
 		setListeners();
-		Gdx.input.setInputProcessor(stage);
 	}
 
 	private void setListeners() {
@@ -135,40 +133,6 @@ public class MainMenuScreen extends Menu implements Screen {
 	stage.draw();
 	}
 	
-	@Override
-	public void resize(int width, int height) {
-	stage.getViewport().update(width, height);
-	}
 	
-	@Override
-	public void dispose() {
-	super.dispose();
-	}
-
-	@Override
-	public void show() {
-		// TODO Auto-generated method stub
-
-	}
-
-
-	@Override
-	public void pause() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void resume() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void hide() {
-		// TODO Auto-generated method stub
-
-	}
-
 
 }
