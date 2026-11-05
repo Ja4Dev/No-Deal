@@ -15,6 +15,8 @@ import com.juego.components.AnimationComponent;
 import com.juego.components.GunComponent;
 import com.juego.components.ModelComponent;
 import com.juego.core.Core;
+import com.juego.graphics.ImpactMarks;
+import com.juego.graphics.SkyDome;
 
 public class RenderSystem extends EntitySystem {
 
@@ -24,6 +26,8 @@ public class RenderSystem extends EntitySystem {
 	private static final float FOV = 67F;
 	public PerspectiveCamera perspectiveCamera, gunCamera;
 	public Entity gun;
+	public final ImpactMarks impactMarks;
+	private final SkyDome sky = new SkyDome();
 
 	public RenderSystem() {
 		perspectiveCamera = new PerspectiveCamera(FOV, Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
@@ -33,6 +37,7 @@ public class RenderSystem extends EntitySystem {
 		batch = new ModelBatch();
 		gunCamera = new PerspectiveCamera(FOV, Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
 		gunCamera.far = 100f;
+		impactMarks = new ImpactMarks(perspectiveCamera);
 	}
 
 
@@ -45,18 +50,26 @@ public class RenderSystem extends EntitySystem {
 	}
 
 	private void drawModels(float delta) {
+		// Sky in its own pass: it never writes depth, so everything drawn after covers it.
+		batch.begin(perspectiveCamera);
+		sky.render(batch, perspectiveCamera);
+		batch.end();
 		batch.begin(perspectiveCamera);
 		for (int i = 0; i < entities.size(); i++) {
 			if (entities.get(i).getComponent(GunComponent.class) == null) {
 				ModelComponent mod = entities.get(i).getComponent(ModelComponent.class);
-				batch.render(mod.instance, environment);
+				if (mod.visible)
+					batch.render(mod.instance, environment);
 			}
 		}
 		batch.end();
+		impactMarks.render();
 		drawGun(delta);
 	}
 
 	private void drawGun(float delta) {
+		if (gun == null || !gun.getComponent(ModelComponent.class).visible)
+			return;
 		Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
 		batch.begin(gunCamera);
 		batch.render(gun.getComponent(ModelComponent.class).instance);
@@ -71,6 +84,8 @@ public class RenderSystem extends EntitySystem {
 		gunCamera.viewportWidth = width;
 		}
 	public void dispose() {
+		impactMarks.dispose();
+		sky.dispose();
 		batch.dispose();
 		batch = null;
 		}

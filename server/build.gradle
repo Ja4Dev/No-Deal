@@ -1,0 +1,39 @@
+sourceSets.main.java.srcDirs = [ "src/" ]
+// The server only needs game data and level geometry: no textures, sounds or UI.
+sourceSets.main.resources {
+    srcDirs = [ "../core/assets" ]
+    include "data/**"
+    include "maps/*.g3dj"
+}
+
+def mainClassName = "com.juego.server.DedicatedServer"
+
+tasks.register("run", JavaExec) {
+    group = "application"
+    description = "Runs the dedicated server. Pass options with --args='--port 25559 --max-players 4'."
+    dependsOn classes
+    mainClass = mainClassName
+    classpath = sourceSets.main.runtimeClasspath
+    workingDir = file("../core/assets")
+    standardInput = System.in
+}
+
+tasks.register("dist", Jar) {
+    group = "build"
+    description = "Builds a runnable dedicated server jar into server/build/libs."
+    archiveBaseName = appName + "-server"
+    archiveVersion = project.version
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    // core's jar only has classes; keep the server free of client-only assets.
+    with jar
+}
+
+eclipse.project.name = appName + "-server"

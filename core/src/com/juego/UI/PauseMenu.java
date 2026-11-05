@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -56,8 +57,7 @@ public class PauseMenu extends Menu{
 		menuButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				gameWorld.game.musicPlayer.paused = false;
-				gameWorld.game.setScreen(new MainMenuScreen(gameWorld.game));
+				gameWorld.game.leaveMatch(null);
 			}
 		});
 
@@ -83,11 +83,16 @@ public class PauseMenu extends Menu{
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("pauseMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("pauseMenu/title.png")));
+		backgroundImage = new Image(loadTexture("pauseMenu/background.png"));
+		titleImage = new Image(loadTexture("pauseMenu/title.png"));
 		resumeButton = new TextButton("Reanudar", Assets.skin);
 		scoreButton = new TextButton("Puntuacion", Assets.skin);
 		menuButton = new TextButton("Menu Principal", Assets.skin);
+	}
+
+	/** Hidden behind the scoreboard, the buttons must not react to clicks. */
+	public void setInteractive(boolean interactive) {
+		stage.getRoot().setTouchable(interactive ? Touchable.enabled : Touchable.disabled);
 	}
 
 	public void update(float delta) {

@@ -1,8 +1,23 @@
-apply plugin: "java"
-
-sourceCompatibility = 1.7
-[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
-
 sourceSets.main.java.srcDirs = [ "src/" ]
+sourceSets.test.java.srcDirs = [ "test/" ]
+
+dependencies {
+    testImplementation platform("org.junit:junit-bom:5.10.3")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    // The network tests run the real server, which uses Bullet for hit detection.
+    testRuntimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    testRuntimeOnly "com.badlogicgames.gdx:gdx-bullet-platform:$gdxVersion:natives-desktop"
+}
+
+test {
+    useJUnitPlatform()
+    // Tests read real game data (e.g. assets/data/guns.json) relative to core/.
+    workingDir = projectDir
+    testLogging {
+        events "failed"
+        exceptionFormat "full"
+    }
+}
 
 eclipse.project.name = appName + "-core"

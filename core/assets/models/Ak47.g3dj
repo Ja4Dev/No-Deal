@@ -34973,7 +34973,7 @@
 			"textures": [
 				{
 					"id": "AK-47_C", 
-					"filename": "AK-47_C.tga", 
+					"filename": "AK-47_C.png", 
 					"type": "DIFFUSE"
 				}
 			]

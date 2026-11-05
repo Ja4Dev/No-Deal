@@ -1,0 +1,7 @@
+# Main menu playlist. One track per line, relative to this folder:
+#
+#   file.ogg | Title - Author (License)
+#
+# Only add music you have the rights to ship (e.g. CC0 or CC-BY with credit in
+# the credits screen). Lines starting with '#' are ignored. If no tracks are
+# listed, the music controls are hidden from the main menu.

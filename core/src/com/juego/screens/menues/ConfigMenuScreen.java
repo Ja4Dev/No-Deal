@@ -1,179 +1,126 @@
 package com.juego.screens.menues;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Graphics;
-import com.badlogic.gdx.Preferences;
-import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.juego.UI.Menu;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.utils.Config;
 
-public class ConfigMenuScreen extends Menu implements Screen {
-
-	private Core game;
-	Image backgroundImage, titleImage;
-	TextButton backButton, controlsButton;
-	CheckBox fullscreen;
-	Slider musicVolumeSlider, fxVolumeSlider;
-	Label sound, musicVolume, fxVolume, musicVolumeValue, fxVolumeValue, video;
+/** Sound, mouse and video settings. Saved when leaving the screen. */
+public class ConfigMenuScreen extends MenuScreen {
 
 	public ConfigMenuScreen(Core game) {
-		this.game = game;
-		setWidgets();
-		configureWidgers();
-		setListeners();
-		Gdx.input.setInputProcessor(stage);
-	}
+		super(game);
+		Image background = new Image(loadTexture("configMenu/background.png"));
+		background.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
+		Image title = new Image(loadTexture("configMenu/title.png"));
+		title.setSize(title.getWidth() * 0.85f, title.getHeight() * 0.85f);
+		title.setPosition(Core.VIRTUAL_WIDTH / 2 - title.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.14f);
+		stage.addActor(background);
+		stage.addActor(title);
 
-	private void setListeners() {
-		backButton.addListener(new ClickListener() {
+		final Slider music = new Slider(0, 100, 1, false, Assets.skin);
+		final Slider effects = new Slider(0, 100, 1, false, Assets.skin);
+		final Slider sensitivity = new Slider(Config.MIN_SENSITIVITY, Config.MAX_SENSITIVITY, 0.1f, false, Assets.skin);
+		final Label musicValue = new Label("", Assets.skin);
+		final Label effectsValue = new Label("", Assets.skin);
+		final Label sensitivityValue = new Label("", Assets.skin);
+		final CheckBox fullscreen = new CheckBox(" Pantalla Completa", Assets.skin);
+		TextButton controls = new TextButton("Controles", Assets.skin);
+		TextButton back = new TextButton("Volver", Assets.skin);
+
+		music.setValue(Config.musicVolume);
+		effects.setValue(Config.fxVolume);
+		sensitivity.setValue(Config.sensitivity);
+		fullscreen.setChecked(Config.fullscreen);
+		musicValue.setText((int) Config.musicVolume);
+		effectsValue.setText((int) Config.fxVolume);
+		sensitivityValue.setText(String.format("%.1f", Config.sensitivity));
+
+		Table table = new Table();
+		table.setFillParent(true);
+		table.top().padTop(150);
+		section(table, "Sonido");
+		row(table, "Musica", music, musicValue);
+		row(table, "Efectos", effects, effectsValue);
+		section(table, "Mouse");
+		row(table, "Sensibilidad", sensitivity, sensitivityValue);
+		section(table, "Video");
+		table.add(fullscreen).colspan(3).padBottom(24).row();
+		table.add(controls).colspan(3).width(192).height(48).padBottom(12).row();
+		table.add(back).colspan(3).width(192).height(48).row();
+		stage.addActor(table);
+
+		music.addListener(new ChangeListener() {
 			@Override
-			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new MainMenuScreen(game));
+			public void changed(ChangeEvent event, Actor actor) {
+				Config.musicVolume = music.getValue();
+				musicValue.setText((int) Config.musicVolume);
+			}
+		});
+		effects.addListener(new ChangeListener() {
+			@Override
+			public void changed(ChangeEvent event, Actor actor) {
+				Config.fxVolume = effects.getValue();
+				effectsValue.setText((int) Config.fxVolume);
+			}
+		});
+		sensitivity.addListener(new ChangeListener() {
+			@Override
+			public void changed(ChangeEvent event, Actor actor) {
+				Config.sensitivity = sensitivity.getValue();
+				sensitivityValue.setText(String.format("%.1f", Config.sensitivity));
 			}
 		});
 		fullscreen.addListener(new ChangeListener() {
 			@Override
 			public void changed(ChangeEvent event, Actor actor) {
-				if(fullscreen.isChecked()) {
-				Config.fullscreen = true;
-				getGraphs().setFullscreenMode(Gdx.graphics.getDisplayMode());
-				} else getGraphs().setWindowedMode(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
+				Config.fullscreen = fullscreen.isChecked();
+				if (Config.fullscreen)
+					Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
+				else
+					Gdx.graphics.setWindowedMode(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
 			}
 		});
-		musicVolumeSlider.addListener(new ChangeListener() {
-			@Override
-			public void changed(ChangeEvent event, Actor actor) {
-				Config.musicVolume = musicVolumeSlider.getValue();
-				musicVolumeValue.setText((int) Config.musicVolume);
-			}
-		});
-		fxVolumeSlider.addListener(new ChangeListener() {
-			@Override
-			public void changed(ChangeEvent event, Actor actor) {
-				Config.fxVolume = fxVolumeSlider.getValue();
-				fxVolumeValue.setText((int) Config.fxVolume);
-			}
-		});
-		controlsButton.addListener(new ClickListener() {
+		controls.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
 				game.setScreen(new ControlsMenuScreen(game));
 			}
 		});
-
+		back.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				game.setScreen(new MainMenuScreen(game));
+			}
+		});
 	}
 
-	private void configureWidgers() {
-		
-		backgroundImage.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
-		titleImage.setSize(titleImage.getWidth() * 0.85f, titleImage.getHeight() * 0.85f);
-		titleImage.setPosition(Core.VIRTUAL_WIDTH / 2 - titleImage.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.14f);
-		backButton.setSize(192, 48);
-		backButton.setPosition(Core.VIRTUAL_WIDTH / 2 - backButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - 250);
-		sound.setFontScale(1.5f);
-		sound.setPosition(Core.VIRTUAL_WIDTH / 2 - sound.getWidth() / 1.375f, titleImage.getY() - 75);
-		musicVolume.setPosition(Core.VIRTUAL_WIDTH / 2 - musicVolume.getWidth() / 2, sound.getY() - 40);
-		musicVolumeSlider.setPosition(Core.VIRTUAL_WIDTH / 2 - musicVolumeSlider.getWidth() / 2, musicVolume.getY() - 20);
-		musicVolumeSlider.setValue(Config.musicVolume);
-		musicVolumeValue.setPosition(Core.VIRTUAL_WIDTH / 2 - musicVolumeSlider.getX() + 650, musicVolume.getY() - 10);
-		musicVolumeValue.setText((int) Config.musicVolume);
-		fxVolume.setPosition(Core.VIRTUAL_WIDTH / 2 - fxVolume.getWidth() / 2, musicVolumeSlider.getY() - 40);
-		fxVolumeSlider.setPosition(Core.VIRTUAL_WIDTH / 2 - fxVolumeSlider.getWidth() / 2, fxVolume.getY() - 20);
-		fxVolumeSlider.setValue(Config.fxVolume);
-		fxVolumeValue.setPosition(Core.VIRTUAL_WIDTH / 2 - fxVolumeSlider.getX() + 650, fxVolume.getY() - 10);
-		fxVolumeValue.setText((int) Config.fxVolume);
-		video.setFontScale(1.5f);
-		video.setPosition(Core.VIRTUAL_WIDTH / 2 - video.getWidth() / 1.375f, fxVolumeSlider.getY() - 100);
-		fullscreen.setPosition(Core.VIRTUAL_WIDTH / 2 - fullscreen.getWidth() / 2, video.getY() - 40);
-		if(Config.fullscreen) fullscreen.setChecked(true);
-		controlsButton.setSize(192, 48);
-		controlsButton.setPosition(Core.VIRTUAL_WIDTH / 2 - controlsButton.getWidth() / 2, fullscreen.getY() - 80);
-		stage.addActor(backgroundImage);
-		stage.addActor(titleImage);
-		stage.addActor(backButton);
-		stage.addActor(sound);
-		stage.addActor(musicVolume);
-		stage.addActor(musicVolumeSlider);
-		stage.addActor(musicVolumeValue);
-		stage.addActor(fxVolume);
-		stage.addActor(fxVolumeSlider);
-		stage.addActor(fxVolumeValue);
-		stage.addActor(video);
-		stage.addActor(fullscreen);
-//		stage.addActor(controlsButton);
+	private static void section(Table table, String name) {
+		Label label = new Label(name, Assets.skin);
+		label.setFontScale(1.5f);
+		table.add(label).colspan(3).padTop(10).padBottom(8).row();
 	}
 
-	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("configMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("configMenu/title.png")));
-		backButton = new TextButton("Volver", Assets.skin);	
-		sound = new Label("Sonido", Assets.skin);
-		musicVolume = new Label("Musica", Assets.skin);
-		musicVolumeSlider = new Slider(0, 100, 1, false, Assets.skin);
-		musicVolumeValue = new Label("", Assets.skin);
-		fxVolume = new Label("Efectos", Assets.skin);
-		fxVolumeSlider = new Slider (0, 100, 1, false, Assets.skin);
-		fxVolumeValue = new Label("", Assets.skin);
-		video = new Label("Video", Assets.skin);
-		fullscreen = new CheckBox("Pantalla Completa", Assets.skin);
-		controlsButton = new TextButton("Controles", Assets.skin);
-		}
-
-	@Override
-	public void render(float delta) {
-	stage.act(delta);
-	stage.draw();
-	}
-	
-	@Override
-	public void resize(int width, int height) {
-	stage.getViewport().update(width, height);
+	private static void row(Table table, String name, Slider slider, Label value) {
+		table.add(new Label(name, Assets.skin)).right().padRight(14);
+		table.add(slider).width(260);
+		table.add(value).width(50).padLeft(14).left();
+		table.row().padBottom(6);
 	}
 
 	@Override
 	public void dispose() {
-		stage.dispose();
+		Config.save();
+		super.dispose();
 	}
-
-	@Override
-	public void show() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void pause() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void resume() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void hide() {
-		// TODO Auto-generated method stub
-		
-	}
-	
-	public Graphics getGraphs() {
-		return Gdx.app.getGraphics();
-	}
-	
-
 }

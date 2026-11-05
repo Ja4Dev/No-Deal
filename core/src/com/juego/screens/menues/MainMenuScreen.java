@@ -16,31 +16,48 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.juego.UI.Menu;
 import com.juego.core.Assets;
 import com.juego.core.Core;
+import com.juego.core.GameSession;
 import com.juego.screens.GameScreen;
 import com.juego.utils.MusicPlayer;
 
-public class MainMenuScreen extends Menu implements Screen {
-	Core game;
+public class MainMenuScreen extends MenuScreen {
 	Image backgroundImage, titleImage;
-	TextButton playButton, configButton, creditsButton, quitButton;
-	Label musicPlayer;
+	TextButton playButton, hostButton, joinButton, configButton, creditsButton, quitButton;
+	Label musicPlayer, messageLabel;
 	TextButton musicPause, musicNext, musicPrev;
+	/** Shown above the buttons, e.g. why an online match ended. */
+	private final String message;
 
 	public MainMenuScreen(Core game) {
-		this.game = game;
+		this(game, null);
+	}
+
+	public MainMenuScreen(Core game, String message) {
+		super(game);
+		this.message = message;
 		setWidgets();
 		configureWidgers();
 		setListeners();
-		Gdx.input.setInputProcessor(stage);
 	}
 
 	private void setListeners() {
 		playButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new GameScreen(game));
-				game.musicPlayer.paused = true;
-				game.musicPlayer.music[game.musicPlayer.getTemaActual()].stop();
+				game.setScreen(new GameScreen(game, GameSession.singleplayer()));
+				game.musicPlayer.stop();
+			}
+		});
+		hostButton.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				game.setScreen(new MultiplayerScreen(game, true));
+			}
+		});
+		joinButton.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				game.setScreen(new MultiplayerScreen(game, false));
 			}
 		});
 		configButton.addListener(new ClickListener() {
@@ -85,14 +102,18 @@ public class MainMenuScreen extends Menu implements Screen {
 	private void configureWidgers() {
 		backgroundImage.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
 		titleImage.setPosition(Core.VIRTUAL_WIDTH / 2 - titleImage.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.25f);
-		playButton.setSize(256, 64);
-		playButton.setPosition(Core.VIRTUAL_WIDTH / 2 - playButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - 0);
-		configButton.setSize(256, 64);
-		configButton.setPosition(Core.VIRTUAL_WIDTH / 2 - playButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - 70);
-		creditsButton.setSize(256, 64);
-		creditsButton.setPosition(Core.VIRTUAL_WIDTH / 2 - playButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - 140);
-		quitButton.setSize(256, 64);
-		quitButton.setPosition(Core.VIRTUAL_WIDTH / 2 - playButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - 210);
+		TextButton[] buttons = { playButton, hostButton, joinButton, configButton, creditsButton, quitButton };
+		float top = Core.VIRTUAL_HEIGHT / 2 + 100;
+		for (int i = 0; i < buttons.length; i++) {
+			buttons[i].setSize(256, 56);
+			buttons[i].setPosition(Core.VIRTUAL_WIDTH / 2 - 128, top - i * 64);
+			stage.addActor(buttons[i]);
+		}
+		if (message != null && !message.isEmpty()) {
+			messageLabel.setColor(1f, 0.35f, 0.35f, 1f);
+			messageLabel.pack();
+			messageLabel.setPosition(Core.VIRTUAL_WIDTH / 2 - messageLabel.getWidth() / 2, top + 70);
+		}
 		musicPlayer.setFontScale(1.25f);
 		musicPlayer.setPosition(36, 47);
 		musicPrev.setSize(32, 32);
@@ -103,20 +124,25 @@ public class MainMenuScreen extends Menu implements Screen {
 		musicNext.setPosition(musicPause.getX() + 52, 10);
 		stage.addActor(backgroundImage);
 		stage.addActor(titleImage);
-		stage.addActor(playButton);
-		stage.addActor(configButton);
-		stage.addActor(creditsButton);
-		stage.addActor(quitButton);
-		stage.addActor(musicPlayer);
-		stage.addActor(musicPrev);
-		stage.addActor(musicPause);
-		stage.addActor(musicNext);
+		backgroundImage.toBack();
+		if (message != null && !message.isEmpty())
+			stage.addActor(messageLabel);
+		// The music controls only make sense when the playlist has tracks.
+		if (game.musicPlayer.hasTracks()) {
+			stage.addActor(musicPlayer);
+			stage.addActor(musicPrev);
+			stage.addActor(musicPause);
+			stage.addActor(musicNext);
+		}
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("mainMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("mainMenu/title.png")));
-		playButton = new TextButton("Jugar Demo", Assets.skin);
+		backgroundImage = new Image(loadTexture("mainMenu/background.png"));
+		titleImage = new Image(loadTexture("mainMenu/title.png"));
+		playButton = new TextButton("Un jugador", Assets.skin);
+		hostButton = new TextButton("Crear partida", Assets.skin);
+		joinButton = new TextButton("Unirse a partida", Assets.skin);
+		messageLabel = new Label(message == null ? "" : message, Assets.skin);
 		configButton = new TextButton("Opciones", Assets.skin);
 		creditsButton = new TextButton("Creditos", Assets.skin);
 		quitButton = new TextButton("Salir", Assets.skin);
@@ -128,44 +154,11 @@ public class MainMenuScreen extends Menu implements Screen {
 
 	@Override
 	public void render(float delta) {
+	musicPlayer.setText("Musica: " + game.musicPlayer.getCurrentTitle());
 	stage.act(delta);
 	stage.draw();
 	}
 	
-	@Override
-	public void resize(int width, int height) {
-	stage.getViewport().update(width, height);
-	}
 	
-	@Override
-	public void dispose() {
-	stage.dispose();
-	}
-
-	@Override
-	public void show() {
-		// TODO Auto-generated method stub
-
-	}
-
-
-	@Override
-	public void pause() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void resume() {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void hide() {
-		// TODO Auto-generated method stub
-
-	}
-
 
 }

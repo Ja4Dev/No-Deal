@@ -3,27 +3,15 @@ package com.juego.screens;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.juego.core.Core;
+import com.juego.core.GameSession;
 import com.juego.core.GameWorld;
-import com.juego.screens.menues.MainMenuScreen;
 
 public class GameScreen implements Screen {
-	
-	private Core game;
-	private GameWorld gameWorld;
-	
-	
-	
-	public GameScreen(Core game) {
-		this.game = game;
-		
-		gameWorld = new GameWorld(game);
+	private final GameWorld gameWorld;
+
+	public GameScreen(Core game, GameSession session) {
+		gameWorld = new GameWorld(game, session);
 		Gdx.input.setCursorCatched(true);
-		}
-
-	@Override
-	public void show() {
-		// TODO Auto-generated method stub
-
 	}
 
 	@Override
@@ -37,27 +25,23 @@ public class GameScreen implements Screen {
 	}
 
 	@Override
-	public void pause() {
-		// TODO Auto-generated method stub
+	public void dispose() {
+		gameWorld.dispose();
+	}
 
+	@Override
+	public void show() {
+	}
+
+	@Override
+	public void pause() {
 	}
 
 	@Override
 	public void resume() {
-		// TODO Auto-generated method stub
-
 	}
 
 	@Override
 	public void hide() {
-		// TODO Auto-generated method stub
-
 	}
-
-	@Override
-	public void dispose() {
-		 gameWorld.dispose();
-
-	}
-
 }

@@ -27,6 +27,7 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 	public final btConstraintSolver solver;
 	public final btDiscreteDynamicsWorld collisionWorld;
 	private btGhostPairCallback ghostPairCallback;
+	private final MyContactListener contactListener;
 	public int maxSubSteps = 5;
 	public float fixedTimeStep = 1f / 60f;
 
@@ -36,8 +37,8 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 	}
 
 	public BulletSystem() {
-		MyContactListener myContactListener = new MyContactListener();
-		myContactListener.enable();
+		contactListener = new MyContactListener();
+		contactListener.enable();
 		collisionConfiguration = new btDefaultCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfiguration);
 		broadphase = new btAxisSweep3(new Vector3(-1000, -1000, -1000), new Vector3(1000, 1000, 1000));
@@ -50,7 +51,7 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 
 	@Override
 	public void update(float deltaTime) {
-		collisionWorld.stepSimulation(deltaTime);
+		collisionWorld.stepSimulation(deltaTime, maxSubSteps, fixedTimeStep);
 	}
 
 	public void dispose() {
@@ -64,6 +65,7 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 		if (collisionConfiguration != null)
 			collisionConfiguration.dispose();
 		ghostPairCallback.dispose();
+		contactListener.dispose();
 	}
 
 	@Override
@@ -74,15 +76,25 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 		}
 	}
 
-	public void removeBody(Entity entity) {
+	/** Removes the entity's physics objects from the world and frees their native memory. */
+	public void destroyBody(Entity entity) {
 		BulletComponent comp = entity.getComponent(BulletComponent.class);
-		if (comp != null)
+		if (comp != null && comp.body != null) {
 			collisionWorld.removeCollisionObject(comp.body);
+			comp.body.dispose();
+			comp.bodyInfo.getCollisionShape().dispose();
+			comp.bodyInfo.dispose();
+			comp.motionState.dispose();
+			comp.body = null;
+		}
 		CharacterComponent character = entity.getComponent(CharacterComponent.class);
-
-		if (character != null) {
+		if (character != null && character.characterController != null) {
 			collisionWorld.removeAction(character.characterController);
 			collisionWorld.removeCollisionObject(character.ghostObject);
+			character.characterController.dispose();
+			character.ghostObject.dispose();
+			character.ghostShape.dispose();
+			character.characterController = null;
 		}
 	}
 

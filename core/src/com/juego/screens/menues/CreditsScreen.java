@@ -15,18 +15,16 @@ import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.screens.GameScreen;
 
-public class CreditsScreen extends Menu implements Screen {
+public class CreditsScreen extends MenuScreen {
 	
-	Core game;
 	Image backgroundImage, titleImage, creditsImage;
 	TextButton backButton;
 	
 	public CreditsScreen(Core game) {
-		this.game = game;
+		super(game);
 		setWidgets();
 		configureWidgers();
 		setListeners();
-		Gdx.input.setInputProcessor(stage);
 	}
 
 	private void setListeners() {
@@ -55,51 +53,13 @@ public class CreditsScreen extends Menu implements Screen {
 	}
 
 	private void setWidgets() {
-		backgroundImage = new Image(new Texture(Gdx.files.internal("creditsMenu/background.png")));
-		titleImage = new Image(new Texture(Gdx.files.internal("creditsMenu/title.png")));
-		creditsImage = new Image(new Texture(Gdx.files.internal("creditsMenu/credits.png")));
+		backgroundImage = new Image(loadTexture("creditsMenu/background.png"));
+		titleImage = new Image(loadTexture("creditsMenu/title.png"));
+		creditsImage = new Image(loadTexture("creditsMenu/credits.png"));
 		backButton = new TextButton("Volver", Assets.skin);			
 		
 	}
 
-	@Override
-	public void render(float delta) {
-	stage.act(delta);
-	stage.draw();
-	}
 	
-	@Override
-	public void resize(int width, int height) {
-	stage.getViewport().update(width, height);
-	}
-
-	@Override
-	public void dispose() {
-		stage.dispose();
-	}
-
-	@Override
-	public void show() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void pause() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void resume() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void hide() {
-		// TODO Auto-generated method stub
-		
-	}
 
 }

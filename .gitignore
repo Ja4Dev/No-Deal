@@ -65,6 +65,7 @@ com_crashlytics_export_strings.xml
 /android/build/
 /core/build/
 /desktop/build/
+/server/build/
 /html/build/
 /ios/build/
 /ios-moe/build/
@@ -105,6 +106,7 @@ gradle-app.setting
 /android/build/
 /core/build/
 /desktop/build/
+/server/build/
 /html/build/
 /ios/build/
 /ios-moe/build/
@@ -125,3 +127,6 @@ Thumbs.db
 !/ios-moe/xcode/*.xcodeproj/xcshareddata
 !/ios-moe/xcode/*.xcodeproj/project.pbxproj
 /ios-moe/xcode/native/
+
+## Local builds / old binaries (publish them in GitHub Releases instead)
+/releases/
