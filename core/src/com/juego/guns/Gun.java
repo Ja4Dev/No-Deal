@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.g3d.model.data.ModelData;
 import com.badlogic.gdx.graphics.g3d.utils.TextureProvider;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.JsonReader;
+import com.juego.core.Assets;
 
 public abstract class Gun implements Disposable {
 	public int damage;
@@ -42,7 +43,7 @@ public abstract class Gun implements Disposable {
 	/** Builds the model on first use and reuses it afterwards (switching guns used to leak a model each time). */
 	public Model getModel() {
 		if (model == null)
-			model = new Model(modelData, new TextureProvider.FileTextureProvider());
+			model = new Model(modelData, Assets.modelTextureProvider());
 		return model;
 	}
 

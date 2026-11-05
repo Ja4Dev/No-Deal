@@ -10940,7 +10940,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Metal006_2K_Color.jpg", 
+					"filename": "Metal006_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -10956,7 +10956,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Leather027_2K_Color.jpg", 
+					"filename": "Leather027_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -10972,7 +10972,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Plastic004_2K_Color.jpg", 
+					"filename": "Plastic004_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -10988,7 +10988,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Plastic003_2K_Color.jpg", 
+					"filename": "Plastic003_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]

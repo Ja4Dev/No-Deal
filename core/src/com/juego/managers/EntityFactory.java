@@ -26,6 +26,7 @@ import com.badlogic.gdx.physics.bullet.collision.btPairCachingGhostObject;
 import com.badlogic.gdx.physics.bullet.dynamics.btKinematicCharacterController;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.utils.JsonReader;
+import com.juego.core.Assets;
 import com.juego.bullet.MotionState;
 import com.juego.components.AnimationComponent;
 import com.juego.components.BulletComponent;
@@ -124,7 +125,7 @@ public class EntityFactory {
 		Entity entity = new Entity();
 		ModelLoader<?> modelLoader = new G3dModelLoader(new JsonReader());
 		ModelData modelData = modelLoader.loadModelData(Gdx.files.internal("maps/" + name + ".g3dj"));
-		Model model = new Model(modelData, new TextureProvider.FileTextureProvider());
+		Model model = new Model(modelData, Assets.modelTextureProvider());
 		ModelComponent modelComponent = new ModelComponent(model, x, y, z);
 		entity.add(modelComponent);
 		BulletComponent bulletComponent = new BulletComponent();

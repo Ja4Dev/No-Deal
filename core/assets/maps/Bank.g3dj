@@ -3211,7 +3211,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Metal035_2K_Color.jpg", 
+					"filename": "Metal035_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -3243,7 +3243,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Wood036_2K_Color.jpg", 
+					"filename": "Wood036_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -3268,7 +3268,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Metal028_2K_Color.jpg", 
+					"filename": "Metal028_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -3284,7 +3284,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Plaster002_2K_Color.jpg", 
+					"filename": "Plaster002_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -3316,7 +3316,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Carpet012_2K_Color.jpg", 
+					"filename": "Carpet012_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]

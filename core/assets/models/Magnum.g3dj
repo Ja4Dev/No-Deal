@@ -7204,7 +7204,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Metal035_2K_Color.jpg", 
+					"filename": "Metal035_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -7220,7 +7220,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Metal006_2K_Color.jpg", 
+					"filename": "Metal006_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
@@ -7236,7 +7236,7 @@
 			"textures": [
 				{
 					"id": "base_color_texture", 
-					"filename": "Wood007_2K_Color.jpg", 
+					"filename": "Wood007_1K_Color.jpg", 
 					"type": "DIFFUSE"
 				}
 			]
