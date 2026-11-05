@@ -44,11 +44,13 @@ Deathmatch for up to 4 players over LAN, with a hand-written UDP protocol (no ne
 
 - **Host a match**: *Crear partida* in the main menu. The server runs inside your game and the other players join with your IP, which is shown in the kill feed when the match starts.
 - **Join a match**: *Unirse a partida*, enter the host's IP and port (default UDP `25559`).
-- **Dedicated server**: the same server without a window or GPU, for a machine that only hosts:
+- **Dedicated server**: the same server without the game or a GPU, for a machine that only hosts. Double-click `NoDeal-server-1.0.jar` to open the server window: pick the port and match rules, start and stop the server, copy the address to join, look up your public IP, and watch the players and a colored log of joins, kills and matches. It also has a command line (`ayuda`, `estado`, `ip`, `limpiar`, `salir`...). Settings are remembered between runs.
+
+  Started with options, it starts the server right away. With `--nogui`, or on a machine without a display, it runs in the terminal instead:
   ```bash
-  java -jar NoDeal-server-1.0.jar --port 25559 --max-players 4 --time-limit 10 --frag-limit 20
+  java -jar NoDeal-server-1.0.jar --port 25559 --max-players 4 --time-limit 10 --frag-limit 20 [--nogui]
   ```
-  Console commands: `status` (match clock and players), `quit` (notify everyone and stop).
+  Terminal commands: `status` (match clock and players), `quit` (notify everyone and stop).
 - **Match rules**: a match lasts 10 minutes or until someone reaches 20 kills. Then the scoreboard shows the winner for 10 seconds, scores reset and everyone respawns. Offline, rounds last 5 minutes against the bots, and the clock stops while the game is paused.
 
 ### How it works

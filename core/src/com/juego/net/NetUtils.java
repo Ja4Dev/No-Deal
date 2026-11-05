@@ -2,6 +2,7 @@ package com.juego.net;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Collections;
@@ -28,5 +29,11 @@ public final class NetUtils {
 			NetLog.error("Net", "Could not list network interfaces: " + e.getMessage());
 		}
 		return result;
+	}
+
+	/** "192.168.1.20:51234", without the leading slash of InetSocketAddress.toString(). */
+	public static String format(InetSocketAddress address) {
+		return (address.getAddress() != null ? address.getAddress().getHostAddress() : address.getHostString())
+				+ ":" + address.getPort();
 	}
 }

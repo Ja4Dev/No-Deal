@@ -55,6 +55,33 @@ public class GameServer implements Disposable {
 		public long intermissionMs = Protocol.INTERMISSION_MS;
 	}
 
+	/** What a server event is about, so a console can color or filter it. */
+	public enum EventType {
+		INFO, JOIN, LEAVE, KILL, MATCH, WARNING
+	}
+
+	/** Receives the server's events (on the server thread), e.g. for the server window. */
+	public interface Listener {
+		void onServerEvent(EventType type, String message);
+	}
+
+	/** A copy of one player's public state, safe to hand to another thread. */
+	public static final class PlayerInfo {
+		public final int id, kills, deaths, health;
+		public final String name, address;
+		public final boolean alive;
+
+		PlayerInfo(int id, String name, String address, int kills, int deaths, int health, boolean alive) {
+			this.id = id;
+			this.name = name;
+			this.address = address;
+			this.kills = kills;
+			this.deaths = deaths;
+			this.health = health;
+			this.alive = alive;
+		}
+	}
+
 	private static class ServerPlayer {
 		final int id;
 		final String name;
@@ -101,6 +128,7 @@ public class GameServer implements Disposable {
 	private final Match match;
 	private long nextSnapshotMs;
 	private int tick;
+	private Listener listener;
 
 	public GameServer(Config config, FileHandleResolver files, Armory armory, LongSupplier clock) throws IOException {
 		this.config = config;
@@ -121,6 +149,17 @@ public class GameServer implements Disposable {
 				+ (config.fragLimit > 0 ? " or " + config.fragLimit + " kills" : "") + ")");
 	}
 
+	/** Called on the server thread for every join, leave, kill and match change. */
+	public void setListener(Listener listener) {
+		this.listener = listener;
+	}
+
+	private void event(EventType type, String message) {
+		NetLog.info(TAG, message);
+		if (listener != null)
+			listener.onServerEvent(type, message);
+	}
+
 	public int getPort() {
 		return socket.getLocalPort();
 	}
@@ -139,10 +178,32 @@ public class GameServer implements Disposable {
 	/** One line per player, for the dedicated server console. */
 	public String describePlayers() {
 		StringBuilder sb = new StringBuilder();
-		for (ServerPlayer p : byId.values())
+		for (PlayerInfo p : getPlayers())
 			sb.append(String.format("  #%d %-16s %s  K %d / D %d  %s%n", p.id, p.name,
-					p.alive ? p.health + " hp" : "dead", p.kills, p.deaths, p.connection.address));
+					p.alive ? p.health + " hp" : "dead", p.kills, p.deaths, p.address));
 		return sb.length() == 0 ? "  (no players)\n" : sb.toString();
+	}
+
+	/** The players right now, sorted by id. */
+	public Array<PlayerInfo> getPlayers() {
+		Array<PlayerInfo> result = new Array<>(byId.size);
+		for (ServerPlayer p : byId.values())
+			result.add(new PlayerInfo(p.id, p.name, NetUtils.format(p.connection.address), p.kills, p.deaths,
+					p.health, p.alive));
+		result.sort((a, b) -> Integer.compare(a.id, b.id));
+		return result;
+	}
+
+	public boolean isMatchPlaying() {
+		return match.isPlaying();
+	}
+
+	public long getMatchRemainingMs() {
+		return match.remainingMs(clock.getAsLong());
+	}
+
+	public int getMaxPlayers() {
+		return config.maxPlayers;
 	}
 
 	public void update() {
@@ -153,7 +214,7 @@ public class GameServer implements Disposable {
 
 		for (ServerPlayer p : byId.values().toArray()) {
 			if (p.connection.isTimedOut(Protocol.TIMEOUT_MS)) {
-				NetLog.info(TAG, p.name + " timed out");
+				event(EventType.LEAVE, p.name + " se desconectó (sin respuesta)");
 				removePlayer(p);
 			} else if (!p.alive && now >= p.respawnAtMs) {
 				respawn(p, now);
@@ -201,7 +262,7 @@ public class GameServer implements Disposable {
 				handleFire(player, Messages.Fire.read(message.payload), now);
 				break;
 			case Protocol.DISCONNECT:
-				NetLog.info(TAG, player.name + " left");
+				event(EventType.LEAVE, player.name + " salió de la partida");
 				removePlayer(player);
 				return;
 			default:
@@ -221,7 +282,7 @@ public class GameServer implements Disposable {
 			reject.reason = reason;
 			connection.sendReliable(reject);
 			closing.add(connection);
-			NetLog.info(TAG, "Rejected " + connection.address + ": " + reason);
+			event(EventType.WARNING, "Rechazado " + NetUtils.format(connection.address) + ": " + reason);
 			return null;
 		}
 		if (byId.size == 0)
@@ -248,7 +309,8 @@ public class GameServer implements Disposable {
 				connection.sendReliable(joined(other));
 		}
 		broadcastReliable(joined(player), player);
-		NetLog.info(TAG, player.name + " joined as #" + id + " from " + connection.address);
+		event(EventType.JOIN,
+				player.name + " entró a la partida (#" + id + ", " + NetUtils.format(connection.address) + ")");
 		return player;
 	}
 
@@ -336,8 +398,9 @@ public class GameServer implements Disposable {
 			end.winnerId = winner == null ? Protocol.WORLD : winner.id;
 			end.reason = match.getEndReason().ordinal();
 			broadcastReliable(end, null);
-			NetLog.info(TAG, "Match over (" + match.getEndReason() + "), winner: "
-					+ (winner == null ? "nobody" : winner.name + " with " + winner.kills + " kills"));
+			event(EventType.MATCH, "Fin de la partida ("
+					+ (match.getEndReason() == Match.EndReason.FRAG_LIMIT ? "límite de bajas" : "tiempo") + "). "
+					+ (winner == null ? "Nadie hizo bajas." : "Ganó " + winner.name + " con " + winner.kills + " bajas."));
 			break;
 		}
 		case RESTARTED:
@@ -351,7 +414,7 @@ public class GameServer implements Disposable {
 				placeAtSpawn(p, now);
 				teleport(p, p.position, Protocol.RESPAWN, true, now);
 			}
-			NetLog.info(TAG, "New match started");
+			event(EventType.MATCH, "Empieza una nueva partida");
 			break;
 		default:
 			break;
@@ -385,8 +448,11 @@ public class GameServer implements Disposable {
 		kill.headshot = headshot;
 		kill.gun = gun;
 		broadcastReliable(kill, null);
-		NetLog.info(TAG, (killer == null ? "The world" : killer.name) + " killed " + victim.name
-				+ (headshot ? " (headshot)" : ""));
+		if (killer == null)
+			event(EventType.KILL, victim.name + " se cayó del mapa");
+		else
+			event(EventType.KILL,
+					killer.name + " mató a " + victim.name + " con " + gun + (headshot ? " (headshot)" : ""));
 	}
 
 	private void respawn(ServerPlayer p, long now) {
