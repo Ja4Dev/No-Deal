@@ -49,7 +49,8 @@ public class RenderSystem extends EntitySystem {
 		for (int i = 0; i < entities.size(); i++) {
 			if (entities.get(i).getComponent(GunComponent.class) == null) {
 				ModelComponent mod = entities.get(i).getComponent(ModelComponent.class);
-				batch.render(mod.instance, environment);
+				if (mod.visible)
+					batch.render(mod.instance, environment);
 			}
 		}
 		batch.end();
@@ -57,6 +58,8 @@ public class RenderSystem extends EntitySystem {
 	}
 
 	private void drawGun(float delta) {
+		if (gun == null || !gun.getComponent(ModelComponent.class).visible)
+			return;
 		Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
 		batch.begin(gunCamera);
 		batch.render(gun.getComponent(ModelComponent.class).instance);

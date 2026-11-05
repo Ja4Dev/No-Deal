@@ -73,12 +73,13 @@ public class PlayerSystem extends EntitySystem implements EntityListener {
 	public void update(float delta) {
 		if (player == null)
 			return;
-		if (playerComponent.isDead())
+		// Offline we respawn right away; online the server decides when and where.
+		if (playerComponent.isDead() && !gameWorld.isMultiplayer())
 			respawn();
 
 		characterComponent.walkDirection.setZero();
 		playerComponent.moving = false;
-		if (!playerComponent.pause) {
+		if (!playerComponent.pause && !playerComponent.isDead()) {
 			updateCameraRotation();
 			updateWalkDirection();
 			if (Gdx.input.isKeyJustPressed(Config.jumpKey) && characterComponent.characterController.onGround()) {
@@ -141,6 +142,19 @@ public class PlayerSystem extends EntitySystem implements EntityListener {
 	}
 
 	private void teleportToSpawn() {
-		characterComponent.characterController.warp(spawnPoint);
+		teleport(spawnPoint);
+	}
+
+	/** Moves the player instantly (spawns, server corrections). */
+	public void teleport(Vector3 position) {
+		characterComponent.characterController.warp(position);
+		characterComponent.walkDirection.setZero();
+		syncModelAndCamera();
+	}
+
+	/** Center of the player's capsule (where the camera is). */
+	public Vector3 getPosition(Vector3 out) {
+		characterComponent.ghostObject.getWorldTransform(ghost);
+		return ghost.getTranslation(out);
 	}
 }

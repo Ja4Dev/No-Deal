@@ -4,6 +4,9 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.LongArray;
 import com.juego.guns.Gun;
 
 public class HUD extends Menu {
@@ -11,6 +14,12 @@ public class HUD extends Menu {
 	private final Label healthLabel;
 	private final Label ammoLabel;
 	private final Label timeLabel;
+	private final Label feedLabel;
+	private final Label centerLabel;
+	private static final long FEED_DURATION_MS = 6000;
+	private static final int FEED_LINES = 5;
+	private final Array<String> feedMessages = new Array<>();
+	private final LongArray feedTimes = new LongArray();
 
 	public HUD() {
 		Image healthWidget = new Image(loadTexture("HUD/HealthWidget.png"));
@@ -37,6 +46,12 @@ public class HUD extends Menu {
 		timeLabel.setFontScale(2f);
 		timeLabel.setPosition(stage.getWidth() / 2 - timeLabel.getPrefWidth() / 5, stage.getHeight() - 46);
 
+		feedLabel = new Label("", new Label.LabelStyle(font, Color.WHITE));
+		feedLabel.setFontScale(1.25f);
+		centerLabel = new Label("", new Label.LabelStyle(font, Color.RED));
+		centerLabel.setFontScale(2.5f);
+		centerLabel.setAlignment(Align.center);
+
 		stage.addActor(healthWidget);
 		stage.addActor(ammoWidget);
 		stage.addActor(crosshair);
@@ -44,6 +59,36 @@ public class HUD extends Menu {
 		stage.addActor(healthLabel);
 		stage.addActor(ammoLabel);
 		stage.addActor(timeLabel);
+		stage.addActor(feedLabel);
+		stage.addActor(centerLabel);
+	}
+
+	/** Adds a line to the kill feed (top right). Lines fade out after a few seconds. */
+	public void addFeedMessage(String message) {
+		feedMessages.add(message);
+		feedTimes.add(System.currentTimeMillis());
+		while (feedMessages.size > FEED_LINES) {
+			feedMessages.removeIndex(0);
+			feedTimes.removeIndex(0);
+		}
+	}
+
+	/** Big centered message, e.g. "Te eliminó X". Null or empty hides it. */
+	public void setCenterMessage(String message) {
+		centerLabel.setText(message == null ? "" : message);
+	}
+
+	private void layoutMessages() {
+		long now = System.currentTimeMillis();
+		while (feedTimes.size > 0 && now - feedTimes.first() > FEED_DURATION_MS) {
+			feedMessages.removeIndex(0);
+			feedTimes.removeIndex(0);
+		}
+		feedLabel.setText(String.join("\n", feedMessages));
+		feedLabel.pack();
+		feedLabel.setPosition(stage.getWidth() - 12, stage.getHeight() - 12, Align.topRight);
+		centerLabel.pack();
+		centerLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.62f, Align.center);
 	}
 
 	public void update(int health, Gun gun) {
@@ -56,6 +101,7 @@ public class HUD extends Menu {
 	}
 
 	private void draw() {
+		layoutMessages();
 		stage.getViewport().apply();
 		stage.draw();
 	}

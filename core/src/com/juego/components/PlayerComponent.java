@@ -73,6 +73,21 @@ public class PlayerComponent implements Component {
 		}
 	}
 
+	// ---- Online matches: the server is the authority on health and score ----
+
+	public void setFromServer(int health, int kills, int deaths) {
+		if (!dead)
+			this.health = health;
+		this.kills = kills;
+		this.deaths = deaths;
+	}
+
+	/** The server says this player died. Deaths are counted by the server, not here. */
+	public void killedByServer() {
+		health = 0;
+		dead = true;
+	}
+
 	/** Restores health and ammo after a death. Repositioning is handled by the PlayerSystem. */
 	public void respawn() {
 		health = MAX_HEALTH;

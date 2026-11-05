@@ -56,8 +56,7 @@ public class PauseMenu extends Menu{
 		menuButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				gameWorld.game.musicPlayer.paused = false;
-				gameWorld.game.setScreen(new MainMenuScreen(gameWorld.game));
+				gameWorld.game.leaveMatch(null);
 			}
 		});
 

@@ -5,6 +5,7 @@ import com.badlogic.gdx.Input;
 
 public class Config {
 	public static boolean fullscreen = false;
+	public static String playerName = "Jugador";
 	public static float fxVolume = 100;
 	public static float musicVolume = 50;
 	public static int forwardKey = Input.Keys.W;

@@ -23,7 +23,7 @@ import com.juego.components.StatusComponent;
 import com.juego.core.Assets;
 import com.juego.core.GameWorld;
 import com.juego.guns.Gun;
-import com.juego.managers.EntityFactory;
+import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
 
 /** The local player's guns: hitscan shooting, reloading, switching and aiming down sights. */
@@ -33,9 +33,6 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private static final long RELOAD_DELAY_MS = 2000;
 	private static final float DEFAULT_FOV = 67f;
 	private static final float ZOOM_FOV = 30f;
-	/** Hits on the top ~1.2 units of a character capsule count as headshots. */
-	private static final float HEAD_OFFSET = EntityFactory.CHARACTER_CYLINDER / 2 + EntityFactory.CHARACTER_RADIUS
-			- 1.2f;
 	/** Spread values are tuned in pixels for a 1280 px wide window and scaled from there. */
 	private static final float SPREAD_REFERENCE_WIDTH = 1280f;
 
@@ -103,7 +100,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	public void update(float deltaTime) {
 		if (player == null)
 			return;
-		if (!playerComponent.pause)
+		if (!playerComponent.pause && !playerComponent.isDead())
 			handleInput();
 		syncViewModel(); // the selected gun can also change on respawn
 	}
@@ -166,6 +163,11 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		spread = calculateSpread();
 		Ray ray = camera.getPickRay(Gdx.graphics.getWidth() / 2f + spread, Gdx.graphics.getHeight() / 2f);
 		rayFrom.set(ray.origin);
+		if (gameWorld.network != null) {
+			// Online the server re-traces the shot and decides the damage.
+			gameWorld.network.sendFire(gun, rayFrom, ray.direction);
+			return;
+		}
 		rayTo.set(ray.direction).scl(gun.def.range).add(rayFrom);
 		// The callback is reused, so its previous result has to be cleared.
 		rayTestCB.setCollisionObject(null);
@@ -184,7 +186,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		rayTestCB.getHitPointWorld(hitPoint);
 		targetCharacter.ghostObject.getWorldTransform(targetTransform);
 		targetTransform.getTranslation(targetCenter);
-		boolean headshot = hitPoint.y >= targetCenter.y + HEAD_OFFSET;
+		boolean headshot = hitPoint.y >= targetCenter.y + CharacterShape.HEAD_OFFSET;
 
 		StatusComponent status = target.getComponent(StatusComponent.class);
 		if (status != null) {

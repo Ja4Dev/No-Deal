@@ -49,6 +49,11 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			player = null;
 	}
 
+	/** Null until the local player exists. */
+	public HUD getHud() {
+		return hud;
+	}
+
 	public boolean isPaused() {
 		return playerComponent != null && playerComponent.pause;
 	}

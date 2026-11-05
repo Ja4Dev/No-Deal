@@ -28,10 +28,12 @@ import com.juego.components.EnemyComponent;
 import com.juego.components.GunComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
+import com.juego.components.RemotePlayerComponent;
 import com.juego.components.StatusComponent;
 import com.juego.core.Assets;
 import com.juego.guns.Gun;
 import com.juego.systems.BulletSystem;
+import com.juego.utils.CharacterShape;
 
 /**
  * Builds the game's entities. Owned by a GameWorld: models it loads are
@@ -39,8 +41,8 @@ import com.juego.systems.BulletSystem;
  */
 public class EntityFactory implements Disposable {
 	/** Character capsule: radius 2, cylinder 2 -> 6 units tall, centered on its origin. */
-	public static final float CHARACTER_RADIUS = 2f;
-	public static final float CHARACTER_CYLINDER = 2f;
+	public static final float CHARACTER_RADIUS = CharacterShape.RADIUS;
+	public static final float CHARACTER_CYLINDER = CharacterShape.CYLINDER;
 	private static final String CHARACTER_TEXTURE = "badlogic.jpg";
 	private static final float STEP_HEIGHT = .35f;
 
@@ -104,6 +106,16 @@ public class EntityFactory implements Disposable {
 		Entity entity = createCharacter(x, y, z);
 		entity.add(new EnemyComponent(EnemyComponent.STATE.HUNTING));
 		entity.add(new StatusComponent());
+		return entity;
+	}
+
+	/** Another online player: just a model, moved by the NetworkSystem from server snapshots. */
+	public Entity createRemotePlayer(int playerId) {
+		Entity entity = new Entity();
+		ModelComponent model = new ModelComponent(characterModel, 0, -1000, 0);
+		model.visible = false; // until its first snapshot arrives
+		entity.add(model);
+		entity.add(new RemotePlayerComponent(playerId));
 		return entity;
 	}
 

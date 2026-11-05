@@ -10,6 +10,8 @@ public class ModelComponent implements Component {
 	
 	public Model model;
 	public ModelInstance instance;
+	/** Hidden models are skipped by the RenderSystem (e.g. dead remote players). */
+	public boolean visible = true;
 	
 	
 	public ModelComponent(Model model, float x, float y, float
