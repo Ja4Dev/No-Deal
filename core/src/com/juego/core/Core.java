@@ -2,6 +2,7 @@ package com.juego.core;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.juego.screens.GameScreen;
@@ -18,7 +19,7 @@ public class Core extends ApplicationAdapter {
 	@Override
 	public void create() {
 		new Assets();
-		Gdx.input.setCatchBackKey(true);
+		Gdx.input.setCatchKey(Input.Keys.BACK, true);
 		musicPlayer = new MusicPlayer();
 		setScreen(new MainMenuScreen(this));
 	}

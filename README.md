@@ -1,5 +1,17 @@
 # No-Deal
-A 3D First Person Shooter game template in the 1.9.10 version of LibGDX for Java 8.
+A 3D First Person Shooter game template built with LibGDX, Ashley (ECS) and Bullet physics.
+
+> Originally written in 2020 with LibGDX 1.9.10 and Java 8. It has since been updated to **LibGDX 1.13.1, Java 17, Gradle 8 and the LWJGL3 desktop backend**.
+
+## Building and running
+Requirements: **JDK 17** or newer (a JRE is not enough).
+
+```bash
+./gradlew desktop:run    # run the game (use gradlew.bat on Windows cmd)
+./gradlew desktop:dist   # build a runnable jar in desktop/build/libs/
+```
+
+Run from the project root: the `run` task sets `core/assets` as the working directory so assets resolve correctly.
 
 ## Description
 <p>No Deal was an attempt to develop a simple first person shooter game I carried out as a final academic project for my technical high scool, in the year 2020.

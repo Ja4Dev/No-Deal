@@ -1,0 +1,18 @@
+# Normalize text files to LF in the repository, regardless of the contributor's OS.
+* text=auto
+
+# Scripts that must keep a specific line ending to run.
+gradlew     text eol=lf
+*.sh        text eol=lf
+*.bat       text eol=crlf
+
+# Binary assets: never diff or convert.
+*.jar       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.tga       binary
+*.mp3       binary
+*.ogg       binary
+*.wav       binary
+*.ttf       binary

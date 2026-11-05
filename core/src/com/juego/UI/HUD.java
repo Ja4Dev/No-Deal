@@ -28,7 +28,7 @@ public class HUD extends Menu{
 	    healthWidget.setPosition(10, 11);
 	    ammoWidget = new Image(new Texture(Gdx.files.internal("HUD/AmmoWidget.png")));
 	    ammoWidget.setPosition(stage.getWidth() - 150, 11);
-	    crosshair = new Image(new Texture(Gdx.files.internal("HUD/crosshair.png")));
+	    crosshair = new Image(new Texture(Gdx.files.internal("HUD/Crosshair.png")));
 	    crosshair.setScale(1);
 	    crosshair.setPosition(stage.getWidth() / 2 - crosshair.getWidth() / 2, stage.getHeight() / 2 - crosshair.getHeight() / 2);
 	    timerWidget = new Image(new Texture(Gdx.files.internal("HUD/TimerWidget.png")));

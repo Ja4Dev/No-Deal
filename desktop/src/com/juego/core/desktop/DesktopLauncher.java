@@ -1,20 +1,21 @@
 package com.juego.core.desktop;
 
-import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
-import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
+import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
+import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.juego.core.Core;
 import com.juego.utils.Config;
 
 public class DesktopLauncher {
-	public static void main (String[] arg) {
-		LwjglApplicationConfiguration config = new
-				LwjglApplicationConfiguration();
-				config.width = (int) Core.VIRTUAL_WIDTH;
-				config.height = (int) Core.VIRTUAL_HEIGHT;
-				config.title = "No Deal";
-				config.fullscreen = Config.fullscreen;
-				new LwjglApplication(new Core(), config);
-
+	public static void main(String[] arg) {
+		Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
+		config.setTitle("No Deal");
+		config.useVsync(true);
+		config.setForegroundFPS(Lwjgl3ApplicationConfiguration.getDisplayMode().refreshRate + 1);
+		if (Config.fullscreen) {
+			config.setFullscreenMode(Lwjgl3ApplicationConfiguration.getDisplayMode());
+		} else {
+			config.setWindowedMode(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
+		}
+		new Lwjgl3Application(new Core(), config);
 	}
-	
 }

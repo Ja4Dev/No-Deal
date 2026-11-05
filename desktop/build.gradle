@@ -1,41 +1,53 @@
-apply plugin: "java"
+import org.gradle.internal.os.OperatingSystem
 
-sourceCompatibility = 1.7
 sourceSets.main.java.srcDirs = [ "src/" ]
-sourceSets.main.resources.srcDirs = ["../core/assets"]
+sourceSets.main.resources.srcDirs = [ "../core/assets" ]
 
-project.ext.mainClassName = "com.juego.core.desktop.DesktopLauncher"
-project.ext.assetsDir = new File("../core/assets")
+def mainClassName = "com.juego.core.desktop.DesktopLauncher"
+def assetsDir = file("../core/assets")
+// LWJGL3 on macOS requires the GLFW event loop to run on the first thread.
+def macJvmArgs = OperatingSystem.current().isMacOsX() ? ["-XstartOnFirstThread"] : []
 
-task run(dependsOn: classes, type: JavaExec) {
-    main = project.mainClassName
+tasks.register("run", JavaExec) {
+    group = "application"
+    description = "Runs the desktop game."
+    dependsOn classes
+    mainClass = mainClassName
     classpath = sourceSets.main.runtimeClasspath
+    workingDir = assetsDir
+    jvmArgs = macJvmArgs
     standardInput = System.in
-    workingDir = project.assetsDir
     ignoreExitValue = true
 }
 
-task debug(dependsOn: classes, type: JavaExec) {
-    main = project.mainClassName
+tasks.register("debug", JavaExec) {
+    group = "application"
+    description = "Runs the desktop game with a debugger attached on port 5005."
+    dependsOn classes
+    mainClass = mainClassName
     classpath = sourceSets.main.runtimeClasspath
+    workingDir = assetsDir
+    jvmArgs = macJvmArgs
     standardInput = System.in
-    workingDir = project.assetsDir
     ignoreExitValue = true
     debug = true
 }
 
-task dist(type: Jar) {
+tasks.register("dist", Jar) {
+    group = "build"
+    description = "Builds a runnable fat jar into desktop/build/libs."
+    archiveBaseName = appName
+    archiveVersion = project.version
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
-        attributes 'Main-Class': project.mainClassName
+        attributes 'Main-Class': mainClassName
     }
     dependsOn configurations.runtimeClasspath
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
     with jar
 }
-
-
-dist.dependsOn classes
 
 eclipse.project.name = appName + "-desktop"
