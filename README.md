@@ -32,12 +32,13 @@ The game uses an Entity Component System ([Ashley](https://github.com/libgdx/ash
 | `BulletSystem` | Steps the Bullet physics world at a fixed 60 Hz |
 | `NetworkSystem` | Online only: syncs the match with the server, moves the other players |
 | `PlayerSystem` | Mouse look, WASD movement, jumping, respawning |
-| `WeaponSystem` | Hitscan shooting, headshots, reloading, switching, zoom |
+| `WeaponSystem` | Hitscan shooting, headshots, reloading, switching, zoom, bullet tracers |
+| `GroundWeaponSystem` | Guns on the ground: dropping, picking up, level spawners |
 | `EnemySystem` | Offline only: spawns enemies and makes them chase the player |
 | `StatusSystem` | Removes dead entities and frees their physics objects |
-| `HudSystem` | HUD, pause menu and scoreboard toggle |
+| `HudSystem` | HUD, pause menu, scoreboard toggle, damage feedback |
 
-The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement flags, pending recoil, pause). Settings and key bindings are saved with libGDX `Preferences`, and any action can be bound to a key or a mouse button (`Controls`). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
+The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement flags, pending recoil, pause). Getting hit flashes the screen edges red, an arc around the crosshair points to where the shot came from, and the edges stay faintly red while health is low. Settings and key bindings are saved with libGDX `Preferences`, and any action can be bound to a key or a mouse button (`Controls`). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
 
 ## Multiplayer
 Deathmatch for up to 4 players over LAN, with a hand-written UDP protocol (no networking library).
@@ -51,6 +52,7 @@ Deathmatch for up to 4 players over LAN, with a hand-written UDP protocol (no ne
   java -jar NoDeal-server-1.0.jar --port 25559 --max-players 4 --time-limit 10 --frag-limit 20 [--nogui]
   ```
   Terminal commands: `status` (match clock and players), `quit` (notify everyone and stop).
+- **Guns on the ground**: press **G** (rebindable) to drop the gun in hand, or to pick up the gun you are looking at, which swaps it for the one in that slot. Walking over a gun picks it up if that slot is empty. Dead players drop the gun they were holding, and the level has AK-47 spawners that refill 30 seconds after someone takes the gun. Dropped guns keep their ammo and disappear after a minute.
 - **Match rules**: a match lasts 10 minutes or until someone reaches 20 kills. Then the scoreboard shows the winner for 10 seconds, scores reset and everyone respawns. Offline, rounds last 5 minutes against the bots, and the clock stops while the game is paused.
 
 ### How it works
@@ -68,6 +70,7 @@ Deathmatch for up to 4 players over LAN, with a hand-written UDP protocol (no ne
 - **Who decides what.** Each client simulates its own movement, so it feels instant, and the server checks every reported position against the maximum speed. The client's clock may not run ahead of the server's, so a client can't claim extra time to move faster. Everything that decides the match is server-authoritative: every shot is re-traced on the server against the level and the other players' hitboxes, and only the server changes health, kills, deaths and respawns.
 - **Two channels over one UDP socket** (`Connection`). Frequent state travels *unreliably*, because only the newest copy matters. Events travel on a *reliable, ordered* channel: each message has an id and is re-sent until the peer acknowledges it with a cumulative ack carried on every datagram. The receiver buffers out-of-order messages and delivers each one exactly once, in order. `ConnectionTest` checks this over a simulated link that loses 30% of the packets, duplicates 10% and shuffles the rest.
 - **Threads.** Each socket has a receiver thread that only queues raw datagrams. Everything else runs on the game/server thread, because Bullet's JNI wrappers are not thread-safe.
+- **Guns on the ground** follow the same rule: clients only *ask* to drop or pick up a gun, and the server decides, then tells everyone where it landed or who took it. The same `GroundWeapons` class runs on the server, in the offline game, and as the client's mirror of the server. The server also knows each player's guns, so a client can't fire a gun it doesn't have.
 - **Smooth remote players.** Other players are drawn 100 ms in the past, blending between the two snapshots around that moment.
 - **Headless-friendly collision.** `MapCollision` builds the level's triangle mesh straight from the `.g3dj` vertex data. It never creates a GL `Model`, so the dedicated server runs without OpenGL. Spawn points for each level live in `core/assets/data/maps/<level>.json`.
 
@@ -96,10 +99,10 @@ Between the things that I couldn't add to the projects are:
   - The timer. *(Added in 2026: timed matches, see Multiplayer.)*
   - The scoreboard. *(Added in 2026: hold Tab.)*
   - The skyboxes. *(Added in 2026: a generated sky dome, visible through the openings in the roof.)*
-  - The raycasting shoots decals. *(Added in 2026: bullet holes that fade out.)*
+  - The raycasting shoots decals. *(Added in 2026: bullet holes that fade out, and faint tracers.)*
   - The settings options saving. *(Added in 2026, along with rebindable controls and mouse sensitivity.)*
   - The team selection menues.
-  - The gun dropping and picking system.
+  - The gun dropping and picking system. *(Added in 2026: press G, see Multiplayer.)*
 
 ## Want to help me?
 You can give the project a star, or simply share this to anyone you know is working on a Java 3D Game Project.

@@ -17,6 +17,7 @@ import com.juego.components.ModelComponent;
 import com.juego.core.Core;
 import com.juego.graphics.ImpactMarks;
 import com.juego.graphics.SkyDome;
+import com.juego.graphics.Tracers;
 
 public class RenderSystem extends EntitySystem {
 
@@ -27,6 +28,7 @@ public class RenderSystem extends EntitySystem {
 	public PerspectiveCamera perspectiveCamera, gunCamera;
 	public Entity gun;
 	public final ImpactMarks impactMarks;
+	public final Tracers tracers;
 	private final SkyDome sky = new SkyDome();
 
 	public RenderSystem() {
@@ -38,6 +40,7 @@ public class RenderSystem extends EntitySystem {
 		gunCamera = new PerspectiveCamera(FOV, Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
 		gunCamera.far = 100f;
 		impactMarks = new ImpactMarks(perspectiveCamera);
+		tracers = new Tracers(perspectiveCamera);
 	}
 
 
@@ -64,6 +67,7 @@ public class RenderSystem extends EntitySystem {
 		}
 		batch.end();
 		impactMarks.render();
+		tracers.render(delta);
 		drawGun(delta);
 	}
 
@@ -85,6 +89,7 @@ public class RenderSystem extends EntitySystem {
 		}
 	public void dispose() {
 		impactMarks.dispose();
+		tracers.dispose();
 		sky.dispose();
 		batch.dispose();
 		batch = null;

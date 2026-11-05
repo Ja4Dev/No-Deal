@@ -85,16 +85,24 @@ public class GameClient implements Disposable {
 	/** Something that happened in the match, for the game to react to once. */
 	public static class Event {
 		public enum Type {
-			JOINED, LEFT, KILL, RESPAWN, SET_POSITION, MATCH_END, MATCH_START, SHOT
+			JOINED, LEFT, KILL, RESPAWN, SET_POSITION, MATCH_END, MATCH_START, SHOT, WEAPON_SPAWN, WEAPON_REMOVE,
+			DAMAGE
 		}
 
 		public final Type type;
+		/** The player it is about. WEAPON_SPAWN: who dropped it. WEAPON_REMOVE: who took it. */
 		public int playerId, killerId;
 		public boolean headshot;
-		/** MATCH_END: ordinal of Match.EndReason. SHOT: gun slot. */
+		/** MATCH_END: ordinal of Match.EndReason. DAMAGE: amount. */
 		public int detail;
+		/** KILL, SHOT, WEAPON_SPAWN: gun id or name. */
 		public String gun = "";
+		/** Where it happens. SHOT: where the bullet stopped. DAMAGE: where the shot came from. */
 		public final Vector3 position = new Vector3();
+		/** SHOT: where the bullet started. WEAPON_SPAWN: where the gun was thrown from. */
+		public final Vector3 from = new Vector3();
+		public int weaponId, magazine, reserve;
+		public float yaw;
 
 		Event(Type type) {
 			this.type = type;
@@ -266,7 +274,40 @@ public class GameClient implements Disposable {
 			Messages.Shot m = Messages.Shot.read(in);
 			Event e = new Event(Event.Type.SHOT);
 			e.playerId = m.shooterId;
-			e.detail = m.slot;
+			e.gun = m.gun;
+			e.from.set(m.origin);
+			e.position.set(m.end);
+			events.add(e);
+			break;
+		}
+		case Protocol.WEAPON_SPAWN: {
+			Messages.WeaponSpawn m = Messages.WeaponSpawn.read(in);
+			Event e = new Event(Event.Type.WEAPON_SPAWN);
+			e.weaponId = m.weaponId;
+			e.gun = m.gun;
+			e.from.set(m.from);
+			e.position.set(m.position);
+			e.yaw = m.yaw;
+			e.magazine = m.magazine;
+			e.reserve = m.reserve;
+			e.playerId = m.droppedBy;
+			events.add(e);
+			break;
+		}
+		case Protocol.WEAPON_REMOVE: {
+			Messages.WeaponRemove m = Messages.WeaponRemove.read(in);
+			Event e = new Event(Event.Type.WEAPON_REMOVE);
+			e.weaponId = m.weaponId;
+			e.playerId = m.pickerId;
+			events.add(e);
+			break;
+		}
+		case Protocol.DAMAGE: {
+			Messages.Damage m = Messages.Damage.read(in);
+			Event e = new Event(Event.Type.DAMAGE);
+			e.playerId = localId;
+			e.detail = m.amount;
+			e.position.set(m.source);
 			events.add(e);
 			break;
 		}
@@ -286,6 +327,11 @@ public class GameClient implements Disposable {
 
 	/** Sends the local player's state, at most {@link Protocol#STATE_INTERVAL_MS} apart. */
 	public void sendState(Vector3 position, float yaw, float pitch, int slot) {
+		sendState(position, yaw, pitch, slot, 0, 0);
+	}
+
+	/** Also reports the ammo of the gun in hand (see {@link Messages.PlayerState#magazine}). */
+	public void sendState(Vector3 position, float yaw, float pitch, int slot, int magazine, int reserve) {
 		long now = clock.getAsLong();
 		if (status != Status.CONNECTED || now < nextStateMs)
 			return;
@@ -297,7 +343,34 @@ public class GameClient implements Disposable {
 		state.yaw = yaw;
 		state.pitch = pitch;
 		state.slot = slot;
+		state.magazine = magazine;
+		state.reserve = reserve;
 		connection.sendUnreliable(state);
+	}
+
+	/** Asks the server to throw the gun in {@code slot}. */
+	public void sendDrop(int slot, int magazine, int reserve) {
+		if (status != Status.CONNECTED)
+			return;
+		Messages.DropWeapon m = new Messages.DropWeapon();
+		m.slot = slot;
+		m.magazine = magazine;
+		m.reserve = reserve;
+		connection.sendReliable(m);
+	}
+
+	/**
+	 * Asks the server for a gun on the ground. The ammo is the one of the gun
+	 * it replaces (0 if that slot is empty).
+	 */
+	public void sendPickup(int weaponId, int magazine, int reserve) {
+		if (status != Status.CONNECTED)
+			return;
+		Messages.PickupWeapon m = new Messages.PickupWeapon();
+		m.weaponId = weaponId;
+		m.magazine = magazine;
+		m.reserve = reserve;
+		connection.sendReliable(m);
 	}
 
 	public void sendFire(int slot, Vector3 origin, Vector3 direction) {

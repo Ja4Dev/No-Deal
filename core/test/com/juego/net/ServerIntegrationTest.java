@@ -2,6 +2,7 @@ package com.juego.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -23,6 +24,7 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.guns.Armory;
+import com.juego.utils.CharacterShape;
 
 /**
  * End to end over real UDP sockets on localhost: a real GameServer (with the
@@ -255,6 +257,95 @@ class ServerIntegrationTest {
 		a.sendState(new Vector3(SPAWN_A).add(60, 0, 0), 0, 0, 0); // 60 units in a few ms
 		pumpUntil("correction", 2000, () -> find(eventsA, GameClient.Event.Type.SET_POSITION) != null);
 		assertEquals(SPAWN_A, find(eventsA, GameClient.Event.Type.SET_POSITION).position);
+	}
+
+	@Test
+	void playersDropAndPickUpGuns() throws IOException {
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED
+				&& b.getPlayer(a.getLocalId()) != null);
+
+		// A throws its rifle, with some ammo spent: everyone sees it land in front of A.
+		a.sendDrop(0, 12, 40);
+		pumpUntil("rifle thrown", 2000, () -> find(eventsA, GameClient.Event.Type.WEAPON_SPAWN) != null
+				&& find(eventsB, GameClient.Event.Type.WEAPON_SPAWN) != null);
+		GameClient.Event rifle = find(eventsB, GameClient.Event.Type.WEAPON_SPAWN);
+		assertEquals("m4a1", rifle.gun);
+		assertEquals(a.getLocalId(), rifle.playerId);
+		assertEquals(12, rifle.magazine);
+		assertEquals(40, rifle.reserve);
+		assertTrue(rifle.position.y < SPAWN_A.y - 2, "on the floor, got " + rifle.position);
+		assertTrue(Vector3.dst(rifle.position.x, 0, rifle.position.z, SPAWN_A.x, 0, SPAWN_A.z)
+				<= com.juego.guns.GroundWeapons.THROW_DISTANCE + 0.1f, "in front of A, got " + rifle.position);
+		assertTrue(!rifle.from.epsilonEquals(rifle.position, 0.01f), "thrown, so clients animate it");
+
+		// The last gun can't be dropped, and an empty slot can't shoot.
+		eventsA.clear();
+		eventsB.clear();
+		Vector3 bodyDirection = new Vector3(SPAWN_B).add(0, -1, 0).sub(SPAWN_A);
+		a.sendDrop(1, 6, -1);
+		a.sendFire(0, SPAWN_A, bodyDirection);
+		pumpFor(300);
+		assertNull(find(eventsB, GameClient.Event.Type.WEAPON_SPAWN), "kept the last gun");
+		assertNull(find(eventsB, GameClient.Event.Type.SHOT), "no rifle anymore");
+
+		// The magnum works: B is hurt, told where the shot came from, and sees where the bullet went.
+		a.sendFire(1, SPAWN_A, bodyDirection);
+		pumpUntil("B hurt", 2000, () -> find(eventsB, GameClient.Event.Type.DAMAGE) != null
+				&& find(eventsB, GameClient.Event.Type.SHOT) != null);
+		GameClient.Event damage = find(eventsB, GameClient.Event.Type.DAMAGE);
+		assertEquals(40, damage.detail, "magnum damage");
+		assertEquals(SPAWN_A, damage.position);
+		GameClient.Event shot = find(eventsB, GameClient.Event.Type.SHOT);
+		assertEquals("magnum", shot.gun);
+		assertEquals(SPAWN_A, shot.from);
+		assertTrue(shot.position.dst(SPAWN_B) < CharacterShape.HALF_HEIGHT + 1, "bullet stopped at B: " + shot.position);
+
+		// Too far away to take it.
+		b.sendPickup(rifle.weaponId, 30, 70);
+		pumpFor(300);
+		assertNull(find(eventsA, GameClient.Event.Type.WEAPON_REMOVE), "B is across the room");
+
+		// B walks over and swaps its own rifle for A's.
+		walk(b, SPAWN_B, new Vector3(rifle.position.x, SPAWN_B.y, rifle.position.z));
+		eventsA.clear();
+		eventsB.clear();
+		b.sendPickup(rifle.weaponId, 30, 70);
+		pumpUntil("swap", 2000, () -> find(eventsA, GameClient.Event.Type.WEAPON_REMOVE) != null);
+		GameClient.Event taken = find(eventsA, GameClient.Event.Type.WEAPON_REMOVE);
+		assertEquals(rifle.weaponId, taken.weaponId);
+		assertEquals(b.getLocalId(), taken.playerId);
+		GameClient.Event bRifle = find(eventsA, GameClient.Event.Type.WEAPON_SPAWN);
+		assertNotNull(bRifle, "B's own rifle took its place on the ground");
+		assertEquals(b.getLocalId(), bRifle.playerId);
+		assertEquals(30, bRifle.magazine);
+
+		// Someone joining later finds it lying there, without a throw animation.
+		b.disconnect();
+		pumpUntil("B gone", 3000, () -> server.getPlayerCount() == 1);
+		eventsB.clear();
+		GameClient c = connect("Carla");
+		pumpUntil("C sees the ground", 3000, () -> find(eventsB, GameClient.Event.Type.WEAPON_SPAWN) != null);
+		GameClient.Event lying = find(eventsB, GameClient.Event.Type.WEAPON_SPAWN);
+		assertEquals(bRifle.weaponId, lying.weaponId);
+		assertTrue(lying.from.epsilonEquals(lying.position, 0.01f));
+		assertEquals(GameClient.Status.CONNECTED, c.getStatus());
+	}
+
+	/** Moves a client at a legal speed, sending its state like the game does. */
+	private void walk(GameClient client, Vector3 from, Vector3 to) {
+		Vector3 position = new Vector3(from);
+		long last = System.currentTimeMillis();
+		while (!position.epsilonEquals(to, 0.01f)) {
+			pumpFor(35);
+			long now = System.currentTimeMillis();
+			position.add(new Vector3(to).sub(position).limit(8f * (now - last) / 1000f));
+			last = now;
+			client.sendState(position, 0, 0, 0);
+		}
+		pumpFor(100);
 	}
 
 	private static void sleep(long ms) {
