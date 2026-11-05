@@ -34,7 +34,7 @@ The game uses an Entity Component System ([Ashley](https://github.com/libgdx/ash
 | `StatusSystem` | Removes dead entities and frees their physics objects |
 | `HudSystem` | HUD, pause menu and scoreboard toggle |
 
-Systems share state through `PlayerComponent` rather than referencing each other. Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
+The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement flags, pending recoil, pause). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, recoil, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
 
 ## What I did
 The most important things I've made for the project are:
