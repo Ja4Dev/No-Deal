@@ -39,8 +39,7 @@ public class MainMenuScreen extends Menu implements Screen {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
 				game.setScreen(new GameScreen(game));
-				game.musicPlayer.paused = true;
-				game.musicPlayer.music[game.musicPlayer.getTemaActual()].stop();
+				game.musicPlayer.stop();
 			}
 		});
 		configButton.addListener(new ClickListener() {
@@ -107,10 +106,13 @@ public class MainMenuScreen extends Menu implements Screen {
 		stage.addActor(configButton);
 		stage.addActor(creditsButton);
 		stage.addActor(quitButton);
-		stage.addActor(musicPlayer);
-		stage.addActor(musicPrev);
-		stage.addActor(musicPause);
-		stage.addActor(musicNext);
+		// The music controls only make sense when the playlist has tracks.
+		if (game.musicPlayer.hasTracks()) {
+			stage.addActor(musicPlayer);
+			stage.addActor(musicPrev);
+			stage.addActor(musicPause);
+			stage.addActor(musicNext);
+		}
 	}
 
 	private void setWidgets() {
@@ -128,6 +130,7 @@ public class MainMenuScreen extends Menu implements Screen {
 
 	@Override
 	public void render(float delta) {
+	musicPlayer.setText("Musica: " + game.musicPlayer.getCurrentTitle());
 	stage.act(delta);
 	stage.draw();
 	}
