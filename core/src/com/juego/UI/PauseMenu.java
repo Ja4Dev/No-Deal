@@ -1,46 +1,62 @@
 package com.juego.UI;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
-import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Button;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.juego.components.PlayerComponent;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.core.GameWorld;
-import com.juego.screens.GameScreen;
 import com.juego.screens.menues.ConfigMenuScreen;
-import com.juego.screens.menues.CreditsScreen;
-import com.juego.screens.menues.MainMenuScreen;
+import com.juego.screens.menues.MenuScreen;
+import com.juego.screens.menues.SettingsFlow;
 
-public class PauseMenu extends Menu{
-	Image backgroundImage, titleImage;
-	TextButton resumeButton, scoreButton, menuButton;
-	private PlayerComponent playerComponent;
-	private GameWorld gameWorld;
-	
-	
-	
+/**
+ * The in-game pause menu. Its "Opciones" button opens the same settings
+ * pages as the main menu (sound, mouse, video, controls, crosshair), drawn over
+ * the match; the pause key or "Volver" goes back to the pause buttons.
+ */
+public class PauseMenu extends Menu {
+	private static final float BUTTON_W = 192, BUTTON_H = 48, BUTTON_STEP = 60;
+
+	private Image backgroundImage, titleImage;
+	private TextButton resumeButton, scoreButton, settingsButton, menuButton;
+	private final PlayerComponent playerComponent;
+	private final GameWorld gameWorld;
+
+	/** The settings page open over the pause menu, or null. */
+	private MenuScreen page;
+	/** Page to show from the next frame: pages are swapped from their own click listeners. */
+	private MenuScreen pendingPage;
+	private boolean closePending;
+
+	private final SettingsFlow settingsFlow = new SettingsFlow() {
+		@Override
+		public void open(MenuScreen next) {
+			if (pendingPage != null && pendingPage != next)
+				pendingPage.dispose();
+			pendingPage = next;
+			closePending = false;
+		}
+
+		@Override
+		public void close() {
+			closePending = true;
+		}
+	};
+
 	public PauseMenu(PlayerComponent playerComponent, GameWorld gameWorld) {
 		this.playerComponent = playerComponent;
 		this.gameWorld = gameWorld;
 		setWidgets();
-		configureWidgers();
+		configureWidgets();
 		setListeners();
 		Gdx.input.setInputProcessor(stage);
 	}
-	
+
 	private void setListeners() {
 		resumeButton.addListener(new ClickListener() {
 			@Override
@@ -54,32 +70,33 @@ public class PauseMenu extends Menu{
 				playerComponent.scoreboard = true;
 			}
 		});
+		settingsButton.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				settingsFlow.open(new ConfigMenuScreen(gameWorld.game, settingsFlow));
+			}
+		});
 		menuButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
 				gameWorld.game.leaveMatch(null);
 			}
 		});
-
 	}
-	
-	private void configureWidgers() {
-		backgroundImage.setSize(Core.VIRTUAL_WIDTH / 2 - backgroundImage.getWidth() / 1, Core.VIRTUAL_HEIGHT / 1.5f);
+
+	private void configureWidgets() {
+		backgroundImage.setSize(Core.VIRTUAL_WIDTH / 2 - backgroundImage.getWidth(), Core.VIRTUAL_HEIGHT / 1.5f);
 		backgroundImage.setPosition(Core.VIRTUAL_WIDTH / 2 - backgroundImage.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - backgroundImage.getHeight() / 2);
 		titleImage.setSize(titleImage.getWidth() * 1.25f, titleImage.getHeight() * 1.25f);
 		titleImage.setPosition(Core.VIRTUAL_WIDTH / 2 - titleImage.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.4f - titleImage.getHeight() / 2);
-		resumeButton.setSize(192, 48);
-		resumeButton.setPosition(Core.VIRTUAL_WIDTH / 2 - resumeButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2);
-		scoreButton.setSize(192, 48);
-		scoreButton.setPosition(Core.VIRTUAL_WIDTH / 2 - resumeButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - 60);
-		menuButton.setSize(192, 48);
-		menuButton.setPosition(Core.VIRTUAL_WIDTH / 2 - resumeButton.getWidth() / 2, Core.VIRTUAL_HEIGHT / 2 - 120);
 		stage.addActor(backgroundImage);
 		stage.addActor(titleImage);
-		stage.addActor(resumeButton);
-		stage.addActor(scoreButton);
-		stage.addActor(menuButton);
-
+		TextButton[] buttons = { resumeButton, scoreButton, settingsButton, menuButton };
+		for (int i = 0; i < buttons.length; i++) {
+			buttons[i].setSize(BUTTON_W, BUTTON_H);
+			buttons[i].setPosition(Core.VIRTUAL_WIDTH / 2 - BUTTON_W / 2, Core.VIRTUAL_HEIGHT / 2 - i * BUTTON_STEP);
+			stage.addActor(buttons[i]);
+		}
 	}
 
 	private void setWidgets() {
@@ -87,6 +104,7 @@ public class PauseMenu extends Menu{
 		titleImage = new Image(loadTexture("pauseMenu/title.png"));
 		resumeButton = new TextButton("Reanudar", Assets.skin);
 		scoreButton = new TextButton("Puntuacion", Assets.skin);
+		settingsButton = new TextButton("Opciones", Assets.skin);
 		menuButton = new TextButton("Menu Principal", Assets.skin);
 	}
 
@@ -95,15 +113,78 @@ public class PauseMenu extends Menu{
 		stage.getRoot().setTouchable(interactive ? Touchable.enabled : Touchable.disabled);
 	}
 
+	/** True while a settings page is shown. */
+	public boolean isShowingSettings() {
+		return page != null || pendingPage != null;
+	}
+
+	/**
+	 * The pause key was pressed: inside the settings it goes back to the pause
+	 * buttons (or belongs to the controls page, while it waits for a key).
+	 *
+	 * @return true if the key was used here, so the game must not unpause
+	 */
+	public boolean consumePauseKey() {
+		if (!isShowingSettings())
+			return false;
+		if (page == null || !page.capturesKeys())
+			settingsFlow.close();
+		return true;
+	}
+
 	public void update(float delta) {
-		if(playerComponent.pause) {
-		stage.act(delta);
-		stage.draw();
+		applyPendingPage();
+		if (!playerComponent.pause) {
+			closePage();
+			return;
+		}
+		if (page != null) {
+			page.render(delta);
+		} else {
+			stage.act(delta);
+			stage.draw();
 		}
 	}
 
-	public void resize(int width, int height) {
-		stage.getViewport().update(width, height);		
+	private void applyPendingPage() {
+		if (closePending) {
+			closePending = false;
+			if (pendingPage != null)
+				pendingPage.dispose();
+			pendingPage = null;
+			closePage();
+		}
+		if (pendingPage != null) {
+			if (page != null)
+				page.dispose();
+			page = pendingPage;
+			pendingPage = null;
+			page.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		}
 	}
 
+	/** Back to the pause buttons. Disposing the page saves the settings. */
+	private void closePage() {
+		if (page == null)
+			return;
+		page.dispose();
+		page = null;
+		Gdx.input.setInputProcessor(stage);
+	}
+
+	@Override
+	public void resize(int width, int height) {
+		stage.getViewport().update(width, height);
+		if (page != null)
+			page.resize(width, height);
+	}
+
+	@Override
+	public void dispose() {
+		if (pendingPage != null)
+			pendingPage.dispose();
+		if (page != null)
+			page.dispose();
+		super.dispose();
+	}
 }

@@ -2,6 +2,7 @@ package com.juego.screens.menues;
 
 import java.util.EnumMap;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -28,7 +29,10 @@ public class ControlsMenuScreen extends MenuScreen {
 	/** The action waiting for a key/button, or null. */
 	private Action waiting;
 
-	public ControlsMenuScreen(Core game) {
+	/** Frame in which the last key/button was captured (that press must not also pause or unpause). */
+	private long captureFrame = -10;
+
+	public ControlsMenuScreen(final Core game, final SettingsFlow flow) {
 		super(game);
 		Image background = new Image(loadTexture("controlsMenu/background.png"));
 		background.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
@@ -75,7 +79,7 @@ public class ControlsMenuScreen extends MenuScreen {
 		back.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new ConfigMenuScreen(game));
+				flow.open(new ConfigMenuScreen(game, flow));
 			}
 		});
 		// Capture listener: sees the key/click before any button does, so the click that
@@ -119,9 +123,15 @@ public class ControlsMenuScreen extends MenuScreen {
 
 	private void finishCapture(InputEvent event) {
 		waiting = null;
+		captureFrame = Gdx.graphics.getFrameId();
 		event.stop();
 		event.cancel();
 		refresh();
+	}
+
+	@Override
+	public boolean capturesKeys() {
+		return waiting != null || Gdx.graphics.getFrameId() - captureFrame <= 1;
 	}
 
 	private void refresh() {

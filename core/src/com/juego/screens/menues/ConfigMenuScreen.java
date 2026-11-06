@@ -18,7 +18,12 @@ import com.juego.utils.Config;
 /** Sound, mouse and video settings. Saved when leaving the screen. */
 public class ConfigMenuScreen extends MenuScreen {
 
+	/** Opened from the main menu. */
 	public ConfigMenuScreen(Core game) {
+		this(game, SettingsFlow.mainMenu(game));
+	}
+
+	public ConfigMenuScreen(final Core game, final SettingsFlow flow) {
 		super(game);
 		Image background = new Image(loadTexture("configMenu/background.png"));
 		background.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
@@ -98,19 +103,19 @@ public class ConfigMenuScreen extends MenuScreen {
 		controls.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new ControlsMenuScreen(game));
+				flow.open(new ControlsMenuScreen(game, flow));
 			}
 		});
 		crosshair.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new CrosshairMenuScreen(game));
+				flow.open(new CrosshairMenuScreen(game, flow));
 			}
 		});
 		back.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new MainMenuScreen(game));
+				flow.close();
 			}
 		});
 	}

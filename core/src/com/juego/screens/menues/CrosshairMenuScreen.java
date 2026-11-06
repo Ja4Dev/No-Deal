@@ -46,7 +46,12 @@ public class CrosshairMenuScreen extends MenuScreen {
 	private final Label sizeValue, thicknessValue, gapValue, opacityValue;
 	private final CheckBox outline, dynamic;
 
+	/** Opened from the main menu. */
 	public CrosshairMenuScreen(Core game) {
+		this(game, SettingsFlow.mainMenu(game));
+	}
+
+	public CrosshairMenuScreen(final Core game, final SettingsFlow flow) {
 		super(game);
 		Image background = new Image(loadTexture("configMenu/background.png"));
 		background.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
@@ -124,7 +129,7 @@ public class CrosshairMenuScreen extends MenuScreen {
 		back.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new ConfigMenuScreen(game));
+				flow.open(new ConfigMenuScreen(game, flow));
 			}
 		});
 	}

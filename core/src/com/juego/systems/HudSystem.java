@@ -73,7 +73,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	public void update(float delta) {
 		if (player == null)
 			return;
-		if (Controls.isJustPressed(Action.PAUSE)) {
+		// Inside the settings the pause key goes back to the pause buttons instead.
+		if (Controls.isJustPressed(Action.PAUSE) && !pauseMenu.consumePauseKey()) {
 			playerComponent.pause = !playerComponent.pause;
 			playerComponent.scoreboard = false;
 		}
@@ -85,7 +86,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		long remaining = gameWorld.getMatchRemainingMs();
 		hud.setClock(intermission ? "Fin" : Match.formatClock(remaining));
 		showDamage();
-		hud.setCrosshair(playerComponent.selectedGun() != null && !playerComponent.isDead(), spreadPixels());
+		hud.setCrosshair(playerComponent.selectedGun() != null && !playerComponent.isDead() && !pauseMenu.isShowingSettings(),
+				spreadPixels());
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
 
 		// Opened from the pause menu, the scoreboard replaces it until the next click.
