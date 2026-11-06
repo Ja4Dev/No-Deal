@@ -15,7 +15,9 @@ public final class Config {
 	public static String playerName = "Jugador";
 	public static float fxVolume = 100;
 	public static float musicVolume = 50;
+	/** Same scale as CS: degrees per mouse count = sensitivity * 0.022. */
 	public static float sensitivity = 2.5f;
+	public static final CrosshairSettings crosshair = new CrosshairSettings();
 	public static final float MIN_SENSITIVITY = 0.5f, MAX_SENSITIVITY = 10f;
 
 	private Config() {
@@ -28,6 +30,7 @@ public final class Config {
 		fxVolume = clamp(prefs.getFloat("fxVolume", fxVolume), 0, 100);
 		musicVolume = clamp(prefs.getFloat("musicVolume", musicVolume), 0, 100);
 		sensitivity = clamp(prefs.getFloat("sensitivity", sensitivity), MIN_SENSITIVITY, MAX_SENSITIVITY);
+		crosshair.load(prefs);
 		Controls.deserialize(prefs.getString("controls", ""));
 	}
 
@@ -38,6 +41,7 @@ public final class Config {
 		prefs.putFloat("fxVolume", fxVolume);
 		prefs.putFloat("musicVolume", musicVolume);
 		prefs.putFloat("sensitivity", sensitivity);
+		crosshair.save(prefs);
 		prefs.putString("controls", Controls.serialize());
 		prefs.flush();
 	}

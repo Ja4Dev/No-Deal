@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.badlogic.gdx.math.Vector3;
+import com.juego.utils.PlayerMovement;
 
 class MovementValidatorTest {
 	private MovementValidator validator;
@@ -24,7 +25,18 @@ class MovementValidatorTest {
 		for (int i = 1; i <= 30; i++) {
 			client += 33;
 			server += 33;
-			assertTrue(validator.accept(new Vector3(i * 10f * 0.033f, 4, 0), client, server), "step " + i);
+			assertTrue(validator.accept(new Vector3(i * PlayerMovement.RUN_SPEED * 0.033f, 4, 0), client, server), "step " + i);
+		}
+	}
+
+	@Test
+	void acceptsTopSpeedInTheAir() {
+		long client = 50_000, server = 1000;
+		for (int i = 1; i <= 30; i++) {
+			client += 16;
+			server += 16;
+			assertTrue(validator.accept(new Vector3(i * PlayerMovement.MAX_AIR_SPEED * 0.016f, 4, 0), client, server),
+					"step " + i);
 		}
 	}
 

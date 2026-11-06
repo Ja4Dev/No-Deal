@@ -39,6 +39,10 @@ public class Armory {
 			throw new GdxRuntimeException(where + "needs a model and a sound");
 		if (def.viewOffset == null || def.viewOffset.length != 3)
 			throw new GdxRuntimeException(where + "needs a 3-component viewOffset");
+		if (def.spray != null)
+			for (float[] step : def.spray)
+				if (step == null || step.length != 2)
+					throw new GdxRuntimeException(where + "has a spray step that isn't {up, right}");
 	}
 
 	public GunDefinition get(String id) {

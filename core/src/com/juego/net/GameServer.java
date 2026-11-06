@@ -40,7 +40,8 @@ import com.juego.utils.CharacterShape;
  */
 public class GameServer implements Disposable {
 	private static final String TAG = "Server";
-	private static final float MAX_FIRE_ORIGIN_DISTANCE = 3f;
+	/** Shots start at the eyes (2.2 above the capsule center), plus room for movement since the last state. */
+	private static final float MAX_FIRE_ORIGIN_DISTANCE = 4.5f;
 	/** Fire rate is checked with some tolerance: shots can arrive bunched by network jitter. */
 	private static final float FIRE_RATE_TOLERANCE = 0.75f;
 	private static final long CORRECTION_COOLDOWN_MS = 500;

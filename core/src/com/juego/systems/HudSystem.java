@@ -34,6 +34,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	private final Array<Scoreboard.Row> rows = new Array<>();
 
 	public HudSystem(GameWorld gameWorld) {
+		super(RenderSystem.PRIORITY + 1); // right after the 3D scene is drawn
 		this.gameWorld = gameWorld;
 	}
 
@@ -72,7 +73,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	public void update(float delta) {
 		if (player == null)
 			return;
-		if (Controls.isJustPressed(Action.PAUSE)) {
+		// Inside the settings the pause key goes back to the pause buttons instead.
+		if (Controls.isJustPressed(Action.PAUSE) && !pauseMenu.consumePauseKey()) {
 			playerComponent.pause = !playerComponent.pause;
 			playerComponent.scoreboard = false;
 		}
@@ -84,6 +86,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		long remaining = gameWorld.getMatchRemainingMs();
 		hud.setClock(intermission ? "Fin" : Match.formatClock(remaining));
 		showDamage();
+		hud.setCrosshair(playerComponent.selectedGun() != null && !playerComponent.isDead() && !pauseMenu.isShowingSettings(),
+				spreadPixels());
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
 
 		// Opened from the pause menu, the scoreboard replaces it until the next click.
@@ -122,8 +126,16 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 				direction = MathUtils.atan2(toSource.dot(right), toSource.dot(forward)) * MathUtils.radiansToDegrees;
 		}
 		hud.showDamage(damage, direction);
-		if (!playerComponent.isDead())
-			playerComponent.pendingRecoil += Math.min(2.5f, 0.6f + damage / 40f); // aim punch
+		if (!playerComponent.isDead()) // the view jolts up (it springs back on its own)
+			playerComponent.punchUp += Math.min(2.5f, 0.6f + damage / 40f);
+	}
+
+	/** How far from the screen center the gun's inaccuracy cone reaches, in window pixels. */
+	private float spreadPixels() {
+		PerspectiveCamera camera = gameWorld.renderSystem.perspectiveCamera;
+		float degrees = gameWorld.weaponSystem().spreadDegrees();
+		return (float) (Math.tan(Math.toRadians(degrees)) / Math.tan(Math.toRadians(camera.fieldOfView / 2))
+				* Gdx.graphics.getHeight() / 2);
 	}
 
 	private final Vector3 forward = new Vector3(), right = new Vector3(), toSource = new Vector3();

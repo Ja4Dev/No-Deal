@@ -14,12 +14,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.badlogic.gdx.math.Vector3;
+import com.juego.utils.CharacterShape;
 
 class GroundWeaponsTest {
 	private static final float FLOOR = 0.5f;
 	private static final float WALL_X = 10f;
 	/** A player standing on the floor: capsule center 3 units above it. */
 	private static final Vector3 STANDING = new Vector3(0, FLOOR + 3, 0);
+	private static final Vector3 EYE = new Vector3(STANDING).add(0, CharacterShape.EYE_OFFSET, 0);
 
 	private final List<GroundWeapons.Weapon> spawned = new ArrayList<>();
 	private final List<Integer> removedBy = new ArrayList<>();
@@ -113,8 +115,9 @@ class GroundWeaponsTest {
 		GroundWeapons.Weapon ahead = weapons.toss(rifle, 30, 70, STANDING, 0, 2, 0);
 		weapons.toss(pistol, 6, -1, STANDING, 180, 2, 0); // behind the player
 		Vector3 lookingDownAhead = new Vector3(0, -1, 1).nor();
-		assertSame(ahead, weapons.findAimed(STANDING, lookingDownAhead), "even right after dropping it");
-		assertNull(weapons.findAimed(STANDING, new Vector3(0, 1, 0)), "looking at the sky");
+		assertSame(ahead, weapons.findAimed(STANDING, EYE, lookingDownAhead), "even right after dropping it");
+		assertNull(weapons.findAimed(STANDING, EYE, new Vector3(0, 1, 0)), "looking at the sky");
+		assertNull(weapons.findAimed(STANDING, EYE, new Vector3(0, 0, 1)), "looking straight ahead");
 	}
 
 	@Test

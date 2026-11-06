@@ -128,7 +128,7 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 		String prompt = null;
 		if (!playerComponent.pause && !playerComponent.isDead() && gameWorld.canFight()) {
 			gameWorld.playerSystem().getPosition(center);
-			GroundWeapons.Weapon aimed = weapons.findAimed(center, camera.direction);
+			GroundWeapons.Weapon aimed = weapons.findAimed(center, camera.position, camera.direction);
 			if (aimed != null)
 				prompt = describePickup(aimed);
 			if (Controls.isJustPressed(Action.DROP)) {

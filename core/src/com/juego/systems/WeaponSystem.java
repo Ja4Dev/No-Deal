@@ -7,10 +7,11 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.EntityListener;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.physics.bullet.collision.ClosestRayResultCallback;
@@ -18,33 +19,43 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ObjectMap;
 import com.juego.components.CharacterComponent;
+import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.components.StatusComponent;
 import com.juego.core.Assets;
 import com.juego.core.GameWorld;
 import com.juego.guns.Gun;
 import com.juego.guns.GunDefinition;
+import com.juego.guns.Recoil;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
 import com.juego.utils.SpatialAudio;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
+import com.juego.utils.PlayerMovement;
 
-/** The local player's guns: hitscan shooting, reloading, switching and aiming down sights. */
+/**
+ * The local player's guns: hitscan shooting with spray recoil (see
+ * {@link Recoil}), reloading, switching, aiming down sights, and the
+ * first-person gun moving with your steps and kicking back on each shot.
+ */
 public class WeaponSystem extends EntitySystem implements EntityListener, Disposable {
 
 	private static final String RELOAD_SOUND = "sounds/Reload.mp3";
 	private static final long RELOAD_DELAY_MS = 2000;
 	private static final float DEFAULT_FOV = 67f;
 	private static final float ZOOM_FOV = 30f;
-	/** Spread values are tuned in pixels for a 1280 px wide window and scaled from there. */
-	private static final float SPREAD_REFERENCE_WIDTH = 1280f;
+	/** Aiming down sights steadies the gun: inaccuracy is multiplied by this. */
+	private static final float ZOOM_SPREAD = 0.6f;
+	/** How fast the first-person gun settles after a shot, per second. */
+	private static final float GUN_KICK_RECOVERY = 16f;
+	/** Steps per second at full running speed, for the gun's bob. */
+	private static final float STEP_RATE = 1.9f;
 
 	private final GameWorld gameWorld;
 	private final PerspectiveCamera camera;
 	private Entity player;
 	private PlayerComponent playerComponent;
-	private CharacterComponent characterComponent;
 
 	/** First-person model and shot sound of every gun in the game, by gun id: any gun can be picked up. */
 	private final ObjectMap<String, Entity> viewModels = new ObjectMap<>();
@@ -56,7 +67,10 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private long lastShotTime;
 	private long lastReloadTime;
 	private boolean zoomed;
-	private float spread;
+	private final Recoil recoil = new Recoil();
+	/** Radius of the inaccuracy cone right now, in degrees (for the dynamic crosshair). */
+	private float spreadDegrees;
+	private float gunKick, bobPhase, bobAmount;
 	private final Random random = new Random();
 
 	// Reused math objects (avoid per-frame garbage).
@@ -69,6 +83,10 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private final Matrix4 targetTransform = new Matrix4();
 	private final Vector3 muzzle = new Vector3();
 	private final Vector3 tmp = new Vector3();
+	private final Vector3 shotDirection = new Vector3();
+	private final Ray shotRay = new Ray();
+	private final Quaternion aim = new Quaternion();
+	private final Quaternion gunTilt = new Quaternion();
 
 	public WeaponSystem(GameWorld gameWorld, PerspectiveCamera camera) {
 		this.gameWorld = gameWorld;
@@ -86,7 +104,6 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			return;
 		player = entity;
 		playerComponent = entity.getComponent(PlayerComponent.class);
-		characterComponent = entity.getComponent(CharacterComponent.class);
 		reloadSound = acquire(RELOAD_SOUND);
 		for (GunDefinition def : Assets.armory.all()) {
 			viewModels.put(def.id, gameWorld.entityFactory.createGunView(def));
@@ -110,9 +127,53 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	public void update(float deltaTime) {
 		if (player == null)
 			return;
+		syncViewModel(); // the selected gun can also change on respawn, a drop or a pickup
+		Gun gun = playerComponent.selectedGun();
+		long now = System.currentTimeMillis();
+		if (gun != null)
+			recoil.update(gun.def, deltaTime, now);
 		if (!playerComponent.pause && !playerComponent.isDead() && gameWorld.canFight())
 			handleInput();
-		syncViewModel(); // the selected gun can also change on respawn
+		syncViewModel();
+		gun = playerComponent.selectedGun();
+		if (gun != null)
+			spreadDegrees = inaccuracy(gun.def);
+		// The view climbs with part of the spray pattern; the rest shows as bullets above the crosshair.
+		playerComponent.recoilUp = recoil.up() * Recoil.VIEW_FOLLOW;
+		playerComponent.recoilRight = recoil.right() * Recoil.VIEW_FOLLOW;
+		gameWorld.playerSystem().updateCameraDirection();
+		animateViewModel(deltaTime);
+	}
+
+	/** Radius of the random inaccuracy cone right now, in degrees. */
+	public float spreadDegrees() {
+		return spreadDegrees;
+	}
+
+	private float inaccuracy(GunDefinition def) {
+		float speedFraction = playerComponent.velocity.len() / PlayerMovement.RUN_SPEED;
+		float spread = recoil.inaccuracy(def, speedFraction, !playerComponent.onGround);
+		return zoomed ? spread * ZOOM_SPREAD : spread;
+	}
+
+	/** The first-person gun bobs with your steps and kicks back on each shot. */
+	private void animateViewModel(float delta) {
+		Gun gun = playerComponent.selectedGun();
+		if (gun == null)
+			return;
+		float speedFraction = Math.min(1f, playerComponent.velocity.len() / PlayerMovement.RUN_SPEED);
+		float targetBob = playerComponent.onGround ? speedFraction : 0;
+		bobAmount += (targetBob - bobAmount) * Math.min(1f, delta * 8f);
+		bobPhase = (bobPhase + delta * STEP_RATE * MathUtils.PI2 * Math.max(speedFraction, 0.3f)) % MathUtils.PI2;
+		gunKick *= (float) Math.exp(-GUN_KICK_RECOVERY * delta);
+
+		float[] offset = gun.def.viewOffset;
+		float x = offset[0] + MathUtils.sin(bobPhase) * 0.09f * bobAmount;
+		float y = offset[1] - Math.abs(MathUtils.cos(bobPhase)) * 0.07f * bobAmount + gunKick * 0.06f;
+		float z = offset[2] + gunKick * 0.45f; // towards the eye
+		gunTilt.setEulerAngles(0, gunKick * 5f, 0); // muzzle up
+		ModelComponent model = viewModels.get(gun.def.id).getComponent(ModelComponent.class);
+		model.instance.transform.set(x, y, z, gunTilt.x, gunTilt.y, gunTilt.z, gunTilt.w);
 	}
 
 	private void handleInput() {
@@ -140,6 +201,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		Gun gun = playerComponent.selectedGun();
 		if (gun != heldGun) {
 			heldGun = gun;
+			recoil.reset();
+			gunKick = 0;
 			if (zoomed)
 				toggleZoom(); // a different gun never starts aimed
 		}
@@ -151,32 +214,39 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		camera.fieldOfView = zoomed ? ZOOM_FOV : DEFAULT_FOV;
 	}
 
-	/** Bullet spread in pixels: none when standing still, more when running or airborne. */
-	private float calculateSpread() {
-		boolean onGround = characterComponent.characterController.onGround();
-		float pixels;
-		if (!onGround || (playerComponent.moving && playerComponent.running))
-			pixels = random.nextInt(51) + 50;
-		else if (playerComponent.moving)
-			pixels = random.nextInt(26) + 25;
-		else
-			pixels = 0;
-		if (random.nextBoolean())
-			pixels = -pixels;
-		return pixels * Gdx.graphics.getWidth() / SPREAD_REFERENCE_WIDTH;
+	/**
+	 * Where a bullet goes: where the player aims, plus the spray pattern's
+	 * offset for this bullet of the burst, plus a random deviation inside the
+	 * inaccuracy cone.
+	 */
+	private Vector3 aimShot(GunDefinition def, float coneDegrees, Vector3 out) {
+		float radius = coneDegrees * (float) Math.sqrt(random.nextFloat()); // uniform over the disc
+		float angle = random.nextFloat() * MathUtils.PI2;
+		float up = recoil.up() + radius * MathUtils.sin(angle);
+		float right = recoil.right() + radius * MathUtils.cos(angle);
+		aim.setEulerAngles(playerComponent.yaw - right, playerComponent.pitch - up, 0);
+		return aim.transform(out.set(0, 0, 1));
 	}
 
 	private void fire(Gun gun) {
-		lastShotTime = System.currentTimeMillis();
+		long now = System.currentTimeMillis();
+		lastShotTime = now;
 		if (!gun.consumeRound()) {
 			reload(gun);
 			return;
 		}
 		shotSounds.get(gun.def.id).play(Config.fxVolume / 100);
-		playerComponent.pendingRecoil += gun.def.recoil;
 
-		spread = calculateSpread();
-		Ray ray = camera.getPickRay(Gdx.graphics.getWidth() / 2f + spread, Gdx.graphics.getHeight() / 2f);
+		float cone = inaccuracy(gun.def); // before the shot: the first bullet only pays for movement
+		recoil.shoot(gun.def, now);
+		aimShot(gun.def, cone, shotDirection);
+		// A quick jolt of the view, mostly up and a little to a random side, and the gun kicks back.
+		float punch = gun.def.punch * (0.85f + random.nextFloat() * 0.3f);
+		playerComponent.punchUp += punch;
+		playerComponent.punchRight += punch * (random.nextFloat() - 0.5f) * 0.4f;
+		gunKick = Math.min(gunKick + 1f, 1.6f);
+
+		Ray ray = shotRay.set(camera.position, shotDirection);
 		rayFrom.set(ray.origin);
 		rayTo.set(ray.direction).scl(gun.def.range).add(rayFrom);
 		// The callback is reused, so its previous result has to be cleared.

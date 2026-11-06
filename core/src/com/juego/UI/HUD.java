@@ -13,6 +13,7 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.LongArray;
 import com.juego.guns.Gun;
+import com.juego.utils.Config;
 
 public class HUD extends Menu {
 	private final BitmapFont font;
@@ -22,6 +23,10 @@ public class HUD extends Menu {
 	private final Label feedLabel;
 	private final Label centerLabel;
 	private final Label promptLabel;
+	private final Crosshair crosshair = new Crosshair();
+	private boolean crosshairVisible = true;
+	/** Extra gap of the dynamic crosshair, in pixels: target and what is drawn (eased towards it). */
+	private float crosshairSpread, shownSpread;
 	// Damage feedback: red edges that flash on every hit (and stay faintly when
 	// health is low), and an arc around the crosshair pointing where the hit came from.
 	private final Texture vignetteTexture, indicatorTexture;
@@ -40,9 +45,6 @@ public class HUD extends Menu {
 		healthWidget.setPosition(10, 11);
 		Image ammoWidget = new Image(loadTexture("HUD/AmmoWidget.png"));
 		ammoWidget.setPosition(stage.getWidth() - 150, 11);
-		Image crosshair = new Image(loadTexture("HUD/Crosshair.png"));
-		crosshair.setPosition(stage.getWidth() / 2 - crosshair.getWidth() / 2,
-				stage.getHeight() / 2 - crosshair.getHeight() / 2);
 		Image timerWidget = new Image(loadTexture("HUD/TimerWidget.png"));
 		timerWidget.setPosition(stage.getWidth() / 2 - timerWidget.getWidth() / 2, stage.getHeight() - 60);
 
@@ -88,7 +90,6 @@ public class HUD extends Menu {
 		stage.addActor(indicator);
 		stage.addActor(healthWidget);
 		stage.addActor(ammoWidget);
-		stage.addActor(crosshair);
 		stage.addActor(timerWidget);
 		stage.addActor(healthLabel);
 		stage.addActor(ammoLabel);
@@ -144,6 +145,16 @@ public class HUD extends Menu {
 			indicatorAlpha = 1f;
 			indicator.setRotation(-direction); // scene2d rotates counterclockwise
 		}
+	}
+
+	/**
+	 * @param visible       false hides it (no gun in hand, dead)
+	 * @param spreadPixels  how far the gun's inaccuracy reaches from the center of the screen, for the
+	 *                      dynamic crosshair
+	 */
+	public void setCrosshair(boolean visible, float spreadPixels) {
+		crosshairVisible = visible;
+		crosshairSpread = spreadPixels;
 	}
 
 	/** Hint at the bottom of the screen, e.g. "[G] Agarrar AK-47". Null hides it. */
@@ -213,6 +224,18 @@ public class HUD extends Menu {
 		layoutMessages();
 		stage.getViewport().apply();
 		stage.draw();
+		drawCrosshair();
+		stage.getViewport().apply(); // the crosshair draws over the whole window
+	}
+
+	private void drawCrosshair() {
+		float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.1f);
+		float target = Config.crosshair.dynamic ? Math.min(crosshairSpread, Gdx.graphics.getHeight() * 0.12f) : 0;
+		// Opens fast, closes a little slower, like CS.
+		float rate = target > shownSpread ? 30f : 12f;
+		shownSpread += (target - shownSpread) * Math.min(1f, delta * rate);
+		if (crosshairVisible)
+			crosshair.draw(Config.crosshair, Gdx.graphics.getWidth() / 2f, Gdx.graphics.getHeight() / 2f, shownSpread);
 	}
 
 	@Override
@@ -221,5 +244,6 @@ public class HUD extends Menu {
 		font.dispose();
 		vignetteTexture.dispose();
 		indicatorTexture.dispose();
+		crosshair.dispose();
 	}
 }

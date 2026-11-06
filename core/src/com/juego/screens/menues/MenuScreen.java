@@ -20,6 +20,11 @@ public abstract class MenuScreen extends Menu implements Screen {
 		stage.draw();
 	}
 
+	/** True while the menu wants every key for itself (e.g. waiting for a key to bind). */
+	public boolean capturesKeys() {
+		return false;
+	}
+
 	@Override
 	public void show() {
 	}
