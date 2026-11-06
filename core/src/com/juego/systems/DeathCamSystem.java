@@ -125,7 +125,7 @@ public class DeathCamSystem extends EntitySystem implements EntityListener, Disp
 		if (playerComponent == null)
 			return;
 		boolean dead = playerComponent.isDead();
-		playerModel.visible = !dead; // no standing body where we died
+		playerModel.visible = false; // our own body: the camera is in its head, or watching someone else
 		if (!dead) {
 			watching = false;
 			return;

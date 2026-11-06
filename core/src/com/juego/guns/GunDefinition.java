@@ -6,6 +6,20 @@ public class GunDefinition {
 		PRIMARY, SECONDARY
 	}
 
+	/** Longest shot: well beyond the biggest level (the Bank is about 160 units across). */
+	public static final float MAX_RANGE = 1000;
+	/** Distance over which a bullet keeps {@link #rangeModifier} of its damage. */
+	public static final float FALLOFF_DISTANCE = 50;
+
+	/**
+	 * Damage of a body shot that travelled {@code distance} units: a little less
+	 * the farther it went, but never nothing.
+	 */
+	public int damageAt(float distance) {
+		double kept = Math.pow(rangeModifier, Math.max(0, distance) / FALLOFF_DISTANCE);
+		return Math.max(1, (int) Math.round(damage * kept));
+	}
+
 	public String id;
 	public String name;
 	public Slot slot;
@@ -14,7 +28,18 @@ public class GunDefinition {
 	/** Spare rounds carried outside the magazine; a negative value means infinite. */
 	public int reserveAmmo;
 	public boolean automatic;
-	public float range;
+	/**
+	 * How far a bullet flies, in world units. Farther than any level, so a shot
+	 * always reaches what it is aimed at; distance only lowers its damage
+	 * ({@link #rangeModifier}).
+	 */
+	public float range = MAX_RANGE;
+	/**
+	 * Damage kept every {@link #FALLOFF_DISTANCE} units the bullet travels, as in
+	 * CS: 0.85 means 85% after 50 units, 72% after 100, 52% after 200. 1 = no
+	 * falloff.
+	 */
+	public float rangeModifier = 1;
 	public long fireDelayMs;
 	/**
 	 * Spray pattern (see {@link Recoil}): for each bullet of a burst, its offset

@@ -6,7 +6,15 @@ import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.utils.Align;
 import com.juego.components.PlayerComponent;
+import com.juego.net.GameClient;
+import com.juego.net.Protocol;
+import com.juego.utils.Config;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.core.GameWorld;
@@ -23,7 +31,10 @@ public class PauseMenu extends Menu {
 	private static final float BUTTON_W = 192, BUTTON_H = 48, BUTTON_STEP = 60;
 
 	private Image backgroundImage, titleImage;
-	private TextButton resumeButton, scoreButton, settingsButton, menuButton;
+	private TextButton resumeButton, scoreButton, settingsButton, nameButton, menuButton;
+	/** "Cambiar nombre": a text field with Aceptar and Cancelar, over the pause buttons. */
+	private Table namePanel;
+	private TextField nameField;
 	private final PlayerComponent playerComponent;
 	private final GameWorld gameWorld;
 
@@ -70,6 +81,12 @@ public class PauseMenu extends Menu {
 				playerComponent.scoreboard = true;
 			}
 		});
+		nameButton.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				showNamePanel(true);
+			}
+		});
 		settingsButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
@@ -91,12 +108,14 @@ public class PauseMenu extends Menu {
 		titleImage.setPosition(Core.VIRTUAL_WIDTH / 2 - titleImage.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.4f - titleImage.getHeight() / 2);
 		stage.addActor(backgroundImage);
 		stage.addActor(titleImage);
-		TextButton[] buttons = { resumeButton, scoreButton, settingsButton, menuButton };
+		TextButton[] buttons = { resumeButton, scoreButton, nameButton, settingsButton, menuButton };
 		for (int i = 0; i < buttons.length; i++) {
 			buttons[i].setSize(BUTTON_W, BUTTON_H);
-			buttons[i].setPosition(Core.VIRTUAL_WIDTH / 2 - BUTTON_W / 2, Core.VIRTUAL_HEIGHT / 2 - i * BUTTON_STEP);
+			buttons[i].setPosition(Core.VIRTUAL_WIDTH / 2 - BUTTON_W / 2,
+					Core.VIRTUAL_HEIGHT / 2 + BUTTON_STEP - i * BUTTON_STEP);
 			stage.addActor(buttons[i]);
 		}
+		buildNamePanel();
 	}
 
 	private void setWidgets() {
@@ -105,12 +124,72 @@ public class PauseMenu extends Menu {
 		resumeButton = new TextButton("Reanudar", Assets.skin);
 		scoreButton = new TextButton("Puntuacion", Assets.skin);
 		settingsButton = new TextButton("Opciones", Assets.skin);
+		nameButton = new TextButton("Cambiar nombre", Assets.skin);
 		menuButton = new TextButton("Menu Principal", Assets.skin);
 	}
 
 	/** Gives the keyboard and mouse back to the pause menu (after the console closes). */
 	public void takeInput() {
 		Gdx.input.setInputProcessor(stage); // the console only opens outside the pause menu
+	}
+
+	private void buildNamePanel() {
+		nameField = new TextField("", Assets.skin);
+		nameField.setMaxLength(Protocol.MAX_NAME_LENGTH);
+		nameField.setTextFieldListener((field, c) -> {
+			if (c == '\r' || c == '\n')
+				acceptName();
+		});
+		TextButton accept = new TextButton("Aceptar", Assets.skin), cancel = new TextButton("Cancelar", Assets.skin);
+		accept.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				acceptName();
+			}
+		});
+		cancel.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				showNamePanel(false);
+			}
+		});
+		namePanel = new Table();
+		namePanel.setBackground(Assets.skin.newDrawable("white", new Color(0.05f, 0.08f, 0.05f, 0.95f)));
+		namePanel.pad(18);
+		namePanel.add(new Label("Nuevo nombre", Assets.skin)).colspan(2).padBottom(8).row();
+		namePanel.add(nameField).colspan(2).width(280).height(36).padBottom(12).row();
+		namePanel.add(accept).width(134).height(44).padRight(12);
+		namePanel.add(cancel).width(134).height(44);
+		namePanel.pack();
+		namePanel.setPosition(Core.VIRTUAL_WIDTH / 2, Core.VIRTUAL_HEIGHT / 2, Align.center);
+		namePanel.setVisible(false);
+		stage.addActor(namePanel);
+	}
+
+	private void showNamePanel(boolean show) {
+		namePanel.setVisible(show);
+		for (TextButton b : new TextButton[] { resumeButton, scoreButton, nameButton, settingsButton, menuButton })
+			b.setVisible(!show);
+		if (show) {
+			GameClient.PlayerInfo me = gameWorld.session.client.getPlayer(gameWorld.session.client.getLocalId());
+			nameField.setText(me != null ? me.name : Config.playerName);
+			nameField.selectAll();
+			stage.setKeyboardFocus(nameField);
+		} else {
+			stage.setKeyboardFocus(null);
+		}
+	}
+
+	private void acceptName() {
+		String typed = nameField.getText().trim();
+		if (!typed.isEmpty())
+			gameWorld.network.rename(typed);
+		showNamePanel(false);
+	}
+
+	/** Whether the name panel has the keyboard (the pause key must close it, not unpause). */
+	public boolean isEditingName() {
+		return namePanel.isVisible();
 	}
 
 	/** Hidden behind the scoreboard, the buttons must not react to clicks. */
@@ -130,6 +209,10 @@ public class PauseMenu extends Menu {
 	 * @return true if the key was used here, so the game must not unpause
 	 */
 	public boolean consumePauseKey() {
+		if (isEditingName()) {
+			showNamePanel(false);
+			return true;
+		}
 		if (!isShowingSettings())
 			return false;
 		if (page == null || !page.capturesKeys())
@@ -141,6 +224,8 @@ public class PauseMenu extends Menu {
 		applyPendingPage();
 		if (!playerComponent.pause) {
 			closePage();
+			if (namePanel.isVisible())
+				showNamePanel(false);
 			return;
 		}
 		if (page != null) {

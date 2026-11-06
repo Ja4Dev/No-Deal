@@ -36,11 +36,14 @@ public class Scoreboard extends Menu {
 
 	private static final Color HEADER = new Color(0.75f, 0.75f, 0.75f, 1);
 	private static final Color LOCAL = new Color(1f, 0.85f, 0.2f, 1);
+	private static final Color RENAMED = new Color(0.55f, 0.85f, 1f, 1);
 
 	// The HUD's built-in font covers Latin-1, so player names with accents render fine.
 	private final BitmapFont font = new BitmapFont();
 	private final Texture panel;
 	private final Table table = new Table();
+	/** Hangs from the panel's top-right corner: who changed their name in this match. */
+	private final Table renamesTag = new Table();
 	private final Label.LabelStyle style = new Label.LabelStyle(font, Color.WHITE);
 
 	public Scoreboard() {
@@ -52,10 +55,17 @@ public class Scoreboard extends Menu {
 		table.setBackground(new TextureRegionDrawable(panel));
 		table.pad(20);
 		stage.addActor(table);
+		renamesTag.setBackground(new TextureRegionDrawable(panel));
+		renamesTag.pad(6, 12, 6, 12);
+		stage.addActor(renamesTag);
 	}
 
-	/** Rebuilds the table. Rows are sorted in place. */
-	public void update(String title, Array<Row> rows, String footer) {
+	/**
+	 * Rebuilds the table. Rows are sorted in place.
+	 *
+	 * @param renames "Old -> New" for names changed in this match, shown in the corner (may be empty)
+	 */
+	public void update(String title, Array<Row> rows, String footer, Array<String> renames) {
 		rows.sort(RANKING);
 		table.clearChildren();
 		table.add(label(title, Color.WHITE, 1.6f)).colspan(5).padBottom(14).row();
@@ -79,6 +89,18 @@ public class Scoreboard extends Menu {
 			table.add(label(footer, HEADER, 1.2f)).colspan(5).padTop(14);
 		table.pack();
 		table.setPosition(stage.getWidth() / 2, stage.getHeight() / 2, Align.center);
+
+		renamesTag.clearChildren();
+		renamesTag.setVisible(renames.size > 0);
+		if (renames.size > 0) {
+			renamesTag.add(label("Cambios de nombre", HEADER, 1f)).right().row();
+			for (String rename : renames)
+				renamesTag.add(label(rename.replace(" -> ", "  >  "), RENAMED, 1.05f)).right().row();
+			renamesTag.pack();
+			// Just above the panel, aligned with its right edge.
+			renamesTag.setPosition(table.getX() + table.getWidth(), table.getY() + table.getHeight() + 4,
+					Align.bottomRight);
+		}
 	}
 
 	private Label label(String text, Color color, float scale) {

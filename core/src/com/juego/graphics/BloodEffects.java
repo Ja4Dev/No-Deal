@@ -35,8 +35,8 @@ public class BloodEffects implements Disposable {
 	private final boolean[] mist = new boolean[MAX_PARTICLES];
 	private int next;
 	private final Vector3 tmp = new Vector3(), tmp2 = new Vector3(), entry = new Vector3(), exit = new Vector3();
-	/** About how far a bullet travels through a body (the capsule is 4 wide). */
-	private static final float BODY_THICKNESS = 2 * CharacterShape.RADIUS;
+	/** About how far a bullet travels through a body. */
+	private static final float BODY_THICKNESS = 2 * CharacterShape.HITBOX_RADIUS;
 
 	public BloodEffects(Camera camera) {
 		this.camera = camera;

@@ -85,8 +85,8 @@ class BotTest {
 				firstShotMs = now;
 			Ray ray = new Ray(origin, direction);
 			Vector3 hit = new Vector3();
-			for (float y = -CharacterShape.CYLINDER / 2; y <= CharacterShape.CYLINDER / 2; y += 0.25f) {
-				if (Intersector.intersectRaySphere(ray, new Vector3(target).add(0, y, 0), CharacterShape.RADIUS, hit)) {
+			for (float y = -CharacterShape.HITBOX_CYLINDER / 2; y <= CharacterShape.HITBOX_CYLINDER / 2; y += 0.25f) {
+				if (Intersector.intersectRaySphere(ray, new Vector3(target).add(0, y, 0), CharacterShape.HITBOX_RADIUS, hit)) {
 					if (hit.dst(origin) > rifle.range || !world.isClear(origin, hit))
 						return; // out of range, or a wall first
 					hits++;
@@ -129,7 +129,7 @@ class BotTest {
 	@Test
 	void huntsDownAnEnemyAcrossTheMapAndShootsIt() {
 		// Opposite corners of the bank: the bot has to find its way there.
-		Range range = fight(BotDifficulty.DIFICIL, spawns.get(1), spawns.get(4), 60, 10, 1);
+		Range range = fight(BotDifficulty.DIFICIL, spawns.get(1), spawns.get(4), 60, 40, 1);
 		assertTrue(range.shots > 0, "it found the target and fired");
 		assertTrue(range.hits > 0, "and hit it: " + range.hits + " of " + range.shots);
 	}

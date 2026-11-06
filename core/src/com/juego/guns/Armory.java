@@ -35,6 +35,8 @@ public class Armory {
 			throw new GdxRuntimeException(where + "needs a positive magazineSize");
 		if (def.damage <= 0 || def.range <= 0 || def.fireDelayMs < 0)
 			throw new GdxRuntimeException(where + "has invalid damage, range or fireDelayMs");
+		if (def.rangeModifier <= 0 || def.rangeModifier > 1)
+			throw new GdxRuntimeException(where + "needs a rangeModifier between 0 (excluded) and 1");
 		if (def.model == null || def.sound == null)
 			throw new GdxRuntimeException(where + "needs a model and a sound");
 		if (def.viewOffset == null || def.viewOffset.length != 3)
