@@ -12,6 +12,7 @@ import com.badlogic.gdx.Application;
 import com.badlogic.gdx.ApplicationLogger;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
+import com.juego.bots.BotDifficulty;
 import com.juego.match.Match;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
@@ -24,10 +25,12 @@ import com.juego.net.Protocol;
  * display, it runs in the terminal instead.
  *
  * <pre>
- * java -jar NoDeal-server.jar [--port 25559] [--max-players 4] [--time-limit 10] [--frag-limit 20] [--nogui]
+ * java -jar NoDeal-server.jar [--port 25559] [--max-players 4] [--time-limit 10] [--frag-limit 20]
+ *                             [--bots 0] [--bot-difficulty medio] [--nogui]
  * </pre>
  *
- * Terminal commands: {@code status}, {@code help}, {@code quit}.
+ * Terminal commands: {@code status}, {@code help}, {@code quit}, and the
+ * match commands of {@link GameServer#command} (bots).
  */
 public class DedicatedServer {
 	private static final int TICK_RATE = 60;
@@ -52,6 +55,17 @@ public class DedicatedServer {
 				case "--frag-limit":
 					config.fragLimit = Integer.parseInt(args[++i]);
 					break;
+				case "--bots":
+					config.bots = Integer.parseInt(args[++i]);
+					break;
+				case "--bot-difficulty": {
+					String name = args[++i];
+					config.botDifficulty = BotDifficulty.parse(name);
+					if (config.botDifficulty == null)
+						throw new IllegalArgumentException(
+								"Unknown bot difficulty " + name + " (" + BotDifficulty.choices() + ")");
+					break;
+				}
 				case "--nogui":
 					noGui = true;
 					continue;
@@ -90,6 +104,8 @@ public class DedicatedServer {
 			return "--time-limit must be between 1 and 120 minutes";
 		if (config.fragLimit < 0 || config.fragLimit > 999)
 			return "--frag-limit must be between 0 (none) and 999";
+		if (config.bots < 0 || config.bots > GameServer.MAX_BOTS)
+			return "--bots must be between 0 and " + GameServer.MAX_BOTS;
 		return null;
 	}
 
@@ -97,9 +113,11 @@ public class DedicatedServer {
 		System.out.println("No Deal dedicated server (protocol v" + Protocol.VERSION + ")");
 		System.out.println("Usage: java -jar NoDeal-server.jar [--port " + Protocol.DEFAULT_PORT + "] [--max-players "
 				+ Protocol.MAX_PLAYERS + "] [--time-limit " + Protocol.DEFAULT_TIME_LIMIT_MINUTES + "] [--frag-limit "
-				+ Protocol.DEFAULT_FRAG_LIMIT + "] [--nogui]");
+				+ Protocol.DEFAULT_FRAG_LIMIT + "] [--bots 0] [--bot-difficulty medio] [--nogui]");
 		System.out.println("  --time-limit  match length in minutes");
 		System.out.println("  --frag-limit  kills that win the match early (0 = play the full time)");
+		System.out.println("  --bots        bots in the match (0 to " + GameServer.MAX_BOTS + "), besides the players");
+		System.out.println("  --bot-difficulty  " + BotDifficulty.choices());
 		System.out.println("  --nogui       run in the terminal instead of opening the server window");
 	}
 
@@ -183,7 +201,7 @@ public class DedicatedServer {
 			try (BufferedReader in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
 				String line;
 				while ((line = in.readLine()) != null) {
-					String command = line.trim().toLowerCase();
+					String command = line.trim();
 					host.post(() -> execute(host, command));
 				}
 			} catch (IOException e) {
@@ -194,16 +212,17 @@ public class DedicatedServer {
 		console.start();
 	}
 
-	private static void execute(ServerHost host, String command) {
+	private static void execute(ServerHost host, String line) {
 		GameServer server = host.server();
-		switch (command) {
+		switch (line.toLowerCase()) {
 		case "":
 			break;
 		case "status":
 		case "players":
 			if (server != null)
-				System.out.print(server.getPlayerCount() + "/" + server.getMaxPlayers() + " players on port "
-						+ server.getPort() + ", " + server.describeMatch() + "\n" + server.describePlayers());
+				System.out.print(server.getPlayerCount() + "/" + server.getMaxPlayers() + " jugadores y "
+						+ server.getBotCount() + " bots en el puerto " + server.getPort() + ", " + server.describeMatch()
+						+ "\n" + server.describePlayers());
 			break;
 		case "quit":
 		case "exit":
@@ -211,10 +230,13 @@ public class DedicatedServer {
 			host.quit();
 			break;
 		case "help":
+		case "ayuda":
 			System.out.println("Commands: status (list players), quit (notify players and stop)");
+			System.out.println(GameServer.COMMANDS_HELP);
 			break;
 		default:
-			System.out.println("Unknown command '" + command + "'. Type 'help'.");
+			String reply = server == null ? null : server.command(line);
+			System.out.println(reply != null ? reply : "Unknown command '" + line + "'. Type 'help'.");
 		}
 	}
 

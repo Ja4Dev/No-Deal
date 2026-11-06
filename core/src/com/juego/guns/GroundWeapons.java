@@ -9,8 +9,8 @@ import com.juego.utils.CharacterShape;
 /**
  * Guns lying on the ground: the ones players drop (by hand or when they die)
  * and the ones placed on the level by weapon spawners. Pure logic that
- * doesn't know about rendering or networking, so the same rules run offline,
- * on the server, and as the client's mirror of the server.
+ * doesn't know about rendering or networking, so the same rules run on the
+ * server and as the client's mirror of the server.
  * <p>
  * Positions are on the floor. Player positions are the center of the
  * character capsule, like everywhere else in the game.
@@ -119,7 +119,7 @@ public class GroundWeapons {
 		this.listener = listener;
 	}
 
-	// ---- authority (offline game and server) ----
+	// ---- authority (server) ----
 
 	/** A spot on the level where a gun appears and comes back a while after someone takes it. */
 	public void addSpawner(GunDefinition def, Vector3 approximatePosition) {

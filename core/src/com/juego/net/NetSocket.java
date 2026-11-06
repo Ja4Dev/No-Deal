@@ -4,6 +4,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.util.Arrays;
@@ -39,7 +40,20 @@ public class NetSocket implements Closeable {
 
 	/** @param port local port to bind, or 0 for any free port (clients). */
 	public NetSocket(int port) throws SocketException {
-		socket = new DatagramSocket(port);
+		this(new DatagramSocket(port));
+	}
+
+	/**
+	 * @param localOnly only this computer can reach the socket (a private
+	 *                  singleplayer server), not the network
+	 */
+	public NetSocket(int port, boolean localOnly) throws SocketException {
+		this(localOnly ? new DatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), port))
+				: new DatagramSocket(port));
+	}
+
+	private NetSocket(DatagramSocket socket) {
+		this.socket = socket;
 		receiver = new Thread(this::receiveLoop, "NetSocket-" + socket.getLocalPort());
 		receiver.setDaemon(true);
 		receiver.start();

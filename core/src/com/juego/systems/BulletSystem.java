@@ -39,7 +39,6 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 	public final btConstraintSolver solver;
 	public final btDiscreteDynamicsWorld collisionWorld;
 	private btGhostPairCallback ghostPairCallback;
-	private final MyContactListener contactListener;
 	public int maxSubSteps = 5;
 	public float fixedTimeStep = 1f / 60f;
 	private float accumulator;
@@ -51,8 +50,6 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 	}
 
 	public BulletSystem() {
-		contactListener = new MyContactListener();
-		contactListener.enable();
 		collisionConfiguration = new btDefaultCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfiguration);
 		broadphase = new btAxisSweep3(new Vector3(-1000, -1000, -1000), new Vector3(1000, 1000, 1000));
@@ -99,7 +96,6 @@ public class BulletSystem extends EntitySystem implements EntityListener {
 		if (collisionConfiguration != null)
 			collisionConfiguration.dispose();
 		ghostPairCallback.dispose();
-		contactListener.dispose();
 	}
 
 	@Override

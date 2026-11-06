@@ -25,7 +25,9 @@ public final class Controls {
 		SWITCH_GUN("Cambiar arma", Binding.key(Input.Keys.Q)),
 		DROP("Soltar / agarrar arma", Binding.key(Input.Keys.G)),
 		SCOREBOARD("Puntuacion", Binding.key(Input.Keys.TAB)),
-		PAUSE("Pausa", Binding.key(Input.Keys.ESCAPE));
+		PAUSE("Pausa", Binding.key(Input.Keys.ESCAPE)),
+		/** Opens the console, for commands like "bot agregar" (only whoever runs the server). */
+		CONSOLE("Consola", Binding.key(Input.Keys.GRAVE));
 
 		/** Shown in the controls menu (the menu font has no accents). */
 		public final String label;
@@ -78,6 +80,8 @@ public final class Controls {
 
 		public String displayName() {
 			if (!mouse) {
+				if (code == Input.Keys.GRAVE)
+					return "Izq. del 1"; // ` on US keyboards, º on Spanish ones
 				String name = Input.Keys.toString(code);
 				return name != null ? name : "Tecla " + code;
 			}

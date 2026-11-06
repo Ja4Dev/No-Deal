@@ -108,6 +108,11 @@ public class PauseMenu extends Menu {
 		menuButton = new TextButton("Menu Principal", Assets.skin);
 	}
 
+	/** Gives the keyboard and mouse back to the pause menu (after the console closes). */
+	public void takeInput() {
+		Gdx.input.setInputProcessor(stage); // the console only opens outside the pause menu
+	}
+
 	/** Hidden behind the scoreboard, the buttons must not react to clicks. */
 	public void setInteractive(boolean interactive) {
 		stage.getRoot().setTouchable(interactive ? Touchable.enabled : Touchable.disabled);

@@ -3,8 +3,9 @@ package com.juego.match;
 /**
  * Timing and win conditions of a match: play until the time runs out or
  * someone reaches the frag limit, show the results during an intermission,
- * then start over. Pure logic driven by whatever clock the caller uses (real
- * time on the server, paused-aware game time offline), so it is easy to test.
+ * then start over. Pure logic driven by whatever clock the caller uses (the
+ * wall clock, or a singleplayer clock that stops while paused), so it is easy
+ * to test.
  */
 public class Match {
 	public enum Phase {

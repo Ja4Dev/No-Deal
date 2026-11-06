@@ -21,6 +21,7 @@ import com.juego.net.GameClient;
 import com.juego.net.NetUtils;
 import com.juego.net.Protocol;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.Controls;
 
 /**
  * Bridges the online match ({@link GameClient}) and the ECS world: sends the
@@ -95,7 +96,10 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		if (greeted || hud() == null)
 			return;
 		greeted = true;
-		if (gameWorld.isHosting()) {
+		if (gameWorld.isSingleplayer()) {
+			hud().addFeedMessage("Escribi en la consola (tecla " + Controls.get(Controls.Action.CONSOLE).displayName()
+					+ ") 'bot agregar' o 'bot dificultad'");
+		} else if (gameWorld.isHosting()) {
 			Array<String> ips = NetUtils.lanAddresses();
 			hud().addFeedMessage(ips.isEmpty() ? "Partida creada (puerto " + gameWorld.getHostedPort() + ")"
 					: "Partida creada: " + ips.first() + ":" + gameWorld.getHostedPort());
@@ -172,7 +176,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			break;
 		case SHOT: {
 			GameClient.PlayerInfo shooter = client.getPlayer(event.playerId);
-			if (shooter != null && shooter.interpolate(System.currentTimeMillis() - Protocol.INTERPOLATION_DELAY_MS,
+			if (shooter != null && shooter.interpolate(client.now() - Protocol.INTERPOLATION_DELAY_MS,
 					position, yaw))
 				gameWorld.weaponSystem().playRemoteShot(event.gun, position, event.from, event.position);
 			break;
@@ -213,7 +217,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 	}
 
 	private void moveRemotePlayers() {
-		long renderTime = System.currentTimeMillis() - Protocol.INTERPOLATION_DELAY_MS;
+		long renderTime = client.now() - Protocol.INTERPOLATION_DELAY_MS;
 		for (IntMap.Entry<Entity> entry : remotes.entries()) {
 			GameClient.PlayerInfo info = client.getPlayer(entry.key);
 			ModelComponent model = entry.value.getComponent(ModelComponent.class);

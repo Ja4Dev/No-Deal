@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import java.io.IOException;
+import java.util.function.LongSupplier;
 
 import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
 import com.badlogic.gdx.graphics.GL20;
@@ -82,12 +83,18 @@ public class Core extends ApplicationAdapter {
 		screen.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 	}
 
-	/** Starts a server inside this game. Throws if the port is in use. */
-	public void startHostedServer(int port) throws IOException {
+	/**
+	 * Starts a server inside this game: a private one for singleplayer, or
+	 * one others can join ("Crear partida"). Throws if the port is in use.
+	 */
+	public void startHostedServer(GameServer.Config config, LongSupplier clock) throws IOException {
 		stopHostedServer();
-		GameServer.Config config = new GameServer.Config();
-		config.port = port;
-		hostedServer = new GameServer(config, new InternalFileHandleResolver(), Assets.armory, System::currentTimeMillis);
+		hostedServer = new GameServer(config, new InternalFileHandleResolver(), Assets.armory, clock);
+	}
+
+	/** The server running inside this game, or null. Only use it on the game thread. */
+	public GameServer getHostedServer() {
+		return hostedServer;
 	}
 
 	public void stopHostedServer() {

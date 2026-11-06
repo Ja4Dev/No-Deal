@@ -106,13 +106,9 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 	public void update(float delta) {
 		if (player == null)
 			return;
-		// Offline we respawn right away; online the server decides when and where.
-		if (playerComponent.isDead() && !gameWorld.isMultiplayer())
-			respawn();
-
 		wishDirection.setZero();
 		playerComponent.moving = false;
-		if (!playerComponent.pause && !playerComponent.isDead()) {
+		if (playerComponent.controlsPlayer() && !playerComponent.isDead()) {
 			look();
 			readMovementKeys();
 			if (Controls.isJustPressed(Action.JUMP))
@@ -215,17 +211,6 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		camera.up.set(0, 1, 0);
 		camera.rotate(cameraRotation);
 		camera.update(true);
-	}
-
-	private void respawn() {
-		gameWorld.groundWeapons().dropOnDeath(getPosition(translation));
-		playerComponent.respawn();
-		teleportToSpawn();
-	}
-
-	/** Back to where the player first spawned (a new offline round). */
-	public void respawnAtSpawn() {
-		teleportToSpawn();
 	}
 
 	private void teleportToSpawn() {
