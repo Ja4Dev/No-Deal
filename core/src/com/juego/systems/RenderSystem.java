@@ -15,6 +15,7 @@ import com.juego.components.AnimationComponent;
 import com.juego.components.GunComponent;
 import com.juego.components.ModelComponent;
 import com.juego.core.Core;
+import com.juego.graphics.BloodEffects;
 import com.juego.graphics.ImpactMarks;
 import com.juego.graphics.SkyDome;
 import com.juego.graphics.Tracers;
@@ -34,6 +35,7 @@ public class RenderSystem extends EntitySystem {
 	public Entity gun;
 	public final ImpactMarks impactMarks;
 	public final Tracers tracers;
+	public final BloodEffects blood;
 	private final SkyDome sky = new SkyDome();
 
 	public RenderSystem() {
@@ -47,6 +49,7 @@ public class RenderSystem extends EntitySystem {
 		gunCamera.far = 100f;
 		impactMarks = new ImpactMarks(perspectiveCamera);
 		tracers = new Tracers(perspectiveCamera);
+		blood = new BloodEffects(perspectiveCamera);
 	}
 
 
@@ -74,6 +77,7 @@ public class RenderSystem extends EntitySystem {
 		batch.end();
 		impactMarks.render();
 		tracers.render(delta);
+		blood.render(delta);
 		drawGun(delta);
 	}
 
@@ -96,6 +100,7 @@ public class RenderSystem extends EntitySystem {
 	public void dispose() {
 		impactMarks.dispose();
 		tracers.dispose();
+		blood.dispose();
 		sky.dispose();
 		batch.dispose();
 		batch = null;

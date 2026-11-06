@@ -242,7 +242,7 @@ public class ServerWindow implements ServerHost.View {
 		table.getTableHeader().setBorder(null);
 		table.getTableHeader().setReorderingAllowed(false);
 		table.getTableHeader().setDefaultRenderer(new HeaderRenderer());
-		int[] widths = { 30, 100, 64, 80, 74 }; // the name column takes whatever space is left
+		int[] widths = { 30, 100, 64, 80, 64, 74 }; // the name column takes whatever space is left
 		for (int i = 0; i < widths.length; i++) {
 			table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
 			if (i != 1)
@@ -289,7 +289,7 @@ public class ServerWindow implements ServerHost.View {
 		frame.setMinimumSize(new Dimension(820, 420));
 		frame.setSize(1040, 600);
 		frame.setLocationRelativeTo(null);
-		split.setDividerLocation(1040 - 370);
+		split.setDividerLocation(1040 - 430);
 		showStatus(new ServerHost.Status(null, new Array<>(), 0));
 	}
 
@@ -493,8 +493,8 @@ public class ServerWindow implements ServerHost.View {
 				+ (status.bots > 0 ? " y " + status.bots + " bots" : "") + " en el puerto "
 				+ status.port + ". " + DedicatedServer.describeMatch(status) + ".");
 		for (PlayerInfo p : status.players)
-			append(EventType.INFO, String.format("  #%d %-16s %s  bajas %d / muertes %d  %s", p.id, p.name,
-					p.alive ? p.health + " hp" : "muerto", p.kills, p.deaths, p.address));
+			append(EventType.INFO, String.format("  #%d %-16s %s  bajas %d / muertes %d / asistencias %d  %s", p.id,
+					p.name, p.alive ? p.health + " hp" : "muerto", p.kills, p.deaths, p.assists, p.address));
 	}
 
 	// ---- log ----
@@ -561,7 +561,7 @@ public class ServerWindow implements ServerHost.View {
 	// ---- players table ----
 
 	private static final class PlayersModel extends AbstractTableModel {
-		private static final String[] COLUMNS = { "#", "Jugador", "Bajas", "Muertes", "Estado" };
+		private static final String[] COLUMNS = { "#", "Jugador", "Bajas", "Muertes", "Asist.", "Estado" };
 		private Array<PlayerInfo> rows = new Array<>();
 
 		void set(Array<PlayerInfo> rows) {
@@ -604,6 +604,8 @@ public class ServerWindow implements ServerHost.View {
 				return p.kills;
 			case 3:
 				return p.deaths;
+			case 4:
+				return p.assists;
 			default:
 				return p.alive ? p.health + " hp" : "muerto";
 			}
@@ -633,7 +635,7 @@ public class ServerWindow implements ServerHost.View {
 			setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 6));
 			setHorizontalAlignment(column == 1 ? LEFT : CENTER);
 			PlayerInfo p = players.get(row);
-			setForeground(column == 4 && !p.alive ? RED : column == 2 ? GREEN : TEXT);
+			setForeground(column == 5 && !p.alive ? RED : column == 2 ? GREEN : TEXT);
 			setToolTipText(p.address);
 			return this;
 		}

@@ -115,6 +115,8 @@ class BotServerTest {
 				&& e.playerId == client.getLocalId() && e.killerId != client.getLocalId()));
 		assertTrue(count(GameClient.Event.Type.SHOT) > 0, "we heard their shots");
 		assertTrue(count(GameClient.Event.Type.DAMAGE) > 0, "and felt them");
+		assertTrue(events.stream().anyMatch(e -> e.type == GameClient.Event.Type.HIT
+				&& e.playerId == client.getLocalId() && e.from.isUnit(0.01f)), "every hit is announced, with its direction");
 	}
 
 	@Test
@@ -153,6 +155,7 @@ class BotServerTest {
 	void aFullServerStillTakesBotsButNotMoreThanTheLimit() {
 		String reply = server.command("bot agregar 20");
 		assertEquals(GameServer.MAX_BOTS, server.getBotCount());
-		assertTrue(reply.endsWith("No entran mas (maximo " + GameServer.MAX_BOTS + ")."), reply);
+		assertTrue(reply.endsWith("No entran mas bots (maximo " + GameServer.MAX_BOTS + ", y "
+				+ Protocol.MAX_MATCH_PLAYERS + " en total)."), reply);
 	}
 }

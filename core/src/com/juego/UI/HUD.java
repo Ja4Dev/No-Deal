@@ -17,6 +17,7 @@ import com.juego.utils.Config;
 
 public class HUD extends Menu {
 	private final BitmapFont font;
+	private final Image healthWidget, ammoWidget;
 	private final Label healthLabel;
 	private final Label ammoLabel;
 	private final Label timeLabel;
@@ -41,9 +42,9 @@ public class HUD extends Menu {
 	private final LongArray feedTimes = new LongArray();
 
 	public HUD() {
-		Image healthWidget = new Image(loadTexture("HUD/HealthWidget.png"));
+		healthWidget = new Image(loadTexture("HUD/HealthWidget.png"));
 		healthWidget.setPosition(10, 11);
-		Image ammoWidget = new Image(loadTexture("HUD/AmmoWidget.png"));
+		ammoWidget = new Image(loadTexture("HUD/AmmoWidget.png"));
 		ammoWidget.setPosition(stage.getWidth() - 150, 11);
 		Image timerWidget = new Image(loadTexture("HUD/TimerWidget.png"));
 		timerWidget.setPosition(stage.getWidth() / 2 - timerWidget.getWidth() / 2, stage.getHeight() - 60);
@@ -177,7 +178,16 @@ public class HUD extends Menu {
 		timeLabel.setText(text);
 	}
 
-	/** Big centered message, e.g. "Te eliminó X". Null or empty hides it. */
+	/** Health, ammo and prompts are hidden while watching someone else (dead). */
+	public void setPlayerWidgetsVisible(boolean visible) {
+		healthWidget.setVisible(visible);
+		ammoWidget.setVisible(visible);
+		healthLabel.setVisible(visible);
+		ammoLabel.setVisible(visible);
+		promptLabel.setVisible(visible);
+	}
+
+	/** Big centered message, e.g. "¡Ganaste la partida!". Null or empty hides it. */
 	public void setCenterMessage(String message) {
 		centerLabel.setText(message == null ? "" : message);
 	}

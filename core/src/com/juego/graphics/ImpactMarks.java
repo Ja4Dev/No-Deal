@@ -12,7 +12,8 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
 /**
- * Bullet holes left on walls and floors. A fixed pool of decals is reused in
+ * Bullet holes left on walls and floors, and blood stains on the wall behind
+ * someone who got shot. A fixed pool of decals is reused in
  * a ring (the oldest mark is recycled first) and each mark fades out at the
  * end of its life. The texture is generated at startup, so there is no asset.
  */
@@ -25,8 +26,10 @@ public class ImpactMarks implements Disposable {
 	private static final float SURFACE_OFFSET = 0.02f;
 	private static final int TEXTURE_SIZE = 32;
 
-	private final Texture texture;
-	private final TextureRegion region;
+	private static final float BLOOD_SIZE = 1.8f;
+
+	private final Texture texture, bloodTexture;
+	private final TextureRegion region, bloodRegion;
 	private final DecalBatch batch;
 	private final Decal[] decals = new Decal[MAX_MARKS];
 	private final long[] bornMs = new long[MAX_MARKS];
@@ -36,6 +39,8 @@ public class ImpactMarks implements Disposable {
 	public ImpactMarks(Camera camera) {
 		texture = createTexture();
 		region = new TextureRegion(texture);
+		bloodTexture = createBloodTexture();
+		bloodRegion = new TextureRegion(bloodTexture);
 		batch = new DecalBatch(new CameraGroupStrategy(camera));
 	}
 
@@ -72,11 +77,55 @@ public class ImpactMarks implements Disposable {
 		return texture;
 	}
 
+	/** A dark red splat: a blotch in the middle and drops thrown around it. */
+	private static Texture createBloodTexture() {
+		int size = TEXTURE_SIZE * 2;
+		Pixmap pixmap = new Pixmap(size, size, Pixmap.Format.RGBA8888);
+		pixmap.setBlending(Pixmap.Blending.None);
+		float half = size / 2f;
+		float[][] drops = new float[9][];
+		for (int i = 0; i < drops.length; i++) {
+			float angle = MathUtils.random(MathUtils.PI2), distance = MathUtils.random(0.45f, 0.85f);
+			drops[i] = new float[] { MathUtils.cos(angle) * distance, MathUtils.sin(angle) * distance,
+					MathUtils.random(0.05f, 0.12f) };
+		}
+		for (int y = 0; y < size; y++) {
+			for (int x = 0; x < size; x++) {
+				float dx = (x + 0.5f - half) / half, dy = (y + 0.5f - half) / half;
+				float angle = MathUtils.atan2(dy, dx);
+				float r = (float) Math.sqrt(dx * dx + dy * dy)
+						* (1 + 0.18f * MathUtils.sin(angle * 7) + 0.1f * MathUtils.sin(angle * 3 + 1));
+				float a = MathUtils.clamp((0.45f - r) / 0.08f, 0, 1);
+				for (float[] d : drops) {
+					float ddx = dx - d[0], ddy = dy - d[1];
+					a = Math.max(a, MathUtils.clamp((d[2] - (float) Math.sqrt(ddx * ddx + ddy * ddy)) / 0.03f, 0, 1));
+				}
+				pixmap.setColor(0.32f, 0.01f, 0.01f, a * 0.85f);
+				pixmap.drawPixel(x, y);
+			}
+		}
+		Texture texture = new Texture(pixmap, true);
+		texture.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
+		pixmap.dispose();
+		return texture;
+	}
+
 	/** Adds a mark at {@code point} on a surface facing {@code normal}. */
 	public void add(Vector3 point, Vector3 normal) {
+		place(point, normal, region, SIZE);
+	}
+
+	/** Adds a blood stain at {@code point} on a surface facing {@code normal}. */
+	public void addBlood(Vector3 point, Vector3 normal) {
+		place(point, normal, bloodRegion, BLOOD_SIZE * MathUtils.random(0.8f, 1.2f));
+	}
+
+	private void place(Vector3 point, Vector3 normal, TextureRegion texture, float size) {
 		Decal decal = decals[next];
 		if (decal == null)
-			decal = decals[next] = Decal.newDecal(SIZE, SIZE, region, true);
+			decal = decals[next] = Decal.newDecal(size, size, texture, true);
+		decal.setTextureRegion(texture);
+		decal.setDimensions(size, size);
 		decal.setPosition(tmp.set(normal).nor().scl(SURFACE_OFFSET).add(point));
 		// Any up vector not parallel to the normal works; a random spin hides the repetition.
 		Vector3 up = Math.abs(normal.y) > 0.9f ? Vector3.Z : Vector3.Y;
@@ -109,5 +158,6 @@ public class ImpactMarks implements Disposable {
 	public void dispose() {
 		batch.dispose();
 		texture.dispose();
+		bloodTexture.dispose();
 	}
 }

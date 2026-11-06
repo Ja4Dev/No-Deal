@@ -35,16 +35,19 @@ The game uses an Entity Component System ([Ashley](https://github.com/libgdx/ash
 | `WeaponSystem` | Hitscan shooting with spray recoil, headshots, reloading, switching, zoom, bullet tracers, view model bob and kick |
 | `GroundWeaponSystem` | Guns on the ground: dropping and picking up (the server decides) |
 | `FootstepSystem` | Footsteps: yours when running, and everyone else's, panned and fading with distance |
-| `HudSystem` | HUD, configurable crosshair, pause menu, console, scoreboard toggle, damage feedback |
+| `DeathCamSystem` | While dead, a spectator camera that follows whoever killed you |
+| `HudSystem` | HUD, configurable crosshair, pause menu, console, scoreboard toggle, damage feedback, death screen |
 
 Every match, singleplayer included, is run by a `GameServer`: *Un jugador* starts a private one inside the game with bots, so bots, guns, kills and respawns work the same way alone and online.
 
 The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement, how recoil pushes the view, pause). Getting hit flashes the screen edges red, an arc around the crosshair points to where the shot came from, and the edges stay faintly red while health is low. Every setting (sound, mouse, video, controls, crosshair) can be changed from the main menu or mid-match from the pause menu: the same pages are reused in both places through `SettingsFlow`. Settings and key bindings are saved with libGDX `Preferences`, and any action can be bound to a key or a mouse button (`Controls`). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, spray pattern, inaccuracy, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
 
 ### How it feels
-- **Recoil like CS 1.6.** Each gun has a fixed spray pattern (`spray` in `guns.json`): the first bullet goes where you aim, and holding the trigger the next ones climb and then wander left and right, the same way every time, so you can learn to pull the mouse against it. The view climbs with part of the pattern and comes back down when you let go. On top of that there is a random inaccuracy: tiny when standing still or walking, large when running or jumping. The rules live in `Recoil`, which is pure logic and unit-tested.
+- **Recoil like CS 1.6.** Each gun has a fixed spray pattern (`spray` in `guns.json`): the first bullet goes where you aim, and holding the trigger the next ones climb and then wander left and right, the same way every time, so you can learn to pull the mouse against it. The view climbs with the pattern and comes back down when you let go, and each shot jolts it a little; bullets follow both, so the crosshair always shows where the next bullet goes (and the tracer ends there). On top of that there is a random inaccuracy: tiny when standing still or walking, large when running or jumping. The rules live in `Recoil`, which is pure logic and unit-tested.
 - **Movement.** Quake/CS-style acceleration and friction (`PlayerMovement`): full speed in about 0.2 s, a full stop in about 0.25 s, momentum kept in the air with a little air control. The eyes are near the top of the head, and the mouse uses CS's scale (0.022 degrees per count), so a CS sensitivity feels the same here.
 - **Crosshair.** Style (classic, with a dot, dot only, T), length, thickness, gap, color, opacity and an outline, with a live preview in Settings > Mira. It can be dynamic: it opens up with the gun's real inaccuracy while moving and spraying.
+- **Hits you can see and hear.** When a bullet hits someone, everyone near enough sees blood (a puff and drops out of the wound, a spray out the other side, and a stain on the wall behind) and hears a thud from the body; far away it is silent. The server announces each hit (`HIT` message) with where it landed and the bullet's direction.
+- **Dying.** The camera leaves your body and follows whoever killed you, from behind (`DeathCamSystem`), while a panel shows their name, the gun, whether it was a headshot, and their kills, deaths and assists, with a "Reviviendo en 3s" countdown. Assists go to anyone who did 40 or more damage to that life without finishing it, like in CS; they are also on the scoreboard and the server window.
 - **Footsteps.** Running makes noise, one step every stride; walking with Shift and being in the air are silent, and landing from a jump is louder (`Footsteps`, unit-tested). You hear everyone else's steps too, from where they are, so someone running around the corner gives themselves away.
 
 ## Bots
@@ -134,7 +137,7 @@ Between the things that I couldn't add to the projects are:
   - The gun dropping and picking system. *(Added in 2026: press G, see Multiplayer.)*
 
 ## Credits
-- Footstep sounds: [Impact Sounds](https://kenney.nl/assets/impact-sounds) by Kenney (CC0), converted to mono WAV so they can be panned.
+- Footstep and hit sounds: [Impact Sounds](https://kenney.nl/assets/impact-sounds) by Kenney (CC0), converted to mono WAV so they can be panned.
 
 ## Want to help me?
 You can give the project a star, or simply share this to anyone you know is working on a Java 3D Game Project.

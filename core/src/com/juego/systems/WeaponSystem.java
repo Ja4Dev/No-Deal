@@ -15,6 +15,7 @@ import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.physics.bullet.collision.ClosestRayResultCallback;
+import com.badlogic.gdx.physics.bullet.collision.btBroadphaseProxy;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ObjectMap;
@@ -63,6 +64,11 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private Gun heldGun;
 	private final Array<String> acquired = new Array<>();
 	private Sound reloadSound;
+	private final Array<Sound> bodyHitSounds = new Array<>(), headHitSounds = new Array<>();
+	/** Hits are heard only nearby: as loud as a gunshot this many times farther away. */
+	private static final float HIT_SOUND_RANGE_SCALE = 4f;
+	/** Blood stains a wall at most this far behind whoever got hit. */
+	private static final float SPLATTER_DISTANCE = 7f;
 	private long lastShotTime;
 	private long lastReloadTime;
 	private boolean zoomed;
@@ -74,6 +80,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 
 	// Reused math objects (avoid per-frame garbage).
 	private final ClosestRayResultCallback rayTestCB = new ClosestRayResultCallback(Vector3.Zero, Vector3.Z);
+	/** Only the level (no characters): where blood lands behind someone who got hit. */
+	private final ClosestRayResultCallback levelRay = new ClosestRayResultCallback(Vector3.Zero, Vector3.Z);
 	private final Vector3 rayFrom = new Vector3();
 	private final Vector3 rayTo = new Vector3();
 	private final Vector3 hitPoint = new Vector3();
@@ -90,6 +98,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	public WeaponSystem(GameWorld gameWorld, PerspectiveCamera camera) {
 		this.gameWorld = gameWorld;
 		this.camera = camera;
+		levelRay.setCollisionFilterMask(btBroadphaseProxy.CollisionFilterGroups.AllFilter
+				& ~btBroadphaseProxy.CollisionFilterGroups.CharacterFilter);
 	}
 
 	@Override
@@ -104,6 +114,10 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		player = entity;
 		playerComponent = entity.getComponent(PlayerComponent.class);
 		reloadSound = acquire(RELOAD_SOUND);
+		for (int i = 0; i < 3; i++) {
+			bodyHitSounds.add(acquire("sounds/hits/body-" + i + ".wav"));
+			headHitSounds.add(acquire("sounds/hits/head-" + i + ".wav"));
+		}
 		for (GunDefinition def : Assets.armory.all()) {
 			viewModels.put(def.id, gameWorld.entityFactory.createGunView(def));
 			shotSounds.put(def.id, acquire(def.sound));
@@ -137,9 +151,9 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		gun = playerComponent.selectedGun();
 		if (gun != null)
 			spreadDegrees = inaccuracy(gun.def);
-		// The view climbs with part of the spray pattern; the rest shows as bullets above the crosshair.
-		playerComponent.recoilUp = recoil.up() * Recoil.VIEW_FOLLOW;
-		playerComponent.recoilRight = recoil.right() * Recoil.VIEW_FOLLOW;
+		// The view climbs with the spray pattern, so the crosshair shows where the next bullet goes.
+		playerComponent.recoilUp = recoil.up();
+		playerComponent.recoilRight = recoil.right();
 		gameWorld.playerSystem().updateCameraDirection();
 		animateViewModel(deltaTime);
 	}
@@ -208,21 +222,28 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		gameWorld.renderSystem.gun = gun == null ? null : viewModels.get(gun.def.id);
 	}
 
+	/** Back to the normal view, if aiming down sights. */
+	public void unzoom() {
+		if (zoomed)
+			toggleZoom();
+	}
+
 	private void toggleZoom() {
 		zoomed = !zoomed;
 		camera.fieldOfView = zoomed ? ZOOM_FOV : DEFAULT_FOV;
 	}
 
 	/**
-	 * Where a bullet goes: where the player aims, plus the spray pattern's
-	 * offset for this bullet of the burst, plus a random deviation inside the
-	 * inaccuracy cone.
+	 * Where a bullet goes: where the crosshair is, which is where the player
+	 * aims plus the spray pattern's offset for this bullet of the burst and the
+	 * view's jolt from the last shots and hits, plus a random deviation inside
+	 * the inaccuracy cone.
 	 */
 	private Vector3 aimShot(GunDefinition def, float coneDegrees, Vector3 out) {
 		float radius = coneDegrees * (float) Math.sqrt(random.nextFloat()); // uniform over the disc
 		float angle = random.nextFloat() * MathUtils.PI2;
-		float up = recoil.up() + radius * MathUtils.sin(angle);
-		float right = recoil.right() + radius * MathUtils.cos(angle);
+		float up = recoil.up() + playerComponent.punchUp + radius * MathUtils.sin(angle);
+		float right = recoil.right() + playerComponent.punchRight + radius * MathUtils.cos(angle);
 		aim.setEulerAngles(playerComponent.yaw - right, playerComponent.pitch - up, 0);
 		return aim.transform(out.set(0, 0, 1));
 	}
@@ -311,6 +332,46 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		sound.play(volume, 1f, SpatialAudio.pan(camera.position, camera.direction, camera.up, shooter));
 	}
 
+	/**
+	 * Someone was hit (the server says so): blood flies from the wound and stains
+	 * the wall behind, and a thud sounds from the body, heard only nearby.
+	 *
+	 * @param onMe the local player was hit: no blood in our own eyes, the thud right here
+	 */
+	public void showHit(Vector3 at, Vector3 direction, boolean headshot, boolean onMe) {
+		if (playerComponent == null)
+			return;
+		Array<Sound> sounds = headshot ? headHitSounds : bodyHitSounds;
+		Sound sound = sounds.get(random.nextInt(sounds.size));
+		if (onMe) {
+			sound.play(Config.fxVolume / 100 * 0.8f);
+			return;
+		}
+		gameWorld.renderSystem.blood.spray(at, direction, headshot);
+		splatter(at, direction);
+		tmp.set(at).sub(camera.position).scl(HIT_SOUND_RANGE_SCALE).add(camera.position);
+		float volume = Config.fxVolume / 100 * SpatialAudio.volume(camera.position, tmp);
+		if (volume > 0.01f)
+			sound.play(Math.min(1, volume * 1.2f), MathUtils.random(0.93f, 1.07f),
+					SpatialAudio.pan(camera.position, camera.direction, camera.up, at));
+	}
+
+	/** Blood on the wall or floor behind the wound, if there is one close enough. */
+	private void splatter(Vector3 at, Vector3 direction) {
+		rayFrom.set(direction).scl(0.5f).add(at);
+		rayTo.set(direction).scl(SPLATTER_DISTANCE).add(at).add(0, -1.5f, 0); // drops fall a little
+		levelRay.setCollisionObject(null);
+		levelRay.setClosestHitFraction(1f);
+		levelRay.setRayFromWorld(rayFrom);
+		levelRay.setRayToWorld(rayTo);
+		gameWorld.bulletSystem.collisionWorld.rayTest(rayFrom, rayTo, levelRay);
+		if (!levelRay.hasHit())
+			return;
+		levelRay.getHitPointWorld(hitPoint);
+		levelRay.getHitNormalWorld(hitNormal);
+		gameWorld.renderSystem.impactMarks.addBlood(hitPoint, hitNormal);
+	}
+
 	private void reload(Gun gun) {
 		if (!gun.reload())
 			return;
@@ -321,6 +382,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	@Override
 	public void dispose() {
 		rayTestCB.dispose();
+		levelRay.dispose();
 		for (String path : acquired)
 			Assets.release(path);
 		acquired.clear();
