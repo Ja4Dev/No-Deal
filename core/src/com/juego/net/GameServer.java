@@ -108,7 +108,8 @@ public class GameServer implements Disposable {
 
 	private static class ServerPlayer {
 		final int id;
-		final String name;
+		String name;
+		long lastRenameMs = Long.MIN_VALUE / 2;
 		/** Null for bots. */
 		final Connection connection;
 		/** Null for people. */
@@ -152,7 +153,8 @@ public class GameServer implements Disposable {
 	private final btDbvtBroadphase broadphase = new btDbvtBroadphase();
 	private final btCollisionWorld world = new btCollisionWorld(dispatcher, broadphase, collisionConfig);
 	private final btCollisionObject mapObject = new btCollisionObject();
-	private final btCapsuleShape hitboxShape = new btCapsuleShape(CharacterShape.RADIUS, CharacterShape.CYLINDER);
+	private final btCapsuleShape hitboxShape = new btCapsuleShape(CharacterShape.HITBOX_RADIUS,
+			CharacterShape.HITBOX_CYLINDER);
 
 	private final ObjectMap<InetSocketAddress, ServerPlayer> byAddress = new ObjectMap<>();
 	private final IntMap<ServerPlayer> byId = new IntMap<>();
@@ -360,6 +362,9 @@ public class GameServer implements Disposable {
 			case Protocol.PICKUP_WEAPON:
 				handlePickup(player, Messages.PickupWeapon.read(message.payload), now);
 				break;
+			case Protocol.RENAME:
+				handleRename(player, Messages.Rename.read(message.payload), now);
+				break;
 			case Protocol.DISCONNECT:
 				event(EventType.LEAVE, player.name + " salió de la partida");
 				removePlayer(player);
@@ -423,6 +428,21 @@ public class GameServer implements Disposable {
 		event(EventType.JOIN,
 				player.name + " entró a la partida (#" + id + ", " + NetUtils.format(connection.address) + ")");
 		return player;
+	}
+
+	/** A player changes their name mid-match; everyone is told, so scoreboards and kill feeds follow. */
+	private void handleRename(ServerPlayer p, Messages.Rename m, long now) {
+		String name = Messages.sanitizeName(m.name);
+		if (name.equals(p.name) || now - p.lastRenameMs < Protocol.RENAME_COOLDOWN_MS)
+			return;
+		p.lastRenameMs = now;
+		String old = p.name;
+		p.name = name;
+		Messages.PlayerRenamed renamed = new Messages.PlayerRenamed();
+		renamed.playerId = p.id;
+		renamed.name = name;
+		broadcastReliable(renamed, null);
+		event(EventType.INFO, old + " ahora se llama " + name);
 	}
 
 	private void handleState(ServerPlayer p, Messages.PlayerState state, long now) {
@@ -494,7 +514,8 @@ public class GameServer implements Disposable {
 			if (victim == null || !victim.alive)
 				return; // hit the level
 			boolean headshot = end.y >= victim.position.y + CharacterShape.HEAD_OFFSET;
-			int damage = gun.damage * (headshot ? 3 : 1);
+			// The farther the bullet flew, the less it hurts (see GunDefinition.rangeModifier).
+			int damage = gun.damageAt(origin.dst(end)) * (headshot ? Protocol.HEADSHOT_MULTIPLIER : 1);
 			victim.damageFrom.getAndIncrement(shooter.id, 0, Math.min(damage, Math.max(0, victim.health)));
 			victim.health -= damage;
 			broadcastHit(victim, headshot, end, direction);

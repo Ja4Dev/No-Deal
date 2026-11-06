@@ -9,6 +9,13 @@ public final class CharacterShape {
 	/** Length of the cylindrical part; total height is CYLINDER + 2 * RADIUS = 6. */
 	public static final float CYLINDER = 2f;
 	public static final float HALF_HEIGHT = CYLINDER / 2 + RADIUS;
+	/**
+	 * Where bullets hit: a slimmer capsule of the same height that matches the
+	 * soldier model (shoulders and arms about 2.8 across), so shots that look
+	 * like they miss do miss. Movement still uses {@link #RADIUS}.
+	 */
+	public static final float HITBOX_RADIUS = 1.4f;
+	public static final float HITBOX_CYLINDER = 2 * HALF_HEIGHT - 2 * HITBOX_RADIUS;
 	/** Hits on the top ~1.2 units of the capsule (measured from its center) count as headshots. */
 	public static final float HEAD_OFFSET = HALF_HEIGHT - 1.2f;
 	/**

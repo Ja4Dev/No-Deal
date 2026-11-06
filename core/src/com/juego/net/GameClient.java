@@ -30,7 +30,8 @@ public class GameClient implements Disposable {
 	/** What the client knows about a player, including the local one (stats come from the server). */
 	public static class PlayerInfo {
 		public final int id;
-		public final String name;
+		/** Can change mid-match (see {@link GameClient#rename}). */
+		public String name;
 		public boolean alive = true;
 		public int health = 100, kills, deaths, assists, slot;
 		private final Array<float[]> samples = new Array<>(); // {timeMs, x, y, z, yaw, pitch}
@@ -51,8 +52,9 @@ public class GameClient implements Disposable {
 		}
 
 		/**
-		 * Position and yaw at {@code renderTimeMs}, blended between the two
-		 * snapshots around it (or the newest one if there is nothing newer).
+		 * Position and yaw (and pitch, if {@code outYaw} has room for it) at
+		 * {@code renderTimeMs}, blended between the two snapshots around it (or
+		 * the newest one if there is nothing newer).
 		 *
 		 * @return false if there is no data yet
 		 */
@@ -71,6 +73,8 @@ public class GameClient implements Disposable {
 			float alpha = span <= 0 ? 1 : MathUtils.clamp((renderTimeMs - older[0]) / span, 0, 1);
 			outPosition.set(older[1], older[2], older[3]).lerp(tmp.set(newer[1], newer[2], newer[3]), alpha);
 			outYaw[0] = lerpAngle(older[4], newer[4], alpha);
+			if (outYaw.length > 1)
+				outYaw[1] = older[5] + (newer[5] - older[5]) * alpha; // pitch
 			return true;
 		}
 
@@ -86,7 +90,7 @@ public class GameClient implements Disposable {
 	public static class Event {
 		public enum Type {
 			JOINED, LEFT, KILL, RESPAWN, SET_POSITION, MATCH_END, MATCH_START, SHOT, WEAPON_SPAWN, WEAPON_REMOVE,
-			DAMAGE, HIT
+			DAMAGE, HIT, RENAMED
 		}
 
 		public final Type type;
@@ -95,7 +99,7 @@ public class GameClient implements Disposable {
 		public boolean headshot;
 		/** MATCH_END: ordinal of Match.EndReason. DAMAGE: amount. */
 		public int detail;
-		/** KILL, SHOT, WEAPON_SPAWN: gun id or name. */
+		/** KILL, SHOT, WEAPON_SPAWN: gun id or name. RENAMED: the old name. */
 		public String gun = "";
 		/** Where it happens. SHOT: where the bullet stopped. DAMAGE: where the shot came from. HIT: where it hit. */
 		public final Vector3 position = new Vector3();
@@ -122,6 +126,9 @@ public class GameClient implements Disposable {
 	private final Vector3 spawn = new Vector3();
 	private final IntMap<PlayerInfo> players = new IntMap<>();
 	private final ArrayDeque<Event> events = new ArrayDeque<>();
+	/** "Old -> New" for every rename since the match started, newest last. */
+	private final Array<String> renames = new Array<>();
+	private static final int MAX_RENAMES_SHOWN = 4;
 	private final Array<Connection.Message> received = new Array<>();
 	private final Messages.PlayerState state = new Messages.PlayerState();
 	private Match.Phase matchPhase = Match.Phase.PLAYING;
@@ -214,8 +221,10 @@ public class GameClient implements Disposable {
 			Messages.Snapshot snapshot = Messages.Snapshot.read(in);
 			long now = clock.getAsLong();
 			Match.Phase phase = Match.Phase.values()[MathUtils.clamp(snapshot.phase, 0, Match.Phase.values().length - 1)];
-			if (phase == Match.Phase.PLAYING && matchPhase == Match.Phase.INTERMISSION)
+			if (phase == Match.Phase.PLAYING && matchPhase == Match.Phase.INTERMISSION) {
 				events.add(new Event(Event.Type.MATCH_START));
+				renames.clear();
+			}
 			matchPhase = phase;
 			matchRemainingMs = snapshot.remainingMs;
 			matchSampleMs = now;
@@ -317,6 +326,23 @@ public class GameClient implements Disposable {
 			events.add(e);
 			break;
 		}
+		case Protocol.PLAYER_RENAMED: {
+			Messages.PlayerRenamed m = Messages.PlayerRenamed.read(in);
+			PlayerInfo p = players.get(m.playerId);
+			if (p == null || p.name.equals(m.name))
+				break;
+			Event e = new Event(Event.Type.RENAMED);
+			e.playerId = m.playerId;
+			e.gun = p.name;
+			renames.add(p.name + " -> " + m.name);
+			if (renames.size > MAX_RENAMES_SHOWN)
+				renames.removeIndex(0);
+			p.name = m.name;
+			if (m.playerId == localId)
+				localName = m.name;
+			events.add(e);
+			break;
+		}
 		case Protocol.HIT: {
 			Messages.Hit m = Messages.Hit.read(in);
 			Event e = new Event(Event.Type.HIT);
@@ -362,6 +388,20 @@ public class GameClient implements Disposable {
 		state.magazine = magazine;
 		state.reserve = reserve;
 		connection.sendUnreliable(state);
+	}
+
+	/** Asks the server to call us {@code name} from now on (it tells everyone). */
+	public void rename(String name) {
+		if (status != Status.CONNECTED)
+			return;
+		Messages.Rename m = new Messages.Rename();
+		m.name = Messages.sanitizeName(name);
+		connection.sendReliable(m);
+	}
+
+	/** Renames in this match, "Old -> New", oldest first (the last few). */
+	public Array<String> getRenames() {
+		return renames;
 	}
 
 	/** Asks the server to throw the gun in {@code slot}. */

@@ -3,15 +3,8 @@ package com.juego.managers;
 import java.util.function.Supplier;
 
 import com.badlogic.ashley.core.Entity;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.VertexAttributes;
-import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
-import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
-import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute;
-import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
-import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.physics.bullet.Bullet;
@@ -31,6 +24,7 @@ import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.components.RemotePlayerComponent;
 import com.juego.core.Assets;
+import com.juego.graphics.SoldierModel;
 import com.juego.guns.GroundWeapons;
 import com.juego.guns.Gun;
 import com.juego.guns.GunDefinition;
@@ -45,7 +39,6 @@ public class EntityFactory implements Disposable {
 	/** Character capsule: radius 2, cylinder 2 -> 6 units tall, centered on its origin. */
 	public static final float CHARACTER_RADIUS = CharacterShape.RADIUS;
 	public static final float CHARACTER_CYLINDER = CharacterShape.CYLINDER;
-	private static final String CHARACTER_TEXTURE = "badlogic.jpg";
 
 	private final BulletSystem bulletSystem;
 	private final Model characterModel;
@@ -57,13 +50,7 @@ public class EntityFactory implements Disposable {
 
 	public EntityFactory(BulletSystem bulletSystem) {
 		this.bulletSystem = bulletSystem;
-		Texture texture = acquire(CHARACTER_TEXTURE, Texture.class);
-		Material material = new Material(TextureAttribute.createDiffuse(texture),
-				ColorAttribute.createSpecular(1, 1, 1, 1), FloatAttribute.createShininess(8f));
-		float height = CHARACTER_CYLINDER + 2 * CHARACTER_RADIUS;
-		characterModel = new ModelBuilder().createCapsule(CHARACTER_RADIUS, height, 16, material,
-				VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal
-						| VertexAttributes.Usage.TextureCoordinates);
+		characterModel = SoldierModel.build();
 	}
 
 	private <T> T acquire(String path, Class<T> type) {
@@ -103,6 +90,7 @@ public class EntityFactory implements Disposable {
 		Entity entity = new Entity();
 		ModelComponent model = new ModelComponent(characterModel, 0, -1000, 0);
 		model.visible = false; // until its first snapshot arrives
+		SoldierModel.paint(model.instance, playerId);
 		entity.add(model);
 		entity.add(new RemotePlayerComponent(playerId));
 		return entity;

@@ -127,7 +127,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			String footer = scoreboardOverPause ? "Clic para volver"
 					: intermission ? "Nueva partida en " + (remaining + 999) / 1000 + " s"
 							: "Quedan " + Match.formatClock(remaining);
-			scoreboard.update(gameWorld.getScoreboardTitle(), rows, footer);
+			scoreboard.update(gameWorld.getScoreboardTitle(), rows, footer, gameWorld.session.client.getRenames());
 			scoreboard.draw();
 		}
 		if (scoreboardOverPause && Gdx.input.justTouched())
@@ -142,7 +142,13 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	private String runCommand(String line) {
 		String lower = line.trim().toLowerCase();
 		if (lower.equals("ayuda") || lower.equals("help") || lower.equals("?"))
-			return "Comandos:\n" + GameServer.COMMANDS_HELP + "\nlimpiar  borra la consola";
+			return "Comandos:\nnombre <nuevo>  cambia tu nombre\n" + GameServer.COMMANDS_HELP + "\nlimpiar  borra la consola";
+		if (lower.startsWith("nombre") || lower.startsWith("name")) {
+			String name = line.trim().replaceFirst("(?i)^(nombre|name)\\s*", "");
+			if (name.isEmpty())
+				return "Uso: nombre <nuevo nombre> (hasta " + Protocol.MAX_NAME_LENGTH + " letras)";
+			return "Ahora te llamas " + gameWorld.network.rename(name) + ".";
+		}
 		GameServer server = gameWorld.hostedServer();
 		if (server == null)
 			return "Los comandos los usa quien creo la partida (o la consola del servidor dedicado).";

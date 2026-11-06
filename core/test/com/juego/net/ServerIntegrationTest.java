@@ -57,10 +57,11 @@ class ServerIntegrationTest {
 	private void startServer(GameServer.Config config) throws IOException {
 		config.port = 0; // any free port
 		config.maxPlayers = 2;
-		config.map = "Test";
+		if (config.map.equals(new GameServer.Config().map))
+			config.map = "Test";
 		Armory armory = Armory.load(new FileHandle(new File(ASSETS, Armory.GUNS_FILE)));
-		server = new GameServer(config, path -> path.equals("data/maps/Test.json")
-				? new FileHandle(tmp.resolve("Test.json").toFile())
+		server = new GameServer(config, path -> path.startsWith("data/maps/") && tmp.resolve(path.substring(10)).toFile().exists()
+				? new FileHandle(tmp.resolve(path.substring(10)).toFile())
 				: new FileHandle(new File(ASSETS, path)), armory, System::currentTimeMillis);
 	}
 
@@ -69,6 +70,10 @@ class ServerIntegrationTest {
 		for (GameClient c : clients)
 			c.dispose();
 		server.dispose();
+	}
+
+	private static Armory armory() {
+		return Armory.load(new FileHandle(new File(ASSETS, Armory.GUNS_FILE)));
 	}
 
 	private GameClient connect(String name) throws IOException {
@@ -129,15 +134,19 @@ class ServerIntegrationTest {
 		// Body shot: normal damage, seen by both clients through snapshots.
 		Vector3 bodyDirection = new Vector3(SPAWN_B).add(0, -1, 0).sub(SPAWN_A);
 		a.sendFire(0, SPAWN_A, bodyDirection);
-		pumpUntil("B damaged", 2000, () -> b.getPlayer(b.getLocalId()).health == 100 - 34
-				&& a.getPlayer(b.getLocalId()).health == 100 - 34);
+		// A little less than the M4's 34: the bullet travelled a few units.
+		int bodyShot = armory().get("m4a1").damageAt(SPAWN_A.dst(SPAWN_B) - CharacterShape.HITBOX_RADIUS);
+		assertTrue(bodyShot < 34 && bodyShot > 30, "body shot " + bodyShot);
+		pumpUntil("B damaged", 2000, () -> Math.abs(b.getPlayer(b.getLocalId()).health - (100 - bodyShot)) <= 1
+				&& a.getPlayer(b.getLocalId()).health == b.getPlayer(b.getLocalId()).health);
+		int afterFirst = a.getPlayer(b.getLocalId()).health;
 
 		// Shooting faster than the gun's fire rate is ignored by the server.
 		a.sendFire(0, SPAWN_A, bodyDirection);
 		pumpFor(300);
-		assertEquals(100 - 34, a.getPlayer(b.getLocalId()).health, "second shot came too fast");
+		assertEquals(afterFirst, a.getPlayer(b.getLocalId()).health, "second shot came too fast");
 
-		// Headshot: x3 damage kills.
+		// Headshot: x4 damage kills.
 		sleep(200);
 		a.sendFire(0, SPAWN_A, new Vector3(SPAWN_B).add(0, 2.5f, 0).sub(SPAWN_A));
 		pumpUntil("kill event", 2000, () -> find(eventsB, GameClient.Event.Type.KILL) != null);
@@ -296,7 +305,8 @@ class ServerIntegrationTest {
 		pumpUntil("B hurt", 2000, () -> find(eventsB, GameClient.Event.Type.DAMAGE) != null
 				&& find(eventsB, GameClient.Event.Type.SHOT) != null);
 		GameClient.Event damage = find(eventsB, GameClient.Event.Type.DAMAGE);
-		assertEquals(40, damage.detail, "magnum damage");
+		assertTrue(damage.detail < 40 && damage.detail >= 36, "magnum damage, a little less than 40 a few units away: "
+				+ damage.detail);
 		assertEquals(SPAWN_A, damage.position);
 		GameClient.Event shot = find(eventsB, GameClient.Event.Type.SHOT);
 		assertEquals("magnum", shot.gun);
@@ -364,10 +374,14 @@ class ServerIntegrationTest {
 		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED
 				&& a.getPlayer(b.getLocalId()) != null);
 
-		// A shoots B with the magnum (40 damage: enough for an assist).
-		a.sendFire(1, SPAWN_A, new Vector3(SPAWN_B).add(0, -1, 0).sub(SPAWN_A));
+		// A shoots B twice with the M4 (about 66 damage: enough for an assist).
+		Vector3 body = new Vector3(SPAWN_B).add(0, -1, 0).sub(SPAWN_A);
+		a.sendFire(0, SPAWN_A, body);
 		pumpUntil("both saw the hit", 2000, () -> find(eventsA, GameClient.Event.Type.HIT) != null
 				&& find(eventsB, GameClient.Event.Type.HIT) != null);
+		sleep(200); // the M4's fire rate
+		a.sendFire(0, SPAWN_A, body);
+		pumpUntil("second hit", 2000, () -> b.getPlayer(b.getLocalId()).health < 40);
 		GameClient.Event hit = find(eventsA, GameClient.Event.Type.HIT);
 		assertEquals(b.getLocalId(), hit.playerId, "the shooter sees where they hit");
 		assertTrue(!hit.headshot);
@@ -378,5 +392,53 @@ class ServerIntegrationTest {
 		pumpUntil("A's assist", 3000, () -> a.getPlayer(a.getLocalId()).assists == 1);
 		assertEquals(0, a.getPlayer(a.getLocalId()).kills);
 		assertEquals(1, b.getPlayer(b.getLocalId()).deaths);
+	}
+
+	@Test
+	void longShotsStillHurtButLess() throws IOException {
+		// Two places in the Bank that see each other 123 units apart (found by raycasting the level).
+		Vector3 near = new Vector3(-23.585f, 3.478f, -52.414f), far = new Vector3(18.415f, 3.478f, 63.586f);
+		Files.writeString(tmp.resolve("Far.json"), "{model: maps/Bank.g3dj, spawnPoints: [[" + near.x + "," + near.y + ","
+				+ near.z + "],[" + far.x + "," + far.y + "," + far.z + "]]}");
+		server.dispose();
+		GameServer.Config config = new GameServer.Config();
+		config.map = "Far";
+		startServer(config);
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED && a.getPlayer(b.getLocalId()) != null);
+		Vector3 from = a.getSpawn(), to = b.getSpawn();
+		assertTrue(from.dst(to) > 120, "far apart: " + from.dst(to));
+
+		a.sendFire(0, from, new Vector3(to).sub(from));
+		pumpUntil("hit from 120 units", 2000, () -> b.getPlayer(b.getLocalId()).health < 100);
+		int expected = armory().get("m4a1").damageAt(from.dst(to) - CharacterShape.HITBOX_RADIUS);
+		int taken = 100 - b.getPlayer(b.getLocalId()).health;
+		assertTrue(Math.abs(taken - expected) <= 1, "took " + taken + ", expected about " + expected);
+		assertTrue(taken < 34 * 0.75f && taken > 34 * 0.6f, "a long shot hurts less (" + taken + " of 34), but hurts");
+	}
+
+	@Test
+	void playersCanRenameThemselvesMidMatch() throws IOException {
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED && a.getPlayer(b.getLocalId()) != null);
+
+		b.rename("  Roberto	"); // trimmed, control characters dropped
+		pumpUntil("A sees the new name", 2000, () -> "Roberto".equals(a.getPlayer(b.getLocalId()).name));
+		pumpUntil("B too", 2000, () -> "Roberto".equals(b.getPlayer(b.getLocalId()).name));
+		GameClient.Event renamed = find(eventsA, GameClient.Event.Type.RENAMED);
+		assertEquals(b.getLocalId(), renamed.playerId);
+		assertEquals("Beto", renamed.gun, "the event keeps the old name");
+		assertEquals("Beto -> Roberto", a.getRenames().peek(), "for the scoreboard's corner");
+		assertEquals("Roberto", server.getPlayers().get(1).name);
+
+		// Too soon after the last change: ignored.
+		b.rename("Tito");
+		pumpFor(400);
+		assertEquals("Roberto", a.getPlayer(b.getLocalId()).name);
+		assertEquals(1, a.getRenames().size);
 	}
 }

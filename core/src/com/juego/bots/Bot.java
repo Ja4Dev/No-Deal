@@ -46,6 +46,8 @@ public class Bot {
 	private static final float WAYPOINT_RADIUS = 2.5f;
 	private static final long REPATH_MS = 1500;
 	private static final long STUCK_CHECK_MS = 900;
+	/** Hard bots walk towards enemies farther than this while they fight. */
+	private static final float CLOSE_IN_DISTANCE = 40f;
 	/** Head and chest, above the capsule center. */
 	private static final float HEAD_AIM = CharacterShape.HEAD_OFFSET + 0.5f, CHEST_AIM = 0.4f;
 
@@ -292,7 +294,7 @@ public class Bot {
 		moveInFight(target, distance, nowMs);
 
 		boolean reacted = nowMs - noticedMs >= difficulty.reactionMs;
-		if (!reacted || reloadDoneMs != 0 || distance > gun.range * 0.95f)
+		if (!reacted || reloadDoneMs != 0)
 			return;
 		if (magazine <= 0) {
 			startReload(nowMs);
@@ -301,7 +303,7 @@ public class Bot {
 		if (nowMs - lastShotMs < gun.fireDelayMs || nowMs < burstPauseUntilMs)
 			return;
 		// Only shoot when the crosshair is roughly on the body.
-		float tolerance = Math.max(1.2f, (float) Math.toDegrees(Math.atan2(CharacterShape.RADIUS * 0.8f, distance)));
+		float tolerance = Math.max(1.2f, (float) Math.toDegrees(Math.atan2(CharacterShape.HITBOX_RADIUS * 0.8f, distance)));
 		float off = Math.max(Math.abs(angleDelta(yaw, idealYaw + recoil.right() * difficulty.sprayControl)),
 				Math.abs(pitch - (idealPitch + recoil.up() * difficulty.sprayControl)));
 		if (off > tolerance + Math.abs(errorYaw))
@@ -355,7 +357,7 @@ public class Bot {
 		case STRAFE:
 			strafe(tmp, nowMs, 350, 800);
 			wishSpeed = PlayerMovement.WALK_SPEED; // walking doesn't spoil the aim
-			if (distance > gun.range * 0.8f)
+			if (distance > CLOSE_IN_DISTANCE) // far shots hurt less: get closer while strafing
 				wishDirection.add(tmp).nor();
 			break;
 		}

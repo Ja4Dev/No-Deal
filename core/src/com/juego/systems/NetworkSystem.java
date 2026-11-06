@@ -16,11 +16,14 @@ import com.juego.UI.HUD;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
+import com.juego.graphics.SoldierModel;
 import com.juego.guns.Gun;
 import com.juego.net.GameClient;
+import com.juego.net.Messages;
 import com.juego.net.NetUtils;
 import com.juego.net.Protocol;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.Config;
 import com.juego.utils.Controls;
 
 /**
@@ -41,7 +44,20 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 	private boolean greeted;
 
 	private final Vector3 position = new Vector3();
-	private final float[] yaw = new float[1];
+	private final float[] yaw = new float[2]; // yaw, pitch
+	/** Walk cycle and aim of each other player's model. */
+	private final IntMap<Animation> animations = new IntMap<>();
+
+	private static class Animation {
+		final SoldierModel.Pose pose;
+		final Vector3 last = new Vector3();
+		boolean known;
+		float speed;
+
+		Animation(ModelComponent model) {
+			pose = new SoldierModel.Pose(model.instance);
+		}
+	}
 	private final Quaternion rotation = new Quaternion();
 
 	public NetworkSystem(GameWorld gameWorld, GameClient client) {
@@ -84,7 +100,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		while ((event = client.pollEvent()) != null)
 			handle(event);
 		applyLocalStats();
-		moveRemotePlayers();
+		moveRemotePlayers(delta);
 		sendLocalState();
 	}
 
@@ -121,8 +137,10 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		IntArray ids = remotes.keys().toArray(); // a copy: we remove while iterating
 		for (int i = 0; i < ids.size; i++) {
 			int id = ids.get(i);
-			if (client.getPlayer(id) == null)
+			if (client.getPlayer(id) == null) {
 				engine.removeEntity(remotes.remove(id));
+				animations.remove(id);
+			}
 		}
 	}
 
@@ -188,6 +206,10 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		case DAMAGE:
 			playerComponent.hurt(event.detail, event.position);
 			break;
+		case RENAMED:
+			feed(me ? "Ahora te llamás " + client.getPlayer(event.playerId).name
+					: event.gun + " ahora se llama " + name(event.playerId));
+			break;
 		case HIT:
 			gameWorld.weaponSystem().showHit(event.position, event.from, event.headshot, me);
 			break;
@@ -217,18 +239,45 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			playerComponent.killedByServer();
 	}
 
-	private void moveRemotePlayers() {
+	private void moveRemotePlayers(float delta) {
 		long renderTime = client.now() - Protocol.INTERPOLATION_DELAY_MS;
 		for (IntMap.Entry<Entity> entry : remotes.entries()) {
 			GameClient.PlayerInfo info = client.getPlayer(entry.key);
 			ModelComponent model = entry.value.getComponent(ModelComponent.class);
 			boolean known = info != null && info.interpolate(renderTime, position, yaw);
 			model.visible = known && info.alive;
-			if (known) {
-				rotation.setFromAxis(Vector3.Y, yaw[0]);
-				model.instance.transform.set(position, rotation);
+			Animation animation = animations.get(entry.key);
+			if (animation == null)
+				animations.put(entry.key, animation = new Animation(model));
+			if (!model.visible) {
+				animation.known = false;
+				continue;
 			}
+			rotation.setFromAxis(Vector3.Y, yaw[0]);
+			model.instance.transform.set(position, rotation);
+			// How fast they move, from where they are drawn (smoothed: snapshots come 20 times a second).
+			float dx = position.x - animation.last.x, dz = position.z - animation.last.z;
+			float speed = animation.known && delta > 0 && dx * dx + dz * dz < 100
+					? (float) Math.sqrt(dx * dx + dz * dz) / delta : 0;
+			animation.speed += (speed - animation.speed) * Math.min(1, delta * 10);
+			animation.last.set(position);
+			animation.known = true;
+			animation.pose.update(animation.speed, yaw[1], delta);
 		}
+	}
+
+	/**
+	 * Changes our name for everyone (the server tells the others) and keeps it
+	 * for next time.
+	 *
+	 * @return the name, as it will be shown (cleaned up and cut to the maximum length)
+	 */
+	public String rename(String name) {
+		String clean = Messages.sanitizeName(name);
+		client.rename(clean);
+		Config.playerName = clean;
+		Config.save();
+		return clean;
 	}
 
 	/**
@@ -263,7 +312,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			model.instance.transform.getTranslation(sphereCenter);
 			for (float offset : SPHERE_OFFSETS) {
 				sphereCenter2.set(sphereCenter).add(0, offset, 0);
-				if (Intersector.intersectRaySphere(ray, sphereCenter2, CharacterShape.RADIUS, intersection)
+				if (Intersector.intersectRaySphere(ray, sphereCenter2, CharacterShape.HITBOX_RADIUS, intersection)
 						&& intersection.dst(ray.origin) < distance)
 					return true;
 			}
@@ -271,7 +320,8 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		return false;
 	}
 
-	private static final float[] SPHERE_OFFSETS = { -CharacterShape.CYLINDER / 2, CharacterShape.CYLINDER / 2 };
+	private static final float[] SPHERE_OFFSETS = { -CharacterShape.HITBOX_CYLINDER / 2, 0,
+			CharacterShape.HITBOX_CYLINDER / 2 };
 	private final Vector3 sphereCenter = new Vector3(), sphereCenter2 = new Vector3(), intersection = new Vector3();
 
 	public void sendFire(Gun gun, Vector3 origin, Vector3 direction) {

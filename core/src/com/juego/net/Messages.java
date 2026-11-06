@@ -269,6 +269,47 @@ public final class Messages {
 		}
 	}
 
+	/** Client to server: "call me this from now on". */
+	public static class Rename implements Message {
+		public String name = "";
+
+		public byte type() {
+			return Protocol.RENAME;
+		}
+
+		public void write(ByteBuffer out) {
+			writeString(out, name, Protocol.MAX_NAME_LENGTH);
+		}
+
+		public static Rename read(ByteBuffer in) {
+			Rename m = new Rename();
+			m.name = readString(in);
+			return m;
+		}
+	}
+
+	/** Server to everyone: a player changed their name. */
+	public static class PlayerRenamed implements Message {
+		public int playerId;
+		public String name = "";
+
+		public byte type() {
+			return Protocol.PLAYER_RENAMED;
+		}
+
+		public void write(ByteBuffer out) {
+			out.put((byte) playerId);
+			writeString(out, name, Protocol.MAX_NAME_LENGTH);
+		}
+
+		public static PlayerRenamed read(ByteBuffer in) {
+			PlayerRenamed m = new PlayerRenamed();
+			m.playerId = in.get() & 0xFF;
+			m.name = readString(in);
+			return m;
+		}
+	}
+
 	public static class PlayerLeft implements Message {
 		public int playerId;
 

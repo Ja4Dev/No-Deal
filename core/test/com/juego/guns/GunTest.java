@@ -84,4 +84,31 @@ class GunTest {
 		assertEquals(30, gun.getMagazine());
 		assertEquals(70, gun.getReserve());
 	}
+
+	@Test
+	void damageDropsWithDistanceButNeverToNothing() {
+		GunDefinition rifle = definition(30, 70);
+		rifle.damage = 34;
+		rifle.rangeModifier = 0.85f;
+		assertEquals(34, rifle.damageAt(0), "point blank: full damage");
+		assertEquals(Math.round(34 * 0.85f), rifle.damageAt(GunDefinition.FALLOFF_DISTANCE));
+		assertEquals(Math.round(34 * 0.85f * 0.85f), rifle.damageAt(2 * GunDefinition.FALLOFF_DISTANCE));
+		int previous = Integer.MAX_VALUE;
+		for (float d = 0; d <= GunDefinition.MAX_RANGE; d += 25) {
+			int damage = rifle.damageAt(d);
+			assertTrue(damage <= previous, "never more damage farther away");
+			assertTrue(damage >= 1, "always hurts, even at " + d);
+			previous = damage;
+		}
+		rifle.rangeModifier = 1;
+		assertEquals(34, rifle.damageAt(500), "1 = no falloff");
+	}
+
+	@Test
+	void everyGunReachesAcrossTheLevel() {
+		for (GunDefinition def : Armory.load(new com.badlogic.gdx.files.FileHandle(new java.io.File("assets", Armory.GUNS_FILE))).all()) {
+			assertTrue(def.range >= 300, def.id + " must reach across the level");
+			assertTrue(def.damageAt(150) > 0 && def.damageAt(150) < def.damage, def.id + " loses some damage at 150 units");
+		}
+	}
 }
