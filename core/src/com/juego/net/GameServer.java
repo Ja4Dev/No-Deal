@@ -2,6 +2,7 @@ package com.juego.net;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Random;
 import java.util.function.LongSupplier;
 
 import com.badlogic.gdx.assets.loaders.FileHandleResolver;
@@ -20,6 +21,10 @@ import com.badlogic.gdx.utils.IntMap;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.ObjectMap;
+import com.juego.bots.Bot;
+import com.juego.bots.BotDifficulty;
+import com.juego.bots.BotWorld;
+import com.juego.bots.NavGrid;
 import com.juego.guns.Armory;
 import com.juego.guns.GroundWeapons;
 import com.juego.guns.GunDefinition;
@@ -35,6 +40,9 @@ import com.juego.utils.CharacterShape;
  * against the level and the other players' hitboxes, and health, kills,
  * deaths and respawns are only changed here.
  * <p>
+ * Bots ({@link Bot}) are players simulated here: they have no connection, but
+ * everyone else sees them like any other player.
+ * <p>
  * Not thread-safe: call {@link #update()} from a single thread, often (every
  * frame, or ~60 times per second).
  */
@@ -48,6 +56,9 @@ public class GameServer implements Disposable {
 	private static final float KILL_PLANE_Y = -30f;
 	/** Extra reach allowed for pickups: the server sees players a little late. */
 	private static final float PICKUP_SLACK = 1.5f;
+	public static final int MAX_BOTS = 16;
+	private static final String[] BOT_NAMES = { "Pedro", "Lucia", "Tano", "Marta", "Rulo", "Vicky", "Nacho", "Sole",
+			"Tincho", "Flor", "Chino", "Male", "Pipo", "Juli", "Beto", "Caro", "Quique", "Ana" };
 
 	public static class Config {
 		public int port = Protocol.DEFAULT_PORT;
@@ -57,6 +68,11 @@ public class GameServer implements Disposable {
 		/** 0 = no frag limit. */
 		public int fragLimit = Protocol.DEFAULT_FRAG_LIMIT;
 		public long intermissionMs = Protocol.INTERMISSION_MS;
+		/** Bots in the match from the start (they can be added or removed later with commands). */
+		public int bots;
+		public BotDifficulty botDifficulty = BotDifficulty.MEDIO;
+		/** Only this computer can join: the private server behind "Un jugador". */
+		public boolean localOnly;
 	}
 
 	/** What a server event is about, so a console can color or filter it. */
@@ -72,10 +88,13 @@ public class GameServer implements Disposable {
 	/** A copy of one player's public state, safe to hand to another thread. */
 	public static final class PlayerInfo {
 		public final int id, kills, deaths, health;
+		/** For bots the address is "bot (Medio)". */
 		public final String name, address;
-		public final boolean alive;
+		public final boolean alive, bot;
 
-		PlayerInfo(int id, String name, String address, int kills, int deaths, int health, boolean alive) {
+		PlayerInfo(int id, String name, String address, int kills, int deaths, int health, boolean alive,
+				boolean bot) {
+			this.bot = bot;
 			this.id = id;
 			this.name = name;
 			this.address = address;
@@ -89,7 +108,10 @@ public class GameServer implements Disposable {
 	private static class ServerPlayer {
 		final int id;
 		final String name;
+		/** Null for bots. */
 		final Connection connection;
+		/** Null for people. */
+		Bot bot;
 		final MovementValidator validator = new MovementValidator();
 		final Vector3 position = new Vector3();
 		final long[] lastFireMs = { Long.MIN_VALUE / 2, Long.MIN_VALUE / 2 };
@@ -108,6 +130,10 @@ public class GameServer implements Disposable {
 			this.id = id;
 			this.name = name;
 			this.connection = connection;
+		}
+
+		boolean isBot() {
+			return bot != null;
 		}
 	}
 
@@ -138,6 +164,21 @@ public class GameServer implements Disposable {
 	private int tick;
 	private Listener listener;
 
+	// Bots: their physics and navigation are built when the first bot joins.
+	private BotWorld botWorld;
+	private NavGrid nav;
+	private BotDifficulty botDifficulty;
+	private final Random random = new Random();
+	private final Array<Bot.Target> targets = new Array<>();
+	private float botAccumulator;
+	private long lastBotUpdateMs = Long.MIN_VALUE;
+	private long botNowMs;
+	private final Bot.Host botHost = (bot, origin, direction) -> {
+		ServerPlayer p = byId.get(bot.id);
+		if (p != null)
+			fireShot(p, p.slot, origin, direction, botNowMs);
+	};
+
 	public GameServer(Config config, FileHandleResolver files, Armory armory, LongSupplier clock) throws IOException {
 		this.config = config;
 		this.armory = armory;
@@ -149,7 +190,7 @@ public class GameServer implements Disposable {
 		mapObject.setCollisionShape(map.shape);
 		mapObject.setUserValue(Protocol.WORLD);
 		world.addCollisionObject(mapObject);
-		socket = new NetSocket(config.port);
+		socket = new NetSocket(config.port, config.localOnly);
 		match = new Match(new Match.Settings(config.timeLimitMinutes * 60_000L, config.fragLimit, config.intermissionMs));
 		match.start(clock.getAsLong());
 		weapons = new GroundWeapons(this::castLevel, new GroundWeapons.Listener() {
@@ -172,6 +213,9 @@ public class GameServer implements Disposable {
 				weapons.addSpawner(armory.get(s.getString("gun")), new Vector3(s.get("position").getFloat(0),
 						s.get("position").getFloat(1), s.get("position").getFloat(2)));
 		weapons.update(clock.getAsLong());
+		botDifficulty = config.botDifficulty;
+		for (int i = 0; i < Math.min(config.bots, MAX_BOTS); i++)
+			addBot(botDifficulty);
 		NetLog.info(TAG, "Listening on UDP port " + socket.getLocalPort() + " (map " + config.map + ", max "
 				+ config.maxPlayers + " players, " + config.timeLimitMinutes + " min"
 				+ (config.fragLimit > 0 ? " or " + config.fragLimit + " kills" : "") + ")");
@@ -192,32 +236,47 @@ public class GameServer implements Disposable {
 		return socket.getLocalPort();
 	}
 
+	/** People connected (bots not counted). */
 	public int getPlayerCount() {
-		return byId.size;
+		int count = 0;
+		for (ServerPlayer p : byId.values())
+			if (!p.isBot())
+				count++;
+		return count;
 	}
 
-	/** E.g. "playing, 7:42 left", for the dedicated server console. */
+	public int getBotCount() {
+		return byId.size - getPlayerCount();
+	}
+
+	/** Difficulty of the next bots added. */
+	public BotDifficulty getBotDifficulty() {
+		return botDifficulty;
+	}
+
+	/** E.g. "jugando, quedan 7:42", for the consoles. */
 	public String describeMatch() {
 		long remaining = match.remainingMs(clock.getAsLong());
-		return match.isPlaying() ? "playing, " + Match.formatClock(remaining) + " left"
-				: "intermission, next match in " + Match.formatClock(remaining);
+		return match.isPlaying() ? "jugando, quedan " + Match.formatClock(remaining)
+				: "entre partidas, la proxima en " + Match.formatClock(remaining);
 	}
 
 	/** One line per player, for the dedicated server console. */
 	public String describePlayers() {
 		StringBuilder sb = new StringBuilder();
 		for (PlayerInfo p : getPlayers())
-			sb.append(String.format("  #%d %-16s %s  K %d / D %d  %s%n", p.id, p.name,
-					p.alive ? p.health + " hp" : "dead", p.kills, p.deaths, p.address));
-		return sb.length() == 0 ? "  (no players)\n" : sb.toString();
+			sb.append(String.format("  #%d %-16s %s  bajas %d / muertes %d  %s%n", p.id, p.name,
+					p.alive ? p.health + " hp" : "muerto", p.kills, p.deaths, p.address));
+		return sb.length() == 0 ? "  (nadie)\n" : sb.toString();
 	}
 
 	/** The players right now, sorted by id. */
 	public Array<PlayerInfo> getPlayers() {
 		Array<PlayerInfo> result = new Array<>(byId.size);
 		for (ServerPlayer p : byId.values())
-			result.add(new PlayerInfo(p.id, p.name, NetUtils.format(p.connection.address), p.kills, p.deaths,
-					p.health, p.alive));
+			result.add(new PlayerInfo(p.id, p.name,
+					p.isBot() ? "bot (" + p.bot.getDifficulty().label + ")" : NetUtils.format(p.connection.address),
+					p.kills, p.deaths, p.health, p.alive, p.isBot()));
 		result.sort((a, b) -> Integer.compare(a.id, b.id));
 		return result;
 	}
@@ -241,13 +300,14 @@ public class GameServer implements Disposable {
 			handleDatagram(datagram, now);
 
 		for (ServerPlayer p : byId.values().toArray()) {
-			if (p.connection.isTimedOut(Protocol.TIMEOUT_MS)) {
+			if (!p.isBot() && p.connection.isTimedOut(Protocol.TIMEOUT_MS)) {
 				event(EventType.LEAVE, p.name + " se desconectó (sin respuesta)");
 				removePlayer(p);
 			} else if (!p.alive && now >= p.respawnAtMs) {
 				respawn(p, now);
 			}
 		}
+		updateBots(now);
 		updateMatch(now);
 		weapons.update(now);
 		if (now >= nextSnapshotMs) {
@@ -255,7 +315,8 @@ public class GameServer implements Disposable {
 			broadcastSnapshot();
 		}
 		for (ServerPlayer p : byId.values())
-			send(p.connection);
+			if (!p.isBot())
+				send(p.connection);
 		for (Connection c : closing)
 			send(c);
 		closing.clear();
@@ -310,7 +371,7 @@ public class GameServer implements Disposable {
 		String reason = null;
 		if (hello.version != Protocol.VERSION)
 			reason = "Version incompatible (servidor v" + Protocol.VERSION + ", cliente v" + hello.version + ")";
-		else if (byId.size >= config.maxPlayers)
+		else if (getPlayerCount() >= config.maxPlayers)
 			reason = "Servidor lleno (" + config.maxPlayers + " jugadores)";
 		if (reason != null) {
 			Messages.Reject reject = new Messages.Reject();
@@ -320,8 +381,14 @@ public class GameServer implements Disposable {
 			event(EventType.WARNING, "Rechazado " + NetUtils.format(connection.address) + ": " + reason);
 			return null;
 		}
-		if (byId.size == 0)
-			match.start(now); // first player into an empty server gets a full match
+		if (getPlayerCount() == 0) {
+			// The first person into an empty server gets a full match (bots waiting there start over too).
+			match.start(now);
+			for (ServerPlayer bot : byId.values()) {
+				bot.kills = 0;
+				bot.deaths = 0;
+			}
+		}
 		int id = 1;
 		while (byId.containsKey(id))
 			id++;
@@ -385,13 +452,21 @@ public class GameServer implements Disposable {
 			return; // faster than the gun can shoot
 		if (fire.origin.dst(shooter.position) > MAX_FIRE_ORIGIN_DISTANCE || fire.direction.isZero())
 			return;
-		shooter.lastFireMs[fire.slot] = now;
-		fire.direction.nor();
-		Vector3 to = tmp.set(fire.direction).scl(gun.range).add(fire.origin);
+		fireShot(shooter, fire.slot, fire.origin, fire.direction, now);
+	}
 
-		AllHitsRayResultCallback callback = new AllHitsRayResultCallback(fire.origin, to);
+	/** A shot that passed the checks (or a bot's): traced against the level and the players. */
+	private void fireShot(ServerPlayer shooter, int slot, Vector3 origin, Vector3 direction, long now) {
+		GunDefinition gun = shooter.guns[slot];
+		if (gun == null || !match.isPlaying() || !shooter.alive)
+			return;
+		shooter.lastFireMs[slot] = now;
+		direction.nor();
+		Vector3 to = tmp.set(direction).scl(gun.range).add(origin);
+
+		AllHitsRayResultCallback callback = new AllHitsRayResultCallback(origin, to);
 		try {
-			world.rayTest(fire.origin, to, callback);
+			world.rayTest(origin, to, callback);
 			int closest = -1;
 			float closestFraction = 2f;
 			for (int i = 0; i < callback.getCollisionObjects().size(); i++) {
@@ -405,7 +480,7 @@ public class GameServer implements Disposable {
 				}
 			}
 			Vector3 end = closest < 0 ? to : callback.getHitPointWorld().at(closest);
-			broadcastShot(shooter, gun, fire.origin, end);
+			broadcastShot(shooter, gun, origin, end);
 			if (closest < 0)
 				return;
 			int hitId = callback.getCollisionObjects().atConst(closest).getUserValue();
@@ -415,10 +490,14 @@ public class GameServer implements Disposable {
 			boolean headshot = end.y >= victim.position.y + CharacterShape.HEAD_OFFSET;
 			int damage = gun.damage * (headshot ? 3 : 1);
 			victim.health -= damage;
-			Messages.Damage hurt = new Messages.Damage();
-			hurt.amount = damage;
-			hurt.source.set(fire.origin);
-			victim.connection.sendUnreliable(hurt);
+			if (victim.isBot()) {
+				victim.bot.hurtBy(shooter.id, origin, now);
+			} else {
+				Messages.Damage hurt = new Messages.Damage();
+				hurt.amount = damage;
+				hurt.source.set(origin);
+				victim.connection.sendUnreliable(hurt);
+			}
 			if (victim.health <= 0)
 				kill(victim, shooter, headshot, gun.name, now);
 		} finally {
@@ -434,9 +513,284 @@ public class GameServer implements Disposable {
 		shot.origin.set(origin);
 		shot.end.set(end);
 		for (ServerPlayer p : byId.values()) {
-			if (p != shooter)
+			if (p.isBot())
+				p.bot.hearShot(shooter.id, origin, botNowMs);
+			else if (p != shooter)
 				p.connection.sendUnreliable(shot);
 		}
+	}
+
+	// ---- bots ----
+
+	/** Builds the bots' physics and navigation the first time they're needed (a fraction of a second). */
+	private void ensureBotWorld() {
+		if (botWorld != null)
+			return;
+		long start = System.currentTimeMillis();
+		botWorld = new BotWorld(map.shape);
+		nav = new NavGrid(botWorld, spawnPoints);
+		NetLog.info(TAG, "Bot navigation: " + nav.usableCount() + " walkable cells (of " + nav.nodeCount()
+				+ ") in " + (System.currentTimeMillis() - start) + " ms");
+	}
+
+	/**
+	 * Adds a bot, which spawns right away.
+	 *
+	 * @return its name, or null if there are already {@link #MAX_BOTS}
+	 */
+	public String addBot(BotDifficulty difficulty) {
+		if (getBotCount() >= MAX_BOTS)
+			return null;
+		long now = clock.getAsLong();
+		ensureBotWorld();
+		int id = 1;
+		while (byId.containsKey(id))
+			id++;
+		String name = botName();
+		ServerPlayer p = new ServerPlayer(id, name, null);
+		p.hitbox.setCollisionShape(hitboxShape);
+		p.hitbox.setUserValue(id);
+		resetLoadout(p);
+		byId.put(id, p);
+		placeAtSpawn(p, now);
+		p.bot = new Bot(id, name, difficulty, botWorld, nav, p.position, random);
+		respawnBot(p);
+		broadcastReliable(joined(p), p);
+		event(EventType.JOIN, name + " entró a la partida (bot " + difficulty.label + ")");
+		return name;
+	}
+
+	/** "BOT Pedro": the first name not in use, in a random order. */
+	private String botName() {
+		int first = random.nextInt(BOT_NAMES.length);
+		for (int round = 1;; round++) {
+			for (int i = 0; i < BOT_NAMES.length; i++) {
+				String name = "BOT " + BOT_NAMES[(first + i) % BOT_NAMES.length] + (round > 1 ? " " + round : "");
+				if (findBot(name) == null)
+					return name;
+			}
+		}
+	}
+
+	/** A bot by name, with or without the "BOT " prefix, ignoring case; null if there is none. */
+	private ServerPlayer findBot(String name) {
+		String wanted = name.toLowerCase().startsWith("bot ") ? name : "BOT " + name;
+		for (ServerPlayer p : byId.values())
+			if (p.isBot() && p.name.equalsIgnoreCase(wanted))
+				return p;
+		return null;
+	}
+
+	/**
+	 * Takes a bot out of the match.
+	 *
+	 * @param name which one; null for the last one added
+	 * @return its name, or null if there is no such bot
+	 */
+	public String removeBot(String name) {
+		ServerPlayer bot = null;
+		if (name != null) {
+			bot = findBot(name);
+		} else {
+			for (ServerPlayer p : byId.values())
+				if (p.isBot() && (bot == null || p.id > bot.id))
+					bot = p;
+		}
+		if (bot == null)
+			return null;
+		removePlayer(bot);
+		event(EventType.LEAVE, bot.name + " salió de la partida (bot)");
+		return bot.name;
+	}
+
+	/** Changes the difficulty of every bot, and of the ones added from now on. */
+	public void setBotDifficulty(BotDifficulty difficulty) {
+		botDifficulty = difficulty;
+		for (ServerPlayer p : byId.values())
+			if (p.isBot())
+				p.bot.setDifficulty(difficulty);
+		event(EventType.INFO, "Dificultad de los bots: " + difficulty.label);
+	}
+
+	private final Array<ServerPlayer> botsThisStep = new Array<>();
+
+	/**
+	 * Runs the bots in fixed steps of {@link BotWorld#STEP}: they decide, then
+	 * their bodies move. Without people in the server they wait where they are.
+	 */
+	private void updateBots(long now) {
+		if (botWorld == null || getBotCount() == 0) {
+			lastBotUpdateMs = now;
+			return;
+		}
+		if (lastBotUpdateMs == Long.MIN_VALUE)
+			lastBotUpdateMs = now;
+		botAccumulator = Math.min(botAccumulator + (now - lastBotUpdateMs) / 1000f, 5 * BotWorld.STEP);
+		lastBotUpdateMs = now;
+		boolean fighting = match.isPlaying() && getPlayerCount() > 0;
+		botNowMs = now;
+		while (botAccumulator >= BotWorld.STEP) {
+			botAccumulator -= BotWorld.STEP;
+			// A copy: shots and kills iterate the players too, and map iterators can't be nested.
+			botsThisStep.clear();
+			for (ServerPlayer p : byId.values())
+				if (p.isBot() && p.alive)
+					botsThisStep.add(p);
+			refreshTargets();
+			for (ServerPlayer p : botsThisStep) {
+				if (p.alive)
+					p.bot.think(now, BotWorld.STEP, targets, fighting, botHost);
+				if (p.alive)
+					p.bot.move();
+			}
+			botWorld.step();
+			for (ServerPlayer p : botsThisStep) {
+				if (!p.alive)
+					continue;
+				p.bot.afterStep();
+				setPosition(p, p.bot.position);
+				p.yaw = p.bot.yaw;
+				p.pitch = p.bot.pitch;
+				p.magazine = p.bot.getMagazine();
+				p.reserve = p.bot.getReserve();
+				if (p.position.y < KILL_PLANE_Y)
+					kill(p, null, false, "", now);
+			}
+		}
+	}
+
+	/** What bots know about everyone: who is alive and where. */
+	private void refreshTargets() {
+		while (targets.size < byId.size)
+			targets.add(new Bot.Target());
+		targets.truncate(byId.size);
+		int i = 0;
+		for (ServerPlayer p : byId.values()) {
+			Bot.Target t = targets.get(i++);
+			t.id = p.id;
+			t.alive = p.alive;
+			t.position.set(p.position);
+		}
+	}
+
+	// ---- console commands ----
+
+	/** The help for {@link #command}, one command per line. */
+	public static final String COMMANDS_HELP = "bot agregar [cantidad] [dificultad]  agrega bots\n"
+			+ "bot quitar [nombre | cantidad | todos]  saca bots\n"
+			+ "bot dificultad <dificultad>  cambia la dificultad de todos los bots\n"
+			+ "bot lista  muestra los bots\n"
+			+ "  dificultades: " + BotDifficulty.choices() + "\n"
+			+ "  (tambien bot_add, bot_kick y bot_difficulty, como en CS)\n"
+			+ "estado  jugadores y tiempo de la partida";
+
+	/**
+	 * Runs a match command typed in the dedicated server's console, the server
+	 * window, or the in-game console of whoever hosts. Call it on the server
+	 * thread.
+	 *
+	 * @return what to show (one or more lines), or null if it isn't a match
+	 *         command (so the caller can try its own)
+	 */
+	public String command(String line) {
+		String text = line.trim().replaceAll("\\s+", " ");
+		String lower = text.toLowerCase();
+		if (lower.startsWith("bot_"))
+			lower = "bot " + lower.substring(4);
+		else if (lower.equals("bots"))
+			lower = "bot lista";
+		String[] words = lower.split(" ");
+		if (words[0].equals("estado") || words[0].equals("status") || words[0].equals("jugadores")) {
+			return getPlayerCount() + "/" + config.maxPlayers + " jugadores y " + getBotCount() + " bots, "
+					+ describeMatch() + "\n" + describePlayers().replaceAll("\\s+$", "");
+		}
+		if (!words[0].equals("bot"))
+			return null;
+		String action = words.length > 1 ? words[1] : "lista";
+		String rest = words.length > 2 ? lower.substring(lower.indexOf(words[1]) + words[1].length()).trim() : "";
+		switch (action) {
+		case "agregar":
+		case "add":
+		case "sumar":
+			return addBotsCommand(rest);
+		case "quitar":
+		case "sacar":
+		case "kick":
+		case "remove":
+			return removeBotsCommand(rest, text);
+		case "dificultad":
+		case "difficulty": {
+			BotDifficulty d = BotDifficulty.parse(rest);
+			if (d == null)
+				return rest.isEmpty() ? "Dificultad de los bots: " + botDifficulty.label + ". Opciones: "
+						+ BotDifficulty.choices() : "No conozco la dificultad '" + rest + "'. Opciones: " + BotDifficulty.choices();
+			setBotDifficulty(d);
+			return "Ahora todos los bots juegan en " + d.label + ".";
+		}
+		case "lista":
+		case "list": {
+			StringBuilder sb = new StringBuilder(getBotCount() + " bots (los nuevos entran en " + botDifficulty.label + ")");
+			for (PlayerInfo p : getPlayers())
+				if (p.bot)
+					sb.append(String.format("%n  %-12s %s  bajas %d / muertes %d", p.name, p.address, p.kills, p.deaths));
+			return sb.toString();
+		}
+		default:
+			return "No conozco 'bot " + action + "'. Comandos:\n" + COMMANDS_HELP;
+		}
+	}
+
+	/** "bot agregar", "bot agregar 3", "bot agregar dificil", "bot agregar 2 muy dificil"... */
+	private String addBotsCommand(String args) {
+		int count = 1;
+		StringBuilder difficultyText = new StringBuilder();
+		for (String word : args.split(" ")) {
+			if (word.matches("\\d{1,3}"))
+				count = Integer.parseInt(word);
+			else if (!word.isEmpty())
+				difficultyText.append(difficultyText.length() == 0 ? "" : " ").append(word);
+		}
+		BotDifficulty difficulty = botDifficulty;
+		if (difficultyText.length() > 0) {
+			difficulty = BotDifficulty.parse(difficultyText.toString());
+			if (difficulty == null)
+				return "No conozco la dificultad '" + difficultyText + "'. Opciones: " + BotDifficulty.choices();
+		}
+		Array<String> added = new Array<>();
+		for (int i = 0; i < count; i++) {
+			String name = addBot(difficulty);
+			if (name == null)
+				break;
+			added.add(name);
+		}
+		if (added.size == 0)
+			return "No entran mas bots (maximo " + MAX_BOTS + ").";
+		return (added.size == 1 ? "Entro " : "Entraron ") + added.toString(", ") + " (" + difficulty.label + ")"
+				+ (added.size < count ? ". No entran mas (maximo " + MAX_BOTS + ")." : ".");
+	}
+
+	/** "bot quitar", "bot quitar 2", "bot quitar todos", "bot quitar Pedro". */
+	private String removeBotsCommand(String args, String original) {
+		if (getBotCount() == 0)
+			return "No hay bots.";
+		int count = 1;
+		String name = null;
+		if (args.equals("todos") || args.equals("all"))
+			count = MAX_BOTS;
+		else if (args.matches("\\d+"))
+			count = Integer.parseInt(args);
+		else if (!args.isEmpty())
+			name = original.substring(original.toLowerCase().lastIndexOf(args)).trim();
+		Array<String> removed = new Array<>();
+		for (int i = 0; i < count; i++) {
+			String gone = removeBot(name);
+			if (gone == null)
+				break;
+			removed.add(gone);
+		}
+		if (removed.size == 0)
+			return "No hay ningun bot llamado '" + name + "'. Escribi 'bot lista' para verlos.";
+		return "Salio " + removed.toString(", ") + ".";
 	}
 
 	// ---- guns on the ground ----
@@ -574,6 +928,7 @@ public class GameServer implements Disposable {
 				p.health = 100;
 				resetLoadout(p);
 				placeAtSpawn(p, now);
+				respawnBot(p);
 				teleport(p, p.position, Protocol.RESPAWN, true, now);
 			}
 			weapons.reset(now);
@@ -603,6 +958,8 @@ public class GameServer implements Disposable {
 		victim.deaths++;
 		victim.respawnAtMs = now + Protocol.RESPAWN_DELAY_MS;
 		removeHitbox(victim);
+		if (victim.isBot())
+			victim.bot.die();
 		if (killer != null && killer != victim)
 			killer.kills++;
 		Messages.Kill kill = new Messages.Kill();
@@ -626,7 +983,14 @@ public class GameServer implements Disposable {
 		p.health = 100;
 		resetLoadout(p);
 		placeAtSpawn(p, now);
+		respawnBot(p);
 		teleport(p, p.position, Protocol.RESPAWN, true, now);
+	}
+
+	/** Puts a bot's body where the server placed it, with a fresh gun. */
+	private void respawnBot(ServerPlayer p) {
+		if (p.isBot())
+			p.bot.respawn(p.position, p.guns[p.slot], random.nextFloat() * 360);
 	}
 
 	private void placeAtSpawn(ServerPlayer p, long now) {
@@ -680,13 +1044,16 @@ public class GameServer implements Disposable {
 		message.position.set(position);
 		if (broadcast)
 			broadcastReliable(message, null);
-		else
+		else if (!p.isBot())
 			p.connection.sendReliable(message);
 	}
 
 	private void removePlayer(ServerPlayer p) {
 		byId.remove(p.id);
-		byAddress.remove(p.connection.address);
+		if (p.isBot())
+			p.bot.dispose();
+		else
+			byAddress.remove(p.connection.address);
 		removeHitbox(p);
 		p.hitbox.dispose();
 		Messages.PlayerLeft left = new Messages.PlayerLeft();
@@ -703,7 +1070,7 @@ public class GameServer implements Disposable {
 
 	private void broadcastReliable(Messages.Message message, ServerPlayer except) {
 		for (ServerPlayer p : byId.values()) {
-			if (p != except)
+			if (p != except && !p.isBot())
 				p.connection.sendReliable(message);
 		}
 	}
@@ -729,17 +1096,24 @@ public class GameServer implements Disposable {
 			snapshot.players.add(e);
 		}
 		for (ServerPlayer p : byId.values())
-			p.connection.sendUnreliable(snapshot);
+			if (!p.isBot())
+				p.connection.sendUnreliable(snapshot);
 	}
 
 	@Override
 	public void dispose() {
 		for (ServerPlayer p : byId.values()) {
-			p.connection.sendUnreliable(new Messages.Disconnect());
-			send(p.connection);
+			if (p.isBot()) {
+				p.bot.dispose();
+			} else {
+				p.connection.sendUnreliable(new Messages.Disconnect());
+				send(p.connection);
+			}
 			removeHitbox(p);
 			p.hitbox.dispose();
 		}
+		if (botWorld != null)
+			botWorld.dispose();
 		byId.clear();
 		byAddress.clear();
 		socket.close();

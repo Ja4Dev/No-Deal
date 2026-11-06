@@ -2,6 +2,8 @@ package com.juego.utils;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Preferences;
+import com.juego.bots.BotDifficulty;
+import com.juego.net.GameServer;
 import com.juego.net.Messages;
 
 /**
@@ -19,6 +21,9 @@ public final class Config {
 	public static float sensitivity = 2.5f;
 	public static final CrosshairSettings crosshair = new CrosshairSettings();
 	public static final float MIN_SENSITIVITY = 0.5f, MAX_SENSITIVITY = 10f;
+	/** Bots chosen last time for "Un jugador" and for "Crear partida", and their difficulty. */
+	public static int singleplayerBots = 5, hostBots = 0;
+	public static BotDifficulty botDifficulty = BotDifficulty.MEDIO;
 
 	private Config() {
 	}
@@ -30,6 +35,11 @@ public final class Config {
 		fxVolume = clamp(prefs.getFloat("fxVolume", fxVolume), 0, 100);
 		musicVolume = clamp(prefs.getFloat("musicVolume", musicVolume), 0, 100);
 		sensitivity = clamp(prefs.getFloat("sensitivity", sensitivity), MIN_SENSITIVITY, MAX_SENSITIVITY);
+		singleplayerBots = Math.max(1, Math.min(GameServer.MAX_BOTS, prefs.getInteger("singleplayerBots", singleplayerBots)));
+		hostBots = Math.max(0, Math.min(GameServer.MAX_BOTS, prefs.getInteger("hostBots", hostBots)));
+		BotDifficulty difficulty = BotDifficulty.parse(prefs.getString("botDifficulty", ""));
+		if (difficulty != null)
+			botDifficulty = difficulty;
 		crosshair.load(prefs);
 		Controls.deserialize(prefs.getString("controls", ""));
 	}
@@ -41,6 +51,9 @@ public final class Config {
 		prefs.putFloat("fxVolume", fxVolume);
 		prefs.putFloat("musicVolume", musicVolume);
 		prefs.putFloat("sensitivity", sensitivity);
+		prefs.putInteger("singleplayerBots", singleplayerBots);
+		prefs.putInteger("hostBots", hostBots);
+		prefs.putString("botDifficulty", botDifficulty.id());
 		crosshair.save(prefs);
 		prefs.putString("controls", Controls.serialize());
 		prefs.flush();

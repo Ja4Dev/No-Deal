@@ -6,17 +6,20 @@ import com.badlogic.ashley.core.EntityListener;
 import com.badlogic.ashley.core.EntitySystem;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
+import com.juego.UI.Console;
 import com.juego.UI.HUD;
 import com.juego.UI.PauseMenu;
 import com.juego.UI.Scoreboard;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
 import com.juego.match.Match;
+import com.juego.net.GameServer;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 
@@ -30,6 +33,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	private PlayerComponent playerComponent;
 	private HUD hud;
 	private PauseMenu pauseMenu;
+	private Console console;
 	private Scoreboard scoreboard;
 	private final Array<Scoreboard.Row> rows = new Array<>();
 
@@ -51,6 +55,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		playerComponent = entity.getComponent(PlayerComponent.class);
 		hud = new HUD();
 		pauseMenu = new PauseMenu(playerComponent, gameWorld);
+		console = new Console(this::runCommand);
 		scoreboard = new Scoreboard();
 	}
 
@@ -73,14 +78,26 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	public void update(float delta) {
 		if (player == null)
 			return;
-		// Inside the settings the pause key goes back to the pause buttons instead.
-		if (Controls.isJustPressed(Action.PAUSE) && !pauseMenu.consumePauseKey()) {
+		boolean consoleKey = Controls.isJustPressed(Action.CONSOLE);
+		if (console.isOpen()) {
+			// Escape or the console key close it; nothing else reaches the game meanwhile.
+			if (consoleKey || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+				console.close();
+				pauseMenu.takeInput();
+			}
+		} else if (consoleKey && !playerComponent.pause) {
+			console.open();
+		} else if (Controls.isJustPressed(Action.PAUSE) && !pauseMenu.consumePauseKey()) {
+			// Inside the settings the pause key goes back to the pause buttons instead.
 			playerComponent.pause = !playerComponent.pause;
 			playerComponent.scoreboard = false;
 		}
-		Gdx.input.setCursorCatched(!playerComponent.pause);
-		if (!playerComponent.pause) // while paused the pause menu's button controls it
+		playerComponent.console = console.isOpen();
+		Gdx.input.setCursorCatched(playerComponent.controlsPlayer());
+		if (playerComponent.controlsPlayer()) // while paused the pause menu's button controls it
 			playerComponent.scoreboard = Controls.isPressed(Action.SCOREBOARD);
+		else if (playerComponent.console)
+			playerComponent.scoreboard = false;
 
 		boolean intermission = gameWorld.getMatchPhase() == Match.Phase.INTERMISSION;
 		long remaining = gameWorld.getMatchRemainingMs();
@@ -106,6 +123,22 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		}
 		if (scoreboardOverPause && Gdx.input.justTouched())
 			playerComponent.scoreboard = false;
+		console.draw(delta);
+	}
+
+	/**
+	 * A console line. Match commands run on the server inside this game; when
+	 * playing on someone else's server there is no server here to run them.
+	 */
+	private String runCommand(String line) {
+		String lower = line.trim().toLowerCase();
+		if (lower.equals("ayuda") || lower.equals("help") || lower.equals("?"))
+			return "Comandos:\n" + GameServer.COMMANDS_HELP + "\nlimpiar  borra la consola";
+		GameServer server = gameWorld.hostedServer();
+		if (server == null)
+			return "Los comandos los usa quien creo la partida (o la consola del servidor dedicado).";
+		String reply = server.command(line);
+		return reply != null ? reply : "No conozco '" + line + "'. Escribi 'ayuda'.";
 	}
 
 	/** Turns the hits taken since last frame into the HUD's red flash, direction arc and a small view kick. */
@@ -145,6 +178,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			hud.resize(width, height);
 		if (pauseMenu != null)
 			pauseMenu.resize(width, height);
+		if (console != null)
+			console.resize(width, height);
 		if (scoreboard != null)
 			scoreboard.resize(width, height);
 	}
@@ -155,6 +190,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			hud.dispose();
 		if (pauseMenu != null)
 			pauseMenu.dispose();
+		if (console != null)
+			console.dispose();
 		if (scoreboard != null)
 			scoreboard.dispose();
 	}

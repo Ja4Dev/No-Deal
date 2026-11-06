@@ -17,7 +17,6 @@ import com.juego.UI.Menu;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.core.GameSession;
-import com.juego.screens.GameScreen;
 import com.juego.utils.MusicPlayer;
 
 public class MainMenuScreen extends MenuScreen {
@@ -44,20 +43,19 @@ public class MainMenuScreen extends MenuScreen {
 		playButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new GameScreen(game, GameSession.singleplayer()));
-				game.musicPlayer.stop();
+				game.setScreen(new MultiplayerScreen(game, GameSession.Kind.SINGLEPLAYER));
 			}
 		});
 		hostButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new MultiplayerScreen(game, true));
+				game.setScreen(new MultiplayerScreen(game, GameSession.Kind.HOST));
 			}
 		});
 		joinButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
-				game.setScreen(new MultiplayerScreen(game, false));
+				game.setScreen(new MultiplayerScreen(game, GameSession.Kind.JOIN));
 			}
 		});
 		configButton.addListener(new ClickListener() {

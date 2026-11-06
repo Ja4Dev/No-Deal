@@ -15,34 +15,27 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.physics.bullet.Bullet;
-import com.badlogic.gdx.physics.bullet.collision.btBroadphaseProxy;
-import com.badlogic.gdx.physics.bullet.collision.btCapsuleShapeZ;
-import com.badlogic.gdx.physics.bullet.collision.btCollisionObject;
 import com.badlogic.gdx.physics.bullet.collision.btCollisionShape;
-import com.badlogic.gdx.physics.bullet.collision.btPairCachingGhostObject;
-import com.badlogic.gdx.physics.bullet.dynamics.btKinematicCharacterController;
 import com.badlogic.gdx.physics.bullet.dynamics.btRigidBody;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ObjectMap;
+import com.juego.bullet.CharacterBody;
 import com.juego.bullet.MotionState;
 import com.juego.components.AnimationComponent;
 import com.juego.components.BulletComponent;
 import com.juego.components.CharacterComponent;
-import com.juego.components.EnemyComponent;
 import com.juego.components.GroundWeaponComponent;
 import com.juego.components.GunComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
 import com.juego.components.RemotePlayerComponent;
-import com.juego.components.StatusComponent;
 import com.juego.core.Assets;
 import com.juego.guns.GroundWeapons;
 import com.juego.guns.Gun;
 import com.juego.guns.GunDefinition;
 import com.juego.systems.BulletSystem;
 import com.juego.utils.CharacterShape;
-import com.juego.utils.PlayerMovement;
 
 /**
  * Builds the game's entities. Owned by a GameWorld: models it loads are
@@ -53,7 +46,6 @@ public class EntityFactory implements Disposable {
 	public static final float CHARACTER_RADIUS = CharacterShape.RADIUS;
 	public static final float CHARACTER_CYLINDER = CharacterShape.CYLINDER;
 	private static final String CHARACTER_TEXTURE = "badlogic.jpg";
-	private static final float STEP_HEIGHT = .35f;
 
 	private final BulletSystem bulletSystem;
 	private final Model characterModel;
@@ -89,24 +81,13 @@ public class EntityFactory implements Disposable {
 		ModelComponent modelComponent = new ModelComponent(characterModel, x, y, z);
 		entity.add(modelComponent);
 		CharacterComponent characterComponent = new CharacterComponent();
-		characterComponent.ghostObject = new btPairCachingGhostObject();
-		characterComponent.ghostObject.setWorldTransform(modelComponent.instance.transform);
-		// btKinematicCharacterController treats +Z as the default up axis and rotates the
-		// ghost object to match the requested up vector (+Y), so the capsule has to be
-		// built along Z to end up standing. A Y capsule ends up lying on its side.
-		characterComponent.ghostShape = new btCapsuleShapeZ(CHARACTER_RADIUS, CHARACTER_CYLINDER);
-		characterComponent.ghostObject.setCollisionShape(characterComponent.ghostShape);
-		characterComponent.ghostObject.setCollisionFlags(btCollisionObject.CollisionFlags.CF_CHARACTER_OBJECT);
-		characterComponent.characterController = new btKinematicCharacterController(characterComponent.ghostObject,
-				characterComponent.ghostShape, STEP_HEIGHT, new Vector3(0, 1f, 0));
-		// Snappier than Bullet's default (29.4): jumps as high as before but shorter, like CS.
-		characterComponent.characterController.setGravity(new Vector3(0, -PlayerMovement.GRAVITY, 0));
+		CharacterBody body = new CharacterBody(modelComponent.instance.transform);
+		characterComponent.ghostShape = body.shape;
+		characterComponent.ghostObject = body.ghost;
+		characterComponent.characterController = body.controller;
 		characterComponent.ghostObject.userData = entity;
 		entity.add(characterComponent);
-		bulletSystem.collisionWorld.addCollisionObject(characterComponent.ghostObject,
-				(short) btBroadphaseProxy.CollisionFilterGroups.CharacterFilter,
-				(short) btBroadphaseProxy.CollisionFilterGroups.AllFilter);
-		bulletSystem.collisionWorld.addAction(characterComponent.characterController);
+		body.addTo(bulletSystem.collisionWorld);
 		return entity;
 	}
 
@@ -114,13 +95,6 @@ public class EntityFactory implements Disposable {
 	public Entity createPlayer(float x, float y, float z, String team, Supplier<Gun[]> loadout, int playerNumber) {
 		Entity entity = createCharacter(x, y, z);
 		entity.add(new PlayerComponent(team, loadout, playerNumber));
-		return entity;
-	}
-
-	public Entity createEnemy(float x, float y, float z) {
-		Entity entity = createCharacter(x, y, z);
-		entity.add(new EnemyComponent(EnemyComponent.STATE.HUNTING));
-		entity.add(new StatusComponent());
 		return entity;
 	}
 

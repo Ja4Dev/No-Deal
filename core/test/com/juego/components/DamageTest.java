@@ -105,13 +105,4 @@ class DamageTest {
 		p.hurt(1, null);
 		assertNull(p.lastDamageSource, "unknown direction");
 	}
-
-	@Test
-	void enemyReportsTheKillingHitOnly() {
-		StatusComponent enemy = new StatusComponent();
-		assertFalse(enemy.getDamage(34), "50 hp enemy survives a body shot");
-		assertTrue(enemy.getDamage(34), "second hit kills");
-		assertFalse(enemy.getDamage(34), "already dead: no second kill");
-		assertFalse(enemy.alive);
-	}
 }

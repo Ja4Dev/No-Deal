@@ -36,7 +36,9 @@ public class ServerHost extends ApplicationAdapter {
 		public final int port, maxPlayers;
 		public final boolean matchPlaying;
 		public final long matchRemainingMs;
+		/** Everyone, bots included. */
 		public final Array<GameServer.PlayerInfo> players;
+		public final int people, bots;
 		public final Array<String> addresses;
 		/** How many start/stop requests the host has handled, so a view knows when its request is done. */
 		public final long handledRequests;
@@ -49,6 +51,12 @@ public class ServerHost extends ApplicationAdapter {
 			matchPlaying = running && server.isMatchPlaying();
 			matchRemainingMs = running ? server.getMatchRemainingMs() : 0;
 			players = running ? server.getPlayers() : new Array<>();
+			int botCount = 0;
+			for (GameServer.PlayerInfo p : players)
+				if (p.bot)
+					botCount++;
+			bots = botCount;
+			people = players.size - botCount;
 			this.addresses = addresses;
 		}
 	}
@@ -125,7 +133,8 @@ public class ServerHost extends ApplicationAdapter {
 		addresses = NetUtils.lanAddresses();
 		view.onEvent(EventType.INFO, "Servidor iniciado en el puerto UDP " + server.getPort() + " ("
 				+ config.maxPlayers + " jugadores, " + config.timeLimitMinutes + " min"
-				+ (config.fragLimit > 0 ? " o " + config.fragLimit + " bajas" : "") + ")");
+				+ (config.fragLimit > 0 ? " o " + config.fragLimit + " bajas" : "") + ")"
+				+ (server.getBotCount() > 0 ? ", con " + server.getBotCount() + " bots (" + config.botDifficulty.label + ")" : ""));
 		for (String ip : addresses)
 			view.onEvent(EventType.INFO, "En tu red se unen con " + ip + ":" + server.getPort());
 		if (addresses.size == 0)

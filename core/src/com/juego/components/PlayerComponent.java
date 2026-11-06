@@ -38,6 +38,8 @@ public class PlayerComponent implements Component {
 	// UI state (HudSystem)
 	public boolean pause = false;
 	public boolean scoreboard = false;
+	/** Typing in the console: the keys are text, not movement. */
+	public boolean console = false;
 
 	// Look and movement state (PlayerSystem)
 	/** Where the player aims, in degrees (yaw 0 = +Z; positive pitch looks down). Moved only by the mouse. */
@@ -187,5 +189,10 @@ public class PlayerComponent implements Component {
 		velocity.setZero();
 		pendingDamage = 0;
 		resetLoadout();
+	}
+
+	/** Whether keys and mouse control the player now (not paused, not typing in the console). */
+	public boolean controlsPlayer() {
+		return !pause && !console;
 	}
 }

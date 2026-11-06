@@ -35,14 +35,11 @@ import com.juego.utils.Controls.Action;
  * the one in that slot), and picking up guns you walk over when that slot is
  * empty.
  * <p>
- * Offline this system owns the {@link GroundWeapons}: drops, level spawners
- * and despawns happen here. Online the server owns them: this system only
- * mirrors what the server says, and pressing G sends a request.
+ * The server owns the {@link GroundWeapons}: this system only mirrors what
+ * the server says, and pressing G sends a request.
  */
 public class GroundWeaponSystem extends EntitySystem implements EntityListener, GroundWeapons.Listener, Disposable {
-	/** Offline, the local player is the only one picking things up. */
-	private static final int OFFLINE_PLAYER_ID = 1;
-	/** Online, a request is not repeated for this long while waiting for the server's answer. */
+	/** A request is not repeated for this long while waiting for the server's answer. */
 	private static final long REQUEST_COOLDOWN_MS = 400;
 
 	private final GameWorld gameWorld;
@@ -55,34 +52,16 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 	private Engine engine;
 	private Entity player;
 	private PlayerComponent playerComponent;
-	private ClosestRayResultCallback rayCallback;
 
 	private final boolean[] freeSlots = new boolean[GunDefinition.Slot.values().length];
 	private final Vector3 center = new Vector3();
 	private int lastRequestWeapon = -1;
 	private long lastRequestMs;
 
-	public GroundWeaponSystem(GameWorld gameWorld, PerspectiveCamera camera, String level) {
+	public GroundWeaponSystem(GameWorld gameWorld, PerspectiveCamera camera) {
 		this.gameWorld = gameWorld;
 		this.camera = camera;
-		if (gameWorld.isMultiplayer()) {
-			weapons = new GroundWeapons(null, this);
-		} else {
-			weapons = new GroundWeapons(this::castLevel, this);
-			addSpawners(level);
-		}
-	}
-
-	private void addSpawners(String level) {
-		JsonValue map = new JsonReader().parse(Gdx.files.internal("data/maps/" + level + ".json"));
-		JsonValue spawners = map.get("weapons");
-		if (spawners == null)
-			return;
-		for (JsonValue s : spawners) {
-			JsonValue p = s.get("position");
-			weapons.addSpawner(Assets.armory.get(s.getString("gun")),
-					new Vector3(p.getFloat(0), p.getFloat(1), p.getFloat(2)));
-		}
+		weapons = new GroundWeapons(null, this);
 	}
 
 	@Override
@@ -98,8 +77,6 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 			return;
 		player = entity;
 		playerComponent = entity.getComponent(PlayerComponent.class);
-		// The level's spawners fill on the first update: adding entities from inside
-		// an entity listener is not safe in Ashley.
 	}
 
 	@Override
@@ -109,7 +86,7 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 	}
 
 	private int localId() {
-		return gameWorld.isMultiplayer() ? gameWorld.session.client.getLocalId() : OFFLINE_PLAYER_ID;
+		return gameWorld.session.client.getLocalId();
 	}
 
 	@Override
@@ -121,12 +98,10 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 		}
 		if (player == null)
 			return;
-		long now = gameWorld.timeMs();
-		if (!gameWorld.isMultiplayer())
-			weapons.update(now);
+		long now = wallClock; // the guns' timestamps are wall clock too (see onServerSpawn)
 
 		String prompt = null;
-		if (!playerComponent.pause && !playerComponent.isDead() && gameWorld.canFight()) {
+		if (playerComponent.controlsPlayer() && !playerComponent.isDead() && gameWorld.canFight()) {
 			gameWorld.playerSystem().getPosition(center);
 			GroundWeapons.Weapon aimed = weapons.findAimed(center, camera.position, camera.direction);
 			if (aimed != null)
@@ -160,17 +135,8 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 	private void pickUp(GroundWeapons.Weapon weapon, long now) {
 		int slot = weapon.def.slot.ordinal();
 		Gun replaced = playerComponent.guns[slot];
-		if (gameWorld.isMultiplayer()) {
-			if (!mayRequest(weapon.id))
-				return;
+		if (mayRequest(weapon.id))
 			gameWorld.network.requestPickup(weapon.id, replaced);
-			return;
-		}
-		if (replaced != null)
-			weapons.toss(replaced.def, replaced.getMagazine(), replaced.getReserve(), center, playerComponent.yaw,
-					OFFLINE_PLAYER_ID, now);
-		weapons.remove(weapon, OFFLINE_PLAYER_ID, now);
-		playerComponent.equip(new Gun(weapon.def, weapon.magazine, weapon.reserve));
 	}
 
 	/** Throws the gun in hand, unless it is the last one. */
@@ -178,17 +144,11 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 		Gun gun = playerComponent.selectedGun();
 		if (gun == null || playerComponent.gunCount() < 2)
 			return;
-		if (gameWorld.isMultiplayer()) {
-			if (mayRequest(-2 - playerComponent.selectedSlot))
-				gameWorld.network.requestDrop(playerComponent.selectedSlot, gun);
-			return;
-		}
-		weapons.toss(gun.def, gun.getMagazine(), gun.getReserve(), center, playerComponent.yaw, OFFLINE_PLAYER_ID,
-				now);
-		playerComponent.removeGun(playerComponent.selectedSlot);
+		if (mayRequest(-2 - playerComponent.selectedSlot))
+			gameWorld.network.requestDrop(playerComponent.selectedSlot, gun);
 	}
 
-	/** Online: don't flood the server with the same request every frame while its answer is on the way. */
+	/** Don't flood the server with the same request every frame while its answer is on the way. */
 	private boolean mayRequest(int what) {
 		long now = System.currentTimeMillis();
 		if (what == lastRequestWeapon && now - lastRequestMs < REQUEST_COOLDOWN_MS)
@@ -198,23 +158,7 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 		return true;
 	}
 
-	/** Offline: the player died, their gun falls where they stood. */
-	public void dropOnDeath(Vector3 position) {
-		if (gameWorld.isMultiplayer() || playerComponent == null)
-			return;
-		Gun gun = playerComponent.selectedGun();
-		if (gun != null)
-			weapons.dropAtFeet(gun.def, gun.getMagazine(), gun.getReserve(), position, playerComponent.yaw,
-					OFFLINE_PLAYER_ID, gameWorld.timeMs());
-	}
-
-	/** Offline: a new round starts with a clean level. */
-	public void reset() {
-		if (!gameWorld.isMultiplayer())
-			weapons.reset(gameWorld.timeMs());
-	}
-
-	// ---- online: what the server says ----
+	// ---- what the server says ----
 
 	public void onServerSpawn(GameClient.Event e) {
 		GunDefinition def;
@@ -256,31 +200,11 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 			engine.removeEntity(entity);
 	}
 
-	/** Offline raycast against the level only (characters are skipped). */
-	private float castLevel(Vector3 from, Vector3 to, Vector3 outHit) {
-		if (rayCallback == null) {
-			rayCallback = new ClosestRayResultCallback(from, to);
-			rayCallback.setCollisionFilterMask(
-					btBroadphaseProxy.CollisionFilterGroups.AllFilter & ~btBroadphaseProxy.CollisionFilterGroups.CharacterFilter);
-		}
-		rayCallback.setCollisionObject(null);
-		rayCallback.setClosestHitFraction(1f);
-		rayCallback.setRayFromWorld(from);
-		rayCallback.setRayToWorld(to);
-		gameWorld.bulletSystem.collisionWorld.rayTest(from, to, rayCallback);
-		if (!rayCallback.hasHit())
-			return -1;
-		rayCallback.getHitPointWorld(outHit);
-		return rayCallback.getClosestHitFraction() * from.dst(to);
-	}
-
 	public int groundCount() {
 		return weapons.size();
 	}
 
 	@Override
 	public void dispose() {
-		if (rayCallback != null)
-			rayCallback.dispose();
 	}
 }

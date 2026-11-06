@@ -24,6 +24,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -45,6 +46,7 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 
 import com.badlogic.gdx.utils.Array;
+import com.juego.bots.BotDifficulty;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
 import com.juego.net.GameServer.PlayerInfo;
@@ -77,12 +79,13 @@ public class ServerWindow implements ServerHost.View {
 	private static final Font MONO_BOLD = MONO.deriveFont(Font.BOLD);
 
 	private static final String PREF_PORT = "port", PREF_PLAYERS = "maxPlayers", PREF_TIME = "timeLimit",
-			PREF_FRAGS = "fragLimit";
+			PREF_FRAGS = "fragLimit", PREF_BOTS = "bots", PREF_BOT_DIFFICULTY = "botDifficulty";
 
 	private final ServerHost host;
 	private final Preferences prefs = Preferences.userRoot().node("nodeal/server");
 	private final JFrame frame = new JFrame("No Deal - Servidor");
-	private final JSpinner portField, playersField, timeField, fragsField;
+	private final JSpinner portField, playersField, timeField, fragsField, botsField;
+	private final JComboBox<String> difficultyField = new JComboBox<>();
 	private final JButton startButton = button("Iniciar servidor");
 	private final JButton copyButton = button("Copiar IP");
 	private final JButton publicIpButton = button("Ver IP pública");
@@ -119,6 +122,10 @@ public class ServerWindow implements ServerHost.View {
 			config.maxPlayers = prefs.getInt(PREF_PLAYERS, config.maxPlayers);
 			config.timeLimitMinutes = prefs.getInt(PREF_TIME, config.timeLimitMinutes);
 			config.fragLimit = prefs.getInt(PREF_FRAGS, config.fragLimit);
+			config.bots = prefs.getInt(PREF_BOTS, config.bots);
+			BotDifficulty difficulty = BotDifficulty.parse(prefs.get(PREF_BOT_DIFFICULTY, ""));
+			if (difficulty != null)
+				config.botDifficulty = difficulty;
 			if (DedicatedServer.validate(config) != null)
 				config = new GameServer.Config(); // corrupt preferences: back to defaults
 		}
@@ -126,6 +133,13 @@ public class ServerWindow implements ServerHost.View {
 		playersField = spinner(config.maxPlayers, 1, 32, 3);
 		timeField = spinner(config.timeLimitMinutes, 1, 120, 4);
 		fragsField = spinner(config.fragLimit, 0, 999, 4);
+		botsField = spinner(config.bots, 0, GameServer.MAX_BOTS, 3);
+		for (BotDifficulty d : BotDifficulty.values())
+			difficultyField.addItem(d.label);
+		difficultyField.setSelectedIndex(config.botDifficulty.ordinal());
+		difficultyField.setFont(MONO);
+		difficultyField.setBackground(FIELD);
+		difficultyField.setForeground(TEXT);
 
 		styles.put(EventType.INFO, style(TEXT));
 		styles.put(EventType.JOIN, style(GREEN));
@@ -180,6 +194,15 @@ public class ServerWindow implements ServerHost.View {
 				start();
 		});
 
+		JPanel botsRow = row();
+		botsRow.add(caption("Bots"));
+		botsRow.add(botsField);
+		botsRow.add(Box.createHorizontalStrut(10));
+		botsRow.add(caption("Dificultad"));
+		botsRow.add(difficultyField);
+		botsRow.add(Box.createHorizontalStrut(10));
+		botsRow.add(caption("(además de los jugadores; en partida: bot agregar, bot quitar, bot dificultad)"));
+
 		JPanel addressRow = row();
 		addressRow.add(stateLabel);
 		addressRow.add(Box.createHorizontalStrut(12));
@@ -195,6 +218,7 @@ public class ServerWindow implements ServerHost.View {
 		top.setBackground(PANEL);
 		top.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER));
 		top.add(settings);
+		top.add(botsRow);
 		top.add(addressRow);
 
 		log.setEditable(false);
@@ -334,6 +358,10 @@ public class ServerWindow implements ServerHost.View {
 		config.maxPlayers = (Integer) playersField.getValue();
 		config.timeLimitMinutes = (Integer) timeField.getValue();
 		config.fragLimit = (Integer) fragsField.getValue();
+		config.bots = (Integer) botsField.getValue();
+		config.botDifficulty = BotDifficulty.values()[difficultyField.getSelectedIndex()];
+		prefs.putInt(PREF_BOTS, config.bots);
+		prefs.put(PREF_BOT_DIFFICULTY, config.botDifficulty.id());
 		prefs.putInt(PREF_PORT, config.port);
 		prefs.putInt(PREF_PLAYERS, config.maxPlayers);
 		prefs.putInt(PREF_TIME, config.timeLimitMinutes);
@@ -401,6 +429,9 @@ public class ServerWindow implements ServerHost.View {
 		case "ayuda":
 		case "help":
 			append(EventType.INFO, "Comandos: iniciar, detener, estado, ip, limpiar, salir");
+			for (String help : GameServer.COMMANDS_HELP.split("\n"))
+				if (!help.startsWith("estado"))
+					append(EventType.INFO, help);
 			break;
 		case "iniciar":
 		case "start":
@@ -439,7 +470,17 @@ public class ServerWindow implements ServerHost.View {
 			quit();
 			break;
 		default:
-			append(EventType.WARNING, "Comando desconocido '" + line + "'. Escribí 'ayuda'.");
+			// Match commands (bots) run on the server thread.
+			host.post(() -> {
+				GameServer server = host.server();
+				String reply = server == null ? null : server.command(line);
+				if (reply != null)
+					onEvent(EventType.INFO, reply);
+				else if (server == null && line.toLowerCase().startsWith("bot"))
+					onEvent(EventType.WARNING, "Primero iniciá el servidor.");
+				else
+					onEvent(EventType.WARNING, "Comando desconocido '" + line + "'. Escribí 'ayuda'.");
+			});
 		}
 	}
 
@@ -448,7 +489,8 @@ public class ServerWindow implements ServerHost.View {
 			append(EventType.INFO, "Servidor detenido.");
 			return;
 		}
-		append(EventType.INFO, status.players.size + "/" + status.maxPlayers + " jugadores en el puerto "
+		append(EventType.INFO, status.people + "/" + status.maxPlayers + " jugadores"
+				+ (status.bots > 0 ? " y " + status.bots + " bots" : "") + " en el puerto "
 				+ status.port + ". " + DedicatedServer.describeMatch(status) + ".");
 		for (PlayerInfo p : status.players)
 			append(EventType.INFO, String.format("  #%d %-16s %s  bajas %d / muertes %d  %s", p.id, p.name,
@@ -474,8 +516,9 @@ public class ServerWindow implements ServerHost.View {
 	private void showStatus(ServerHost.Status status) {
 		this.status = status;
 		boolean running = status != null && status.running;
-		for (JSpinner field : new JSpinner[] { portField, playersField, timeField, fragsField })
+		for (JSpinner field : new JSpinner[] { portField, playersField, timeField, fragsField, botsField })
 			field.setEnabled(!running && !waiting);
+		difficultyField.setEnabled(!running && !waiting);
 		startButton.setEnabled(!waiting);
 		startButton.setText(running ? "Detener servidor" : "Iniciar servidor");
 		copyButton.setEnabled(running);
@@ -488,8 +531,8 @@ public class ServerWindow implements ServerHost.View {
 			for (int i = 0; i < status.addresses.size; i++)
 				sb.append(i > 0 ? "   " : "").append(status.addresses.get(i)).append(':').append(status.port);
 			addressLabel.setText(sb.toString());
-			matchLabel.setText(status.players.size + "/" + status.maxPlayers + " jugadores · "
-					+ DedicatedServer.describeMatch(status));
+			matchLabel.setText(status.people + "/" + status.maxPlayers + " jugadores"
+					+ (status.bots > 0 ? " + " + status.bots + " bots" : "") + " · " + DedicatedServer.describeMatch(status));
 		} else {
 			stateLabel.setText(waiting ? "● ..." : "● DETENIDO");
 			stateLabel.setForeground(waiting ? YELLOW : DIM);

@@ -21,7 +21,6 @@ import com.badlogic.gdx.utils.ObjectMap;
 import com.juego.components.CharacterComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
-import com.juego.components.StatusComponent;
 import com.juego.core.Assets;
 import com.juego.core.GameWorld;
 import com.juego.guns.Gun;
@@ -132,7 +131,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		long now = System.currentTimeMillis();
 		if (gun != null)
 			recoil.update(gun.def, deltaTime, now);
-		if (!playerComponent.pause && !playerComponent.isDead() && gameWorld.canFight())
+		if (playerComponent.controlsPlayer() && !playerComponent.isDead() && gameWorld.canFight())
 			handleInput();
 		syncViewModel();
 		gun = playerComponent.selectedGun();
@@ -264,48 +263,20 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		if (rayTestCB.hasHit())
 			rayTestCB.getHitPointWorld(hitPoint);
 		gameWorld.renderSystem.tracers.add(muzzlePosition(muzzle), rayTestCB.hasHit() ? hitPoint : rayTo);
-		if (gameWorld.network != null) {
-			// Online the server re-traces the shot and decides the damage; the local
-			// ray above is only for the impact mark.
-			gameWorld.network.sendFire(gun, rayFrom, ray.direction);
-		} else if (target != null) {
-			applyHit(target, gun.def.damage);
-		}
+		// The server re-traces the shot and decides the damage; the local ray above
+		// is only for the impact mark and the tracer.
+		gameWorld.network.sendFire(gun, rayFrom, ray.direction);
 	}
 
 	/** The local ray hit level geometry: leave a bullet hole there. */
 	private void leaveImpactMark(Ray ray) {
 		rayTestCB.getHitPointWorld(hitPoint);
-		// Online, other players aren't in the local physics world: don't mark the wall
-		// behind a player the shot actually hit.
-		if (gameWorld.network != null && gameWorld.network.isRemotePlayerCloserThan(ray, rayFrom.dst(hitPoint)))
+		// Other players aren't in the local physics world: don't mark the wall behind
+		// a player the shot actually hit.
+		if (gameWorld.network.isRemotePlayerCloserThan(ray, rayFrom.dst(hitPoint)))
 			return;
 		rayTestCB.getHitNormalWorld(hitNormal);
 		gameWorld.renderSystem.impactMarks.add(hitPoint, hitNormal);
-	}
-
-	private void applyHit(Entity target, int damage) {
-		CharacterComponent targetCharacter = target.getComponent(CharacterComponent.class);
-		if (targetCharacter == null || targetCharacter.characterController == null)
-			return; // map geometry, props, or an enemy that is already being removed
-		rayTestCB.getHitPointWorld(hitPoint);
-		targetCharacter.ghostObject.getWorldTransform(targetTransform);
-		targetTransform.getTranslation(targetCenter);
-		boolean headshot = hitPoint.y >= targetCenter.y + CharacterShape.HEAD_OFFSET;
-
-		StatusComponent status = target.getComponent(StatusComponent.class);
-		if (status != null) {
-			boolean killed = headshot ? status.getDamageHead(damage) : status.getDamage(damage);
-			if (killed)
-				playerComponent.kills++;
-		}
-		PlayerComponent otherPlayer = target.getComponent(PlayerComponent.class);
-		if (otherPlayer != null && otherPlayer != playerComponent) {
-			if (headshot)
-				otherPlayer.getDamageHead(damage);
-			else
-				otherPlayer.getDamage(damage);
-		}
 	}
 
 	/**

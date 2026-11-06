@@ -131,6 +131,11 @@ public class GameClient implements Disposable {
 		this.clock = clock;
 	}
 
+	/** The client's clock: snapshots are timed with it, so interpolate with it too. */
+	public long now() {
+		return clock.getAsLong();
+	}
+
 	public void connect(String host, int port, String name) throws IOException {
 		InetSocketAddress address = new InetSocketAddress(host, port);
 		if (address.isUnresolved())
