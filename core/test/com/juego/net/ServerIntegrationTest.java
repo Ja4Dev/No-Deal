@@ -355,4 +355,28 @@ class ServerIntegrationTest {
 			Thread.currentThread().interrupt();
 		}
 	}
+
+	@Test
+	void hitsAreAnnouncedToEveryoneAndDamageMakesAssists() throws IOException {
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED
+				&& a.getPlayer(b.getLocalId()) != null);
+
+		// A shoots B with the magnum (40 damage: enough for an assist).
+		a.sendFire(1, SPAWN_A, new Vector3(SPAWN_B).add(0, -1, 0).sub(SPAWN_A));
+		pumpUntil("both saw the hit", 2000, () -> find(eventsA, GameClient.Event.Type.HIT) != null
+				&& find(eventsB, GameClient.Event.Type.HIT) != null);
+		GameClient.Event hit = find(eventsA, GameClient.Event.Type.HIT);
+		assertEquals(b.getLocalId(), hit.playerId, "the shooter sees where they hit");
+		assertTrue(!hit.headshot);
+		assertTrue(hit.position.dst(SPAWN_B) < CharacterShape.HALF_HEIGHT + 0.5f, "on B's body: " + hit.position);
+
+		// B falls out of the map: nobody gets the kill, but A helped.
+		b.sendState(new Vector3(SPAWN_B.x, -40, SPAWN_B.z), 0, 0, 0);
+		pumpUntil("A's assist", 3000, () -> a.getPlayer(a.getLocalId()).assists == 1);
+		assertEquals(0, a.getPlayer(a.getLocalId()).kills);
+		assertEquals(1, b.getPlayer(b.getLocalId()).deaths);
+	}
 }

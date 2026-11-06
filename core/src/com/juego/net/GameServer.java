@@ -87,14 +87,15 @@ public class GameServer implements Disposable {
 
 	/** A copy of one player's public state, safe to hand to another thread. */
 	public static final class PlayerInfo {
-		public final int id, kills, deaths, health;
+		public final int id, kills, deaths, assists, health;
 		/** For bots the address is "bot (Medio)". */
 		public final String name, address;
 		public final boolean alive, bot;
 
-		PlayerInfo(int id, String name, String address, int kills, int deaths, int health, boolean alive,
-				boolean bot) {
+		PlayerInfo(int id, String name, String address, int kills, int deaths, int assists, int health,
+				boolean alive, boolean bot) {
 			this.bot = bot;
+			this.assists = assists;
 			this.id = id;
 			this.name = name;
 			this.address = address;
@@ -119,7 +120,9 @@ public class GameServer implements Disposable {
 		/** Whether the hitbox is in the collision world (dead players are taken out). */
 		boolean hitboxInWorld;
 		float yaw, pitch;
-		int slot, health = 100, kills, deaths, teleportId, lastSequence = -1;
+		int slot, health = 100, kills, deaths, assists, teleportId, lastSequence = -1;
+		/** Damage taken from each other player since the last spawn, for assists. */
+		final com.badlogic.gdx.utils.IntIntMap damageFrom = new com.badlogic.gdx.utils.IntIntMap();
 		/** Guns carried, by slot (null = empty), and the ammo of the one in hand as the client reports it. */
 		final GunDefinition[] guns = new GunDefinition[GunDefinition.Slot.values().length];
 		int magazine, reserve;
@@ -265,8 +268,8 @@ public class GameServer implements Disposable {
 	public String describePlayers() {
 		StringBuilder sb = new StringBuilder();
 		for (PlayerInfo p : getPlayers())
-			sb.append(String.format("  #%d %-16s %s  bajas %d / muertes %d  %s%n", p.id, p.name,
-					p.alive ? p.health + " hp" : "muerto", p.kills, p.deaths, p.address));
+			sb.append(String.format("  #%d %-16s %s  bajas %d / muertes %d / asistencias %d  %s%n", p.id, p.name,
+					p.alive ? p.health + " hp" : "muerto", p.kills, p.deaths, p.assists, p.address));
 		return sb.length() == 0 ? "  (nadie)\n" : sb.toString();
 	}
 
@@ -276,7 +279,7 @@ public class GameServer implements Disposable {
 		for (ServerPlayer p : byId.values())
 			result.add(new PlayerInfo(p.id, p.name,
 					p.isBot() ? "bot (" + p.bot.getDifficulty().label + ")" : NetUtils.format(p.connection.address),
-					p.kills, p.deaths, p.health, p.alive, p.isBot()));
+					p.kills, p.deaths, p.assists, p.health, p.alive, p.isBot()));
 		result.sort((a, b) -> Integer.compare(a.id, b.id));
 		return result;
 	}
@@ -381,12 +384,15 @@ public class GameServer implements Disposable {
 			event(EventType.WARNING, "Rechazado " + NetUtils.format(connection.address) + ": " + reason);
 			return null;
 		}
+		if (byId.size >= Protocol.MAX_MATCH_PLAYERS)
+			removeBot(null); // people come first: a bot leaves to make room
 		if (getPlayerCount() == 0) {
 			// The first person into an empty server gets a full match (bots waiting there start over too).
 			match.start(now);
 			for (ServerPlayer bot : byId.values()) {
 				bot.kills = 0;
 				bot.deaths = 0;
+				bot.assists = 0;
 			}
 		}
 		int id = 1;
@@ -489,7 +495,9 @@ public class GameServer implements Disposable {
 				return; // hit the level
 			boolean headshot = end.y >= victim.position.y + CharacterShape.HEAD_OFFSET;
 			int damage = gun.damage * (headshot ? 3 : 1);
+			victim.damageFrom.getAndIncrement(shooter.id, 0, Math.min(damage, Math.max(0, victim.health)));
 			victim.health -= damage;
+			broadcastHit(victim, headshot, end, direction);
 			if (victim.isBot()) {
 				victim.bot.hurtBy(shooter.id, origin, now);
 			} else {
@@ -536,10 +544,11 @@ public class GameServer implements Disposable {
 	/**
 	 * Adds a bot, which spawns right away.
 	 *
-	 * @return its name, or null if there are already {@link #MAX_BOTS}
+	 * @return its name, or null if there is no room: {@link #MAX_BOTS} bots, or a
+	 *         full match ({@link Protocol#MAX_MATCH_PLAYERS})
 	 */
 	public String addBot(BotDifficulty difficulty) {
-		if (getBotCount() >= MAX_BOTS)
+		if (getBotCount() >= MAX_BOTS || byId.size >= Protocol.MAX_MATCH_PLAYERS)
 			return null;
 		long now = clock.getAsLong();
 		ensureBotWorld();
@@ -763,10 +772,12 @@ public class GameServer implements Disposable {
 				break;
 			added.add(name);
 		}
+		String full = "No entran mas bots (maximo " + MAX_BOTS + ", y " + Protocol.MAX_MATCH_PLAYERS
+				+ " en total).";
 		if (added.size == 0)
-			return "No entran mas bots (maximo " + MAX_BOTS + ").";
-		return (added.size == 1 ? "Entro " : "Entraron ") + added.toString(", ") + " (" + difficulty.label + ")"
-				+ (added.size < count ? ". No entran mas (maximo " + MAX_BOTS + ")." : ".");
+			return full;
+		return (added.size == 1 ? "Entro " : "Entraron ") + added.toString(", ") + " (" + difficulty.label + ")."
+				+ (added.size < count ? " " + full : "");
 	}
 
 	/** "bot quitar", "bot quitar 2", "bot quitar todos", "bot quitar Pedro". */
@@ -791,6 +802,18 @@ public class GameServer implements Disposable {
 		if (removed.size == 0)
 			return "No hay ningun bot llamado '" + name + "'. Escribi 'bot lista' para verlos.";
 		return "Salio " + removed.toString(", ") + ".";
+	}
+
+	/** Tells everyone a player was hit, for the blood and the hit sound. */
+	private void broadcastHit(ServerPlayer victim, boolean headshot, Vector3 where, Vector3 direction) {
+		Messages.Hit hit = new Messages.Hit();
+		hit.victimId = victim.id;
+		hit.headshot = headshot;
+		hit.position.set(where);
+		hit.direction.set(direction).nor();
+		for (ServerPlayer p : byId.values())
+			if (!p.isBot())
+				p.connection.sendUnreliable(hit);
 	}
 
 	// ---- guns on the ground ----
@@ -924,6 +947,8 @@ public class GameServer implements Disposable {
 			for (ServerPlayer p : byId.values().toArray()) {
 				p.kills = 0;
 				p.deaths = 0;
+				p.assists = 0;
+				p.damageFrom.clear();
 				p.alive = true;
 				p.health = 100;
 				resetLoadout(p);
@@ -962,6 +987,13 @@ public class GameServer implements Disposable {
 			victim.bot.die();
 		if (killer != null && killer != victim)
 			killer.kills++;
+		// Whoever else did enough damage to this life gets an assist.
+		for (com.badlogic.gdx.utils.IntIntMap.Entry e : victim.damageFrom) {
+			ServerPlayer helper = byId.get(e.key);
+			if (helper != null && helper != killer && helper != victim && e.value >= Protocol.ASSIST_DAMAGE)
+				helper.assists++;
+		}
+		victim.damageFrom.clear();
 		Messages.Kill kill = new Messages.Kill();
 		kill.killerId = killer == null ? Protocol.WORLD : killer.id;
 		kill.victimId = victim.id;
@@ -1089,6 +1121,7 @@ public class GameServer implements Disposable {
 			e.health = Math.max(0, p.health);
 			e.kills = p.kills;
 			e.deaths = p.deaths;
+			e.assists = p.assists;
 			e.slot = p.slot;
 			e.position.set(p.position);
 			e.yaw = p.yaw;

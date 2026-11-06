@@ -118,6 +118,7 @@ class MessagesTest {
 			e.health = 100 - id;
 			e.kills = 1000 + id;
 			e.deaths = id;
+			e.assists = 2 * id;
 			e.slot = id % 2;
 			e.position.set(id, id * 2, id * 3);
 			e.yaw = id * 10;
@@ -136,6 +137,7 @@ class MessagesTest {
 			assertEquals(a.health, b.health);
 			assertEquals(a.kills, b.kills);
 			assertEquals(a.deaths, b.deaths);
+			assertEquals(a.assists, b.assists);
 			assertEquals(a.slot, b.slot);
 			assertEquals(a.position, b.position);
 			assertEquals(a.yaw, b.yaw);
@@ -175,5 +177,31 @@ class MessagesTest {
 		assertEquals(2, rt.playerId);
 		assertEquals(9, rt.teleportId);
 		assertEquals(t.position, rt.position);
+	}
+
+	@Test
+	void hitRoundTrip() {
+		Messages.Hit hit = new Messages.Hit();
+		hit.victimId = 200;
+		hit.headshot = true;
+		hit.position.set(1, 2, 3);
+		hit.direction.set(0, 0.6f, 0.8f);
+		Messages.Hit r = Messages.Hit.read(roundTrip(hit));
+		assertEquals(200, r.victimId);
+		assertEquals(true, r.headshot);
+		assertEquals(hit.position, r.position);
+		assertEquals(hit.direction, r.direction);
+	}
+
+	@Test
+	void aFullServerWithBotsFitsInOneSnapshot() {
+		Messages.Snapshot m = new Messages.Snapshot();
+		for (int id = 1; id <= Protocol.MAX_MATCH_PLAYERS; id++) {
+			Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
+			e.playerId = id;
+			m.players.add(e);
+		}
+		assertTrue(roundTrip(m).limit() < Protocol.MAX_DATAGRAM - 20,
+				"the biggest match must fit a datagram");
 	}
 }

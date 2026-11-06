@@ -14,12 +14,14 @@ package com.juego.net;
 public final class Protocol {
 	public static final short MAGIC = 0x4E44; // "ND"
 	/** Bumped on any incompatible change; checked in HELLO. */
-	public static final int VERSION = 4;
+	public static final int VERSION = 5;
 	public static final int DEFAULT_PORT = 25559;
 	public static final int MAX_PLAYERS = 4;
 	/** Keeps datagrams under the typical internet MTU to avoid IP fragmentation. */
 	public static final int MAX_DATAGRAM = 1200;
 	public static final int MAX_NAME_LENGTH = 16;
+	/** Most players (people and bots) a match can have: all of them must fit in one snapshot datagram. */
+	public static final int MAX_MATCH_PLAYERS = 36;
 
 	public static final long CONNECT_TIMEOUT_MS = 5000;
 	public static final long TIMEOUT_MS = 5000;
@@ -64,6 +66,10 @@ public final class Protocol {
 	public static final byte WEAPON_REMOVE = 18;
 	/** Sent to a player who got hit, with where the shot came from (for the HUD). Unreliable. */
 	public static final byte DAMAGE = 19;
+	/** A shot hit a player: where, for blood and the hit sound. Sent to everyone. Unreliable. */
+	public static final byte HIT = 20;
+	/** Damage that makes an assist if someone else finishes the victim off (as in CS). */
+	public static final int ASSIST_DAMAGE = 40;
 
 	/** Player id used as "killer" when a player dies by falling out of the map. */
 	public static final int WORLD = 0;

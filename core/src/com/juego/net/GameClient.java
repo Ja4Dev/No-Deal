@@ -32,7 +32,7 @@ public class GameClient implements Disposable {
 		public final int id;
 		public final String name;
 		public boolean alive = true;
-		public int health = 100, kills, deaths, slot;
+		public int health = 100, kills, deaths, assists, slot;
 		private final Array<float[]> samples = new Array<>(); // {timeMs, x, y, z, yaw, pitch}
 
 		PlayerInfo(int id, String name) {
@@ -86,7 +86,7 @@ public class GameClient implements Disposable {
 	public static class Event {
 		public enum Type {
 			JOINED, LEFT, KILL, RESPAWN, SET_POSITION, MATCH_END, MATCH_START, SHOT, WEAPON_SPAWN, WEAPON_REMOVE,
-			DAMAGE
+			DAMAGE, HIT
 		}
 
 		public final Type type;
@@ -97,9 +97,9 @@ public class GameClient implements Disposable {
 		public int detail;
 		/** KILL, SHOT, WEAPON_SPAWN: gun id or name. */
 		public String gun = "";
-		/** Where it happens. SHOT: where the bullet stopped. DAMAGE: where the shot came from. */
+		/** Where it happens. SHOT: where the bullet stopped. DAMAGE: where the shot came from. HIT: where it hit. */
 		public final Vector3 position = new Vector3();
-		/** SHOT: where the bullet started. WEAPON_SPAWN: where the gun was thrown from. */
+		/** SHOT: where the bullet started. WEAPON_SPAWN: where the gun was thrown from. HIT: the bullet's direction. */
 		public final Vector3 from = new Vector3();
 		public int weaponId, magazine, reserve;
 		public float yaw;
@@ -227,6 +227,7 @@ public class GameClient implements Disposable {
 				p.health = entry.health;
 				p.kills = entry.kills;
 				p.deaths = entry.deaths;
+				p.assists = entry.assists;
 				p.slot = entry.slot;
 				p.addSample(now, entry.position, entry.yaw, entry.pitch);
 			}
@@ -313,6 +314,16 @@ public class GameClient implements Disposable {
 			e.playerId = localId;
 			e.detail = m.amount;
 			e.position.set(m.source);
+			events.add(e);
+			break;
+		}
+		case Protocol.HIT: {
+			Messages.Hit m = Messages.Hit.read(in);
+			Event e = new Event(Event.Type.HIT);
+			e.playerId = m.victimId;
+			e.headshot = m.headshot;
+			e.position.set(m.position);
+			e.from.set(m.direction);
 			events.add(e);
 			break;
 		}

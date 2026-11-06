@@ -13,13 +13,16 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.juego.UI.Console;
+import com.juego.UI.DeathScreen;
 import com.juego.UI.HUD;
 import com.juego.UI.PauseMenu;
 import com.juego.UI.Scoreboard;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
 import com.juego.match.Match;
+import com.juego.net.GameClient;
 import com.juego.net.GameServer;
+import com.juego.net.Protocol;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 
@@ -34,6 +37,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	private HUD hud;
 	private PauseMenu pauseMenu;
 	private Console console;
+	private DeathScreen deathScreen;
 	private Scoreboard scoreboard;
 	private final Array<Scoreboard.Row> rows = new Array<>();
 
@@ -56,6 +60,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		hud = new HUD();
 		pauseMenu = new PauseMenu(playerComponent, gameWorld);
 		console = new Console(this::runCommand);
+		deathScreen = new DeathScreen();
 		scoreboard = new Scoreboard();
 	}
 
@@ -105,7 +110,11 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		showDamage();
 		hud.setCrosshair(playerComponent.selectedGun() != null && !playerComponent.isDead() && !pauseMenu.isShowingSettings(),
 				spreadPixels());
+		boolean spectating = gameWorld.deathCam().isWatching() && !intermission;
+		hud.setPlayerWidgetsVisible(!spectating);
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
+		if (spectating)
+			showDeathScreen();
 
 		// Opened from the pause menu, the scoreboard replaces it until the next click.
 		boolean scoreboardOverPause = playerComponent.pause && playerComponent.scoreboard;
@@ -139,6 +148,19 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			return "Los comandos los usa quien creo la partida (o la consola del servidor dedicado).";
 		String reply = server.command(line);
 		return reply != null ? reply : "No conozco '" + line + "'. Escribi 'ayuda'.";
+	}
+
+	/** Who killed us, with their stats, and the countdown to respawning. */
+	private void showDeathScreen() {
+		DeathCamSystem cam = gameWorld.deathCam();
+		GameClient.PlayerInfo killer = cam.watchedId() == Protocol.WORLD ? null
+				: gameWorld.session.client.getPlayer(cam.watchedId());
+		if (killer != null && killer.id == gameWorld.session.client.getLocalId())
+			killer = null;
+		deathScreen.update(killer == null ? null : killer.name, cam.fell(), cam.getGun(), cam.wasHeadshot(),
+				killer == null ? 0 : killer.kills, killer == null ? 0 : killer.deaths,
+				killer == null ? 0 : killer.assists, cam.respawnInMs());
+		deathScreen.draw();
 	}
 
 	/** Turns the hits taken since last frame into the HUD's red flash, direction arc and a small view kick. */
@@ -180,6 +202,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			pauseMenu.resize(width, height);
 		if (console != null)
 			console.resize(width, height);
+		if (deathScreen != null)
+			deathScreen.resize(width, height);
 		if (scoreboard != null)
 			scoreboard.resize(width, height);
 	}
@@ -192,6 +216,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			pauseMenu.dispose();
 		if (console != null)
 			console.dispose();
+		if (deathScreen != null)
+			deathScreen.dispose();
 		if (scoreboard != null)
 			scoreboard.dispose();
 	}

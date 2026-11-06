@@ -19,6 +19,7 @@ import com.juego.net.GameClient;
 import com.juego.net.GameServer;
 import com.juego.net.Protocol;
 import com.juego.systems.BulletSystem;
+import com.juego.systems.DeathCamSystem;
 import com.juego.systems.FootstepSystem;
 import com.juego.systems.GroundWeaponSystem;
 import com.juego.systems.HudSystem;
@@ -49,6 +50,7 @@ public class GameWorld {
 	private WeaponSystem weaponSystem;
 	private GroundWeaponSystem groundWeaponSystem;
 	private FootstepSystem footstepSystem;
+	private DeathCamSystem deathCamSystem;
 	private HudSystem hudSystem;
 	private DebugDrawer debugDrawer;
 	private boolean leaving;
@@ -84,6 +86,8 @@ public class GameWorld {
 		engine.addSystem(weaponSystem = new WeaponSystem(this, renderSystem.perspectiveCamera));
 		engine.addSystem(groundWeaponSystem = new GroundWeaponSystem(this, renderSystem.perspectiveCamera));
 		engine.addSystem(footstepSystem = new FootstepSystem(this, renderSystem.perspectiveCamera));
+		// After the player and weapon systems: while dead it has the last word on the camera.
+		engine.addSystem(deathCamSystem = new DeathCamSystem(this, renderSystem.perspectiveCamera));
 		engine.addSystem(hudSystem = new HudSystem(this));
 		if (debug) {
 			debugDrawer = new DebugDrawer();
@@ -125,6 +129,10 @@ public class GameWorld {
 
 	public GroundWeaponSystem groundWeapons() {
 		return groundWeaponSystem;
+	}
+
+	public DeathCamSystem deathCam() {
+		return deathCamSystem;
 	}
 
 	/** Match time: the client's clock, which stands still while a singleplayer match is paused. */
@@ -183,7 +191,7 @@ public class GameWorld {
 
 	public void getScoreRows(Array<Scoreboard.Row> out) {
 		for (GameClient.PlayerInfo p : session.client.getPlayers())
-			out.add(new Scoreboard.Row().set(p.name, p.kills, p.deaths, p.id == session.client.getLocalId()));
+			out.add(new Scoreboard.Row().set(p.name, p.kills, p.deaths, p.assists, p.id == session.client.getLocalId()));
 	}
 
 	public void resize(int width, int height) {
@@ -204,6 +212,7 @@ public class GameWorld {
 		weaponSystem.dispose();
 		groundWeaponSystem.dispose();
 		footstepSystem.dispose();
+		deathCamSystem.dispose();
 		entityFactory.dispose();
 		renderSystem.dispose();
 		bulletSystem.dispose();

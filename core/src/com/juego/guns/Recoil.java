@@ -7,9 +7,9 @@ import com.badlogic.gdx.math.MathUtils;
  * offset (up, right) of each bullet of a burst from where the player aims.
  * The first bullet goes where you aim; holding the trigger, the next ones
  * climb and then wander sideways, always the same way, so a player can learn
- * to pull the mouse against it. The view climbs with the pattern too (a bit
- * less than the bullets), and when the trigger is released both come back
- * down to the crosshair within a fraction of a second.
+ * to pull the mouse against it. The view climbs with the pattern, so the
+ * crosshair always shows where the next bullet goes, and when the trigger is
+ * released it comes back down within a fraction of a second.
  * <p>
  * On top of the pattern there is a random inaccuracy: tiny when standing
  * still, larger as the burst goes on, and large when running or in the air.
@@ -17,8 +17,6 @@ import com.badlogic.gdx.math.MathUtils;
  * Pure logic (angles in degrees), so it is tested without a window.
  */
 public class Recoil {
-	/** How much of the pattern the view follows. The rest shows as bullets landing above the crosshair. */
-	public static final float VIEW_FOLLOW = 0.55f;
 	/** After the last shot, recovery waits the gun's fire delay plus this. */
 	static final long RECOVERY_DELAY_MS = 40;
 	/** Recovery speed, in pattern steps per second: a constant part plus a part proportional to the burst. */

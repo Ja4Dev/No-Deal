@@ -362,6 +362,35 @@ public final class Messages {
 		}
 	}
 
+	/** A shot hit a player, for everyone near enough to see the blood and hear it. */
+	public static class Hit implements Message {
+		public int victimId;
+		public boolean headshot;
+		/** Where the bullet hit the body. */
+		public final Vector3 position = new Vector3();
+		/** Which way the bullet was going (normalized): the blood sprays that way. */
+		public final Vector3 direction = new Vector3();
+
+		public byte type() {
+			return Protocol.HIT;
+		}
+
+		public void write(ByteBuffer out) {
+			out.put((byte) victimId).put((byte) (headshot ? 1 : 0));
+			writeVector(out, position);
+			writeVector(out, direction);
+		}
+
+		public static Hit read(ByteBuffer in) {
+			Hit m = new Hit();
+			m.victimId = in.get() & 0xFF;
+			m.headshot = in.get() != 0;
+			readVector(in, m.position);
+			readVector(in, m.direction);
+			return m;
+		}
+	}
+
 	public static class WeaponSpawn implements Message {
 		public int weaponId;
 		public String gun = "";
@@ -474,7 +503,7 @@ public final class Messages {
 		public static class Entry {
 			public int playerId;
 			public boolean alive;
-			public int health, kills, deaths, slot;
+			public int health, kills, deaths, assists, slot;
 			public final Vector3 position = new Vector3();
 			public float yaw, pitch;
 		}
@@ -494,7 +523,7 @@ public final class Messages {
 			out.putInt(tick).put((byte) phase).putInt(remainingMs).put((byte) players.size);
 			for (Entry e : players) {
 				out.put((byte) e.playerId).put((byte) (e.alive ? 1 : 0)).put((byte) e.health);
-				out.putShort((short) e.kills).putShort((short) e.deaths).put((byte) e.slot);
+				out.putShort((short) e.kills).putShort((short) e.deaths).putShort((short) e.assists).put((byte) e.slot);
 				writeVector(out, e.position);
 				out.putFloat(e.yaw).putFloat(e.pitch);
 			}
@@ -513,6 +542,7 @@ public final class Messages {
 				e.health = in.get() & 0xFF;
 				e.kills = in.getShort() & 0xFFFF;
 				e.deaths = in.getShort() & 0xFFFF;
+				e.assists = in.getShort() & 0xFFFF;
 				e.slot = in.get();
 				readVector(in, e.position);
 				e.yaw = in.getFloat();

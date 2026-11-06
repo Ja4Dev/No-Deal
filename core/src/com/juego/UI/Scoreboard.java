@@ -17,13 +17,14 @@ public class Scoreboard extends Menu {
 
 	public static class Row {
 		public String name;
-		public int kills, deaths;
+		public int kills, deaths, assists;
 		public boolean local;
 
-		public Row set(String name, int kills, int deaths, boolean local) {
+		public Row set(String name, int kills, int deaths, int assists, boolean local) {
 			this.name = name;
 			this.kills = kills;
 			this.deaths = deaths;
+			this.assists = assists;
 			this.local = local;
 			return this;
 		}
@@ -57,11 +58,12 @@ public class Scoreboard extends Menu {
 	public void update(String title, Array<Row> rows, String footer) {
 		rows.sort(RANKING);
 		table.clearChildren();
-		table.add(label(title, Color.WHITE, 1.6f)).colspan(4).padBottom(14).row();
+		table.add(label(title, Color.WHITE, 1.6f)).colspan(5).padBottom(14).row();
 		table.add(label("#", HEADER, 1.2f)).width(40);
 		table.add(label("Jugador", HEADER, 1.2f)).width(260).left();
 		table.add(label("Bajas", HEADER, 1.2f)).width(90);
 		table.add(label("Muertes", HEADER, 1.2f)).width(90);
+		table.add(label("Asist.", HEADER, 1.2f)).width(90);
 		table.row().padBottom(6);
 		for (int i = 0; i < rows.size; i++) {
 			Row row = rows.get(i);
@@ -70,10 +72,11 @@ public class Scoreboard extends Menu {
 			table.add(label(row.name, color, 1.3f)).left();
 			table.add(label(Integer.toString(row.kills), color, 1.3f));
 			table.add(label(Integer.toString(row.deaths), color, 1.3f));
+			table.add(label(Integer.toString(row.assists), color, 1.3f));
 			table.row().padBottom(4);
 		}
 		if (footer != null && !footer.isEmpty())
-			table.add(label(footer, HEADER, 1.2f)).colspan(4).padTop(14);
+			table.add(label(footer, HEADER, 1.2f)).colspan(5).padTop(14);
 		table.pack();
 		table.setPosition(stage.getWidth() / 2, stage.getHeight() / 2, Align.center);
 	}

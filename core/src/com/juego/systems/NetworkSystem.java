@@ -142,9 +142,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			feed(line);
 			if (me) {
 				playerComponent.killedByServer();
-				if (hud() != null)
-					hud().setCenterMessage(event.killerId == Protocol.WORLD || event.killerId == client.getLocalId()
-							? "Moriste" : "Te eliminó " + name(event.killerId));
+				gameWorld.deathCam().onKilled(event.killerId, event.gun, event.headshot);
 			}
 			break;
 		}
@@ -190,6 +188,9 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		case DAMAGE:
 			playerComponent.hurt(event.detail, event.position);
 			break;
+		case HIT:
+			gameWorld.weaponSystem().showHit(event.position, event.from, event.headshot, me);
+			break;
 		default:
 			break;
 		}
@@ -228,6 +229,16 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 				model.instance.transform.set(position, rotation);
 			}
 		}
+	}
+
+	/**
+	 * Where another player is drawn now (capsule center) and where they look.
+	 *
+	 * @return false if we know nothing about them
+	 */
+	public boolean remotePosition(int playerId, Vector3 outPosition, float[] outYaw) {
+		GameClient.PlayerInfo info = client.getPlayer(playerId);
+		return info != null && info.interpolate(client.now() - Protocol.INTERPOLATION_DELAY_MS, outPosition, outYaw);
 	}
 
 	private void sendLocalState() {
