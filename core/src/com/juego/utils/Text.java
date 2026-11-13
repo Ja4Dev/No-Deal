@@ -125,6 +125,9 @@ public final class Text {
 		add("video.aspect", "Relacion de aspecto", "Aspect ratio");
 		add("video.aspect.all", "Todas", "All");
 		add("video.resolution", "Resolucion", "Resolution");
+		add("video.scaling", "Escalado", "Scaling");
+		add("video.scaling.BLACK_BARS", "Bandas negras", "Black bars");
+		add("video.scaling.STRETCH", "Estirar", "Stretch");
 		add("video.fps", "Limite de FPS", "FPS limit");
 		add("video.fps.vsync", "Sincronizado (VSync)", "Synced (VSync)");
 		add("video.fov", "Campo de vision", "Field of view");
@@ -392,7 +395,7 @@ public final class Text {
 				+ "sv_gravity [valor]  gravedad (800 es la normal, como en CS)\n"
 				+ "sv_airaccelerate [valor]  control en el aire (10 normal; 100 para bunnyhop)\n"
 				+ "sv_autobunnyhopping [0|1]  mantener el salto vuelve a saltar al caer\n"
-				+ "sv_maxspeed [valor]  velocidad al correr (250 normal, como en CS)\n"
+				+ "sv_maxspeed [valor]  velocidad al correr con el cuchillo (250 normal; las armas pesan)\n"
 				+ "sv_maxvelocity [valor]  velocidad maxima, aun con bunnyhop (750 normal)\n"
 				+ "sv_falldamage [0|1]  las caidas fuertes lastiman",
 				"bot add [count] [difficulty]  adds bots\n"
@@ -405,7 +408,7 @@ public final class Text {
 						+ "sv_gravity [value]  gravity (800 is normal, as in CS)\n"
 						+ "sv_airaccelerate [value]  control in the air (10 is normal; 100 for bunnyhop)\n"
 						+ "sv_autobunnyhopping [0|1]  holding jump jumps again on landing\n"
-						+ "sv_maxspeed [value]  running speed (250 is normal, as in CS)\n"
+						+ "sv_maxspeed [value]  running speed with the knife (250 is normal; weapons weigh)\n"
 						+ "sv_maxvelocity [value]  top speed, even bunnyhopping (750 is normal)\n"
 						+ "sv_falldamage [0|1]  hard falls hurt");
 		add("server.status", "{0}/{1} jugadores y {2} bots, {3}", "{0}/{1} players and {2} bots, {3}");

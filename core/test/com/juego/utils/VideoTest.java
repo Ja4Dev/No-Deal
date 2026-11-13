@@ -36,12 +36,14 @@ class VideoTest {
 	}
 
 	@Test
-	void fullscreenOffersTheScreensModes() {
+	void fullscreenOffersAnySizeUpToTheMonitors() {
+		// It is drawn off screen and scaled, so it needn't be a mode of the monitor.
 		Array<Resolution> list = Video.resolutions(Mode.FULLSCREEN, Aspect.ALL, SCREEN, NATIVE);
 		assertEquals(NATIVE, list.first(), "biggest first");
-		assertFalse(list.contains(new Resolution(1600, 900), false), "not a mode of this screen");
+		assertTrue(list.contains(new Resolution(1600, 900), false));
+		assertTrue(list.contains(new Resolution(1280, 960), false), "4:3 on a 16:9 monitor, as in CS");
 		assertFalse(list.contains(new Resolution(640, 480), false), "too small for the menus");
-		assertEquals(2, Video.resolutions(Mode.FULLSCREEN, Aspect.FOUR_THREE, SCREEN, NATIVE).size);
+		assertFalse(list.contains(new Resolution(2560, 1440), false), "bigger than the monitor");
 	}
 
 	@Test
@@ -52,7 +54,6 @@ class VideoTest {
 		for (Resolution r : list)
 			assertTrue(Aspect.SIXTEEN_NINE.matches(r.width, r.height), r.toString());
 		Array<Resolution> borderless = Video.resolutions(Mode.BORDERLESS, Aspect.FOUR_THREE, SCREEN, NATIVE);
-		assertEquals(1, borderless.size);
-		assertEquals(NATIVE, borderless.first(), "borderless is always the screen's own");
+		assertTrue(borderless.contains(new Resolution(1024, 768), false), "borderless scales too");
 	}
 }

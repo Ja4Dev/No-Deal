@@ -46,7 +46,10 @@ public class Console extends Menu {
 	/** The Cerrar button was tapped; the HUD closes the console on its next update. */
 	private boolean closeRequested;
 
+	private final Table panel;
+
 	public Console(Executor executor) {
+		super(true); // across the whole top of the screen, whatever its shape
 		this.executor = executor;
 		input = new TextField("", Assets.skin);
 		// The console key itself (` or º) must not end up in the line.
@@ -60,7 +63,7 @@ public class Console extends Menu {
 		log.setAlignment(com.badlogic.gdx.utils.Align.bottomLeft);
 
 		Drawable background = Assets.skin.newDrawable("white", new Color(0, 0, 0, 0.72f));
-		Table panel = new Table();
+		panel = new Table();
 		panel.setBackground(background);
 		panel.pad(10);
 		// Phones have no Esc key (and iPhones no back button): the console closes with a button.
@@ -82,9 +85,14 @@ public class Console extends Menu {
 		panel.add(scroll).colspan(2).growX().left().bottom().height(VISIBLE_LINES * LINE_HEIGHT).row();
 		panel.add(input).growX().height(32).padTop(6);
 		panel.add(close).width(110).height(32).padTop(6).padLeft(8);
-		panel.setBounds(0, Core.VIRTUAL_HEIGHT - 320, Core.VIRTUAL_WIDTH, 320);
 		stage.addActor(panel);
+		layout();
 		print(Text.get("console.welcome", Platform.touch ? Text.get("close") : "Esc"));
+	}
+
+	@Override
+	protected void layout() {
+		panel.setBounds(0, stage.getHeight() - 320, stage.getWidth(), 320);
 	}
 
 	public boolean isOpen() {

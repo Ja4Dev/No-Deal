@@ -22,14 +22,15 @@ import com.juego.utils.Video;
 /**
  * Video settings. Display mode, aspect ratio and resolution change when
  * Aplicar is pressed (so browsing the lists doesn't flash the screen); the
- * rest at once, also mid-match. Antialiasing needs the game to restart. On
+ * rest at once, also mid-match. Scaling (stretched or black bars) is for a
+ * resolution of another shape than the monitor's, in fullscreen. Antialiasing needs the game to restart. On
  * phones only the field of view and the shadows apply.
  */
 public class VideoMenuScreen extends MenuScreen {
 	/** FPS limits offered (0: vertical sync, the screen's own rate). */
 	private static final int[] FPS_LIMITS = { 0, 60, 120, 144, 165, 240, 300, 500, 1000 };
 
-	private final SelectBox<String> mode, aspect, resolution, fps, shadows, msaa;
+	private final SelectBox<String> mode, aspect, resolution, scaling, fps, shadows, msaa;
 	private final Slider fov;
 	private final Label fovValue;
 	private Array<Video.Resolution> listed = new Array<>();
@@ -69,7 +70,14 @@ public class VideoMenuScreen extends MenuScreen {
 
 		resolution = select();
 		resolution.setMaxListCount(10);
+		scaling = select();
 		fillResolutions(current);
+
+		Array<String> scalings = new Array<>();
+		for (Video.Scaling s : Video.Scaling.values())
+			scalings.add(s.label());
+		scaling.setItems(scalings);
+		scaling.setSelectedIndex(Config.scaling.ordinal());
 
 		fps = select();
 		Array<String> fpsItems = new Array<>();
@@ -113,6 +121,7 @@ public class VideoMenuScreen extends MenuScreen {
 			row(table, Text.get("video.mode"), mode);
 			row(table, Text.get("video.aspect"), aspect);
 			row(table, Text.get("video.resolution"), resolution);
+			row(table, Text.get("video.scaling"), scaling);
 			row(table, Text.get("video.fps"), fps);
 		}
 		table.add(new Label(Text.get("video.fov"), Assets.skin)).right().padRight(14);
@@ -137,6 +146,10 @@ public class VideoMenuScreen extends MenuScreen {
 
 		mode.addListener(changed(() -> fillResolutions(selectedResolution())));
 		aspect.addListener(changed(() -> fillResolutions(selectedResolution())));
+		scaling.addListener(changed(() -> {
+			Config.scaling = Video.Scaling.values()[scaling.getSelectedIndex()];
+			Video.applyScaling();
+		}));
 		fps.addListener(changed(() -> {
 			Config.fpsMax = fpsValues.get(fps.getSelectedIndex());
 			Config.applyFpsMax();
@@ -188,7 +201,7 @@ public class VideoMenuScreen extends MenuScreen {
 		int index = keep == null ? -1 : listed.indexOf(keep, false);
 		if (index >= 0)
 			resolution.setSelectedIndex(index);
-		resolution.setDisabled(m == Video.Mode.BORDERLESS); // always the screen's own
+		scaling.setDisabled(m == Video.Mode.WINDOWED); // a window is the resolution's own shape
 	}
 
 	private Video.Resolution selectedResolution() {

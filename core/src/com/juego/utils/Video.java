@@ -6,8 +6,13 @@ import com.badlogic.gdx.utils.Array;
 
 /**
  * Video settings: how the window is shown (window, fullscreen or borderless),
- * its resolution, picked from those of an aspect ratio as in CS, the field of
- * view, the shadows and antialiasing. They are kept in {@link Config}.
+ * its resolution, picked from those of an aspect ratio as in CS, how a
+ * resolution of another shape than the monitor's fills it, the field of view,
+ * the shadows and antialiasing. They are kept in {@link Config}.
+ * <p>
+ * Fullscreen and borderless always use the monitor's own resolution; another
+ * one is drawn off screen and scaled (see {@link Display}), so it looks the
+ * same whatever the graphics driver would have done with it.
  */
 public final class Video {
 	/** How the game is shown on a computer. */
@@ -18,6 +23,18 @@ public final class Video {
 
 		public String label() {
 			return Text.get("video.mode." + name());
+		}
+	}
+
+	/** How a resolution of another shape than the monitor's (4:3 on a 16:9 one) fills it. */
+	public enum Scaling {
+		/** Keeps its shape, with black bars at the sides (or above and below). */
+		BLACK_BARS,
+		/** Fills the whole monitor, stretched (as many CS players play 4:3). */
+		STRETCH;
+
+		public String label() {
+			return Text.get("video.scaling." + name());
 		}
 	}
 
@@ -147,19 +164,17 @@ public final class Video {
 	 */
 	public static Array<Resolution> resolutions(Mode mode, Aspect aspect, Array<Resolution> screen,
 			Resolution native_) {
+		// Fullscreen draws any resolution scaled to the monitor, so it offers the same sizes as a window,
+		// plus the monitor's own modes.
 		Array<Resolution> out = new Array<>();
-		if (mode == Mode.BORDERLESS) {
-			out.add(native_);
-			return out;
-		}
 		Array<Resolution> candidates = new Array<>(screen);
-		if (mode == Mode.WINDOWED)
-			for (int[] size : WINDOW_SIZES)
-				candidates.add(new Resolution(size[0], size[1]));
+		candidates.add(native_);
+		for (int[] size : WINDOW_SIZES)
+			candidates.add(new Resolution(size[0], size[1]));
 		for (Resolution r : candidates) {
 			if (out.contains(r, false) || !aspect.matches(r.width, r.height) || r.width < 800 || r.height < 600)
 				continue;
-			if (mode == Mode.WINDOWED && (r.width > native_.width || r.height > native_.height))
+			if (r.width > native_.width || r.height > native_.height)
 				continue;
 			out.add(r);
 		}
@@ -191,7 +206,7 @@ public final class Video {
 
 	/** The resolution in the settings, or the default for the mode (a 1280x720 window, or the screen's). */
 	public static Resolution chosenResolution() {
-		if (Config.videoMode == Mode.BORDERLESS || Config.screenWidth <= 0 || Config.screenHeight <= 0)
+		if (Config.screenWidth <= 0 || Config.screenHeight <= 0)
 			return Config.videoMode == Mode.WINDOWED ? new Resolution(1280, 720) : nativeResolution();
 		return new Resolution(Config.screenWidth, Config.screenHeight);
 	}
@@ -201,26 +216,50 @@ public final class Video {
 		if (!Platform.desktop || Gdx.graphics == null)
 			return;
 		Resolution r = chosenResolution();
+		Resolution screen = nativeResolution();
 		switch (Config.videoMode) {
 		case FULLSCREEN: {
+			// The monitor's own resolution, at its best refresh rate; the chosen one is drawn scaled.
 			Graphics.DisplayMode best = null;
 			for (Graphics.DisplayMode m : Gdx.graphics.getDisplayModes())
-				if (m.width == r.width && m.height == r.height && (best == null || m.refreshRate > best.refreshRate))
+				if (m.width == screen.width && m.height == screen.height
+						&& (best == null || m.refreshRate > best.refreshRate))
 					best = m;
 			Gdx.graphics.setFullscreenMode(best != null ? best : Gdx.graphics.getDisplayMode());
+			Display.setRenderSize(r.width, r.height, Config.scaling == Scaling.STRETCH);
 			break;
 		}
 		case BORDERLESS:
 			if (Gdx.graphics.isFullscreen())
 				Gdx.graphics.setWindowedMode(1280, 720); // out of fullscreen first, so the window is placed anew
 			Gdx.graphics.setUndecorated(true);
-			Gdx.graphics.setWindowedMode(r.width, r.height); // the screen's size: libGDX centers it, at 0,0
+			Gdx.graphics.setWindowedMode(screen.width, screen.height); // libGDX centers it: at 0,0
+			Display.setRenderSize(r.width, r.height, Config.scaling == Scaling.STRETCH);
 			break;
 		default:
 			Gdx.graphics.setUndecorated(false);
 			Gdx.graphics.setWindowedMode(r.width, r.height);
+			Display.setRenderSize(0, 0, false);
 			break;
 		}
 		Config.applyFpsMax();
+		resizeGame();
+	}
+
+	/** Stretched or with black bars, at once. */
+	public static void applyScaling() {
+		if (Config.videoMode != Mode.WINDOWED) {
+			Resolution r = chosenResolution();
+			Display.setRenderSize(r.width, r.height, Config.scaling == Scaling.STRETCH);
+		}
+	}
+
+	/**
+	 * Tells the game the size it draws on changed: a new resolution in
+	 * fullscreen keeps the window's size, so no resize would come otherwise.
+	 */
+	private static void resizeGame() {
+		if (Gdx.app != null && Gdx.app.getApplicationListener() != null)
+			Gdx.app.getApplicationListener().resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 	}
 }

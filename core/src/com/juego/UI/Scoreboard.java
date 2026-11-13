@@ -48,6 +48,7 @@ public class Scoreboard extends Menu {
 	private final Label.LabelStyle style = new Label.LabelStyle(font, Color.WHITE);
 
 	public Scoreboard() {
+		super(true); // centered on the whole screen, whatever its shape
 		Pixmap pixel = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
 		pixel.setColor(0, 0, 0, 0.7f);
 		pixel.fill();

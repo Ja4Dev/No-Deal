@@ -28,6 +28,7 @@ import com.juego.utils.Config;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 import com.juego.utils.CrosshairSettings;
+import com.juego.utils.Display;
 import com.juego.utils.MovementSettings;
 import com.juego.utils.Platform;
 import com.juego.utils.Text;
@@ -318,7 +319,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	private float pixels(float degrees) {
 		PerspectiveCamera camera = gameWorld.renderSystem.perspectiveCamera;
 		return (float) (Math.tan(Math.toRadians(degrees)) / Math.tan(Math.toRadians(camera.fieldOfView / 2))
-				* Gdx.graphics.getHeight() / 2);
+				* Display.height() / 2);
 	}
 
 	private final Vector3 forward = new Vector3(), right = new Vector3(), toSource = new Vector3();

@@ -16,6 +16,7 @@ import com.juego.UI.TouchControls;
 import com.juego.components.CharacterComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
+import com.juego.guns.Gun;
 import com.juego.core.GameWorld;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
@@ -194,6 +195,10 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		MovementSettings movement = movement(); // sv_maxspeed
 		wishSpeed = playerComponent.crouched ? movement.crouchSpeed()
 				: playerComponent.running ? movement.runSpeed() : movement.walkSpeed();
+		// The weapon in hand weighs: 250 with the knife, 235 with a rifle (walking and crouching too, as in CS).
+		Gun gun = playerComponent.selectedGun();
+		if (gun != null)
+			wishSpeed *= gun.def.speedFactor();
 	}
 
 	/** Physics step: turns the keys into a velocity and tells the character controller how far to move. */

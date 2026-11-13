@@ -23,6 +23,7 @@ public class DeathScreen extends Menu {
 	private final Label countdown, title, name, weapon, stats;
 
 	public DeathScreen() {
+		super(true); // laid out from the screen's edges every frame
 		Pixmap pixel = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
 		pixel.setColor(0, 0, 0, 0.65f);
 		pixel.fill();
