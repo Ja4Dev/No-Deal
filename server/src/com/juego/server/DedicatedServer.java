@@ -29,7 +29,7 @@ import com.juego.utils.Text;
  * <pre>
  * java -jar NoDeal-server.jar [--port 25559] [--max-players 4] [--time-limit 10] [--frag-limit 20]
  *                             [--bots 0] [--bot-difficulty medio] [--gravity 800] [--airaccelerate 10]
- *                             [--autobunnyhop] [--lang es|en] [--nogui]
+ *                             [--autobunnyhop] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]
  * </pre>
  *
  * Terminal commands: {@code status}, {@code help}, {@code quit}, and the
@@ -92,6 +92,13 @@ public class DedicatedServer {
 					printUsage();
 					return;
 				default:
+					if (args[i].startsWith("+sv_") && i + 1 < args.length) {
+						// Any console variable, as CS's command line takes them: +sv_gravity 400.
+						String error = config.movement.set(args[i].substring(1).toLowerCase(), args[++i]);
+						if (error != null)
+							throw new IllegalArgumentException(error);
+						break;
+					}
 					throw new IllegalArgumentException(Text.get("ds.unknownOption", args[i]));
 				}
 				optionsGiven = true;

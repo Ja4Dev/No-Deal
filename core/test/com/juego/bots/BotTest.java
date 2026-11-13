@@ -117,7 +117,7 @@ class BotTest {
 			for (int step = 0; step < seconds / BotWorld.STEP && range.shots < maxShots; step++) {
 				range.now = (long) (step * BotWorld.STEP * 1000);
 				bot.think(range.now, BotWorld.STEP, targets, true, range);
-				bot.move(MovementSettings.DEFAULT_AIR_ACCELERATE);
+				bot.move(new MovementSettings());
 				world.step();
 				bot.afterStep();
 			}

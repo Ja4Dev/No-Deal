@@ -148,6 +148,8 @@ public final class Text {
 		add("action.SCOREBOARD", "Puntuacion", "Scoreboard");
 		add("action.PAUSE", "Pausa", "Pause");
 		add("action.CONSOLE", "Consola", "Console");
+		add("action.KNIFE", "Cuchillo", "Knife");
+		add("gun.knife", "Cuchillo", "Knife");
 		add("key.grave", "Izq. del 1", "Left of 1");
 		add("key.other", "Tecla {0}", "Key {0}");
 		add("mouse.left", "Clic izquierdo", "Left click");
@@ -284,6 +286,7 @@ public final class Text {
 		add("death.headshot", "  -  a la cabeza", "  -  headshot");
 		add("death.stats", "Bajas {0}      Muertes {1}      Asistencias {2}", "Kills {0}      Deaths {1}      Assists {2}");
 		add("death.fell", "Te caíste del mapa", "You fell off the map");
+		add("death.fallDamage", "Te mató la caída", "The fall killed you");
 		add("death.died", "Moriste", "You died");
 
 		// ---- feed and messages during a match ----
@@ -297,6 +300,7 @@ public final class Text {
 		add("feed.joined", "{0} se unió", "{0} joined");
 		add("feed.left", "{0} salió", "{0} left");
 		add("feed.fell", "{0} se cayó del mapa", "{0} fell off the map");
+		add("feed.fallDied", "{0} murió por la caída", "{0} died from the fall");
 		add("feed.headshot", ", a la cabeza", ", headshot");
 		add("feed.newMatch", "Nueva partida", "New match");
 		add("feed.renamedMe", "Ahora te llamás {0}", "You are now {0}");
@@ -308,8 +312,19 @@ public final class Text {
 		// ---- console ----
 		add("console.welcome", "Consola. Escribi 'ayuda' para ver los comandos; {0} para cerrar.",
 				"Console. Type 'help' to see the commands; {0} to close.");
-		add("console.help", "Comandos:\nnombre <nuevo>  cambia tu nombre\n{0}\nlimpiar  borra la consola",
-				"Commands:\nname <new>  changes your name\n{0}\nclear  clears the console");
+		add("console.help", "Comandos:\nnombre <nuevo>  cambia tu nombre\n"
+				+ "cl_showfps [0|1]  muestra los FPS y el ping\n"
+				+ "cl_showspeed [0|1]  muestra tu velocidad y la de cada salto\n"
+				+ "fps_max [valor]  limita los FPS (0 = los de la pantalla)\n{0}\nlimpiar  borra la consola",
+				"Commands:\nname <new>  changes your name\n"
+						+ "cl_showfps [0|1]  shows the FPS and the ping\n"
+						+ "cl_showspeed [0|1]  shows your speed and that of each jump\n"
+						+ "fps_max [value]  caps the FPS (0 = the screen's refresh rate)\n{0}\nclear  clears the console");
+		add("console.hostOnly", "{0} lo cambia quien creo la partida. Ahora: {1}",
+				"{0} is changed by whoever created the match. Now: {1}");
+		add("hud.fps", "{0} FPS", "{0} FPS");
+		add("hud.ping", "ping {0} ms", "ping {0} ms");
+		add("hud.jump", "salto {0}", "jump {0}");
 		add("console.renameUsage", "Uso: nombre <nuevo nombre> (hasta {0} letras)", "Usage: name <new name> (up to {0} letters)");
 		add("console.renamed", "Ahora te llamas {0}.", "You are now {0}.");
 		add("console.notHost", "Los comandos los usa quien creo la partida (o la consola del servidor dedicado).",
@@ -349,7 +364,10 @@ public final class Text {
 				+ "estado  jugadores y tiempo de la partida\n"
 				+ "sv_gravity [valor]  gravedad (800 es la normal, como en CS)\n"
 				+ "sv_airaccelerate [valor]  control en el aire (10 normal; 100 para bunnyhop)\n"
-				+ "sv_autobunnyhopping [0|1]  mantener el salto vuelve a saltar al caer",
+				+ "sv_autobunnyhopping [0|1]  mantener el salto vuelve a saltar al caer\n"
+				+ "sv_maxspeed [valor]  velocidad al correr (250 normal, como en CS)\n"
+				+ "sv_maxvelocity [valor]  velocidad maxima, aun con bunnyhop (750 normal)\n"
+				+ "sv_falldamage [0|1]  las caidas fuertes lastiman",
 				"bot add [count] [difficulty]  adds bots\n"
 						+ "bot kick [name | count | all]  removes bots\n"
 						+ "bot difficulty <difficulty>  changes the difficulty of every bot\n"
@@ -359,7 +377,10 @@ public final class Text {
 						+ "status  players and match time\n"
 						+ "sv_gravity [value]  gravity (800 is normal, as in CS)\n"
 						+ "sv_airaccelerate [value]  control in the air (10 is normal; 100 for bunnyhop)\n"
-						+ "sv_autobunnyhopping [0|1]  holding jump jumps again on landing");
+						+ "sv_autobunnyhopping [0|1]  holding jump jumps again on landing\n"
+						+ "sv_maxspeed [value]  running speed (250 is normal, as in CS)\n"
+						+ "sv_maxvelocity [value]  top speed, even bunnyhopping (750 is normal)\n"
+						+ "sv_falldamage [0|1]  hard falls hurt");
 		add("server.status", "{0}/{1} jugadores y {2} bots, {3}", "{0}/{1} players and {2} bots, {3}");
 		add("server.difficultyNow", "Dificultad de los bots: {0}. Opciones: {1}", "Bot difficulty: {0}. Options: {1}");
 		add("server.unknownDifficulty", "No conozco la dificultad '{0}'. Opciones: {1}", "Unknown difficulty '{0}'. Options: {1}");
@@ -382,6 +403,7 @@ public final class Text {
 		add("server.winner", "Ganó {0} con {1} bajas.", "{0} won with {1} kills.");
 		add("server.newMatch", "Empieza una nueva partida", "A new match begins");
 		add("server.fell", "{0} se cayó del mapa", "{0} fell off the map");
+		add("server.fallDied", "{0} murió por la caída", "{0} died from the fall");
 		add("server.kill", "{0} mató a {1} con {2}{3}", "{0} killed {1} with {2}{3}");
 		add("server.headshot", " (headshot)", " (headshot)");
 		add("server.cvar", "{0} = {1}", "{0} = {1}");
@@ -460,22 +482,24 @@ public final class Text {
 		add("ds.terminalHelp", "Escribí 'ayuda' para ver los comandos.", "Type 'help' for commands.");
 		add("ds.usage", "Uso: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
 				+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medio] [--gravity 800] [--airaccelerate 10] "
-				+ "[--autobunnyhop] [--lang es|en] [--nogui]\n"
+				+ "[--autobunnyhop] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]\n"
 				+ "  --time-limit  duración de la partida en minutos\n"
 				+ "  --frag-limit  bajas que ganan antes de tiempo (0 = se juega todo el tiempo)\n"
 				+ "  --bots        bots en la partida (0 a {4}), además de los jugadores\n"
 				+ "  --bot-difficulty  {5}\n"
 				+ "  --gravity, --airaccelerate, --autobunnyhop  como sv_gravity, sv_airaccelerate y sv_autobunnyhopping\n"
+				+ "  +sv_...       cualquier variable sv_ de la consola, como en CS: +sv_falldamage 0\n"
 				+ "  --lang        idioma de los mensajes (si no, el del juego o el del sistema)\n"
 				+ "  --nogui       usar la terminal en vez de abrir la ventana del servidor",
 				"Usage: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
 						+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medium] [--gravity 800] [--airaccelerate 10] "
-						+ "[--autobunnyhop] [--lang es|en] [--nogui]\n"
+						+ "[--autobunnyhop] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]\n"
 						+ "  --time-limit  match length in minutes\n"
 						+ "  --frag-limit  kills that win the match early (0 = play the full time)\n"
 						+ "  --bots        bots in the match (0 to {4}), besides the players\n"
 						+ "  --bot-difficulty  {5}\n"
 						+ "  --gravity, --airaccelerate, --autobunnyhop  like sv_gravity, sv_airaccelerate and sv_autobunnyhopping\n"
+						+ "  +sv_...       any sv_ console variable, as in CS: +sv_falldamage 0\n"
 						+ "  --lang        language of the messages (otherwise the game's, or the system's)\n"
 						+ "  --nogui       run in the terminal instead of opening the server window");
 		add("ds.title.usage", "Servidor dedicado de No Deal (protocolo v{0})", "No Deal dedicated server (protocol v{0})");

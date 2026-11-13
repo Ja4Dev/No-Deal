@@ -10,6 +10,7 @@ import com.badlogic.gdx.physics.bullet.dynamics.btDiscreteDynamicsWorld;
 import com.badlogic.gdx.physics.bullet.dynamics.btKinematicCharacterController;
 import com.badlogic.gdx.utils.Disposable;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.FallDamage;
 import com.juego.utils.PlayerMovement;
 
 /**
@@ -39,6 +40,8 @@ public class CharacterBody implements Disposable {
 		controller = new btKinematicCharacterController(ghost, shape, STEP_HEIGHT, new Vector3(0, 1f, 0));
 		// Snappier than Bullet's default (29.4): jumps as high as before but shorter, like CS.
 		controller.setGravity(new Vector3(0, -PlayerMovement.GRAVITY, 0));
+		// Bullet's default top falling speed (55) is less than a deadly fall's.
+		controller.setFallSpeed(FallDamage.MAX_FALL_SPEED);
 	}
 
 	/** Adds the body to a world (it needs a ghost pair callback on its broadphase). */

@@ -67,6 +67,23 @@ class DamageTest {
 	}
 
 	@Test
+	void theKnifeKeyTakesTheKnifeAndPutsItAway() {
+		GunDefinition knife = def(GunDefinition.Slot.MELEE, 0, -1);
+		PlayerComponent p = new PlayerComponent("ct",
+				() -> new Gun[] { new Gun(RIFLE), new Gun(PISTOL), new Gun(knife) }, 1);
+		assertEquals(RIFLE, p.selectedGun().def, "starts with the primary");
+		p.switchGun();
+		assertEquals(PISTOL, p.selectedGun().def);
+		p.toggleKnife();
+		assertEquals(knife, p.selectedGun().def);
+		p.toggleKnife();
+		assertEquals(PISTOL, p.selectedGun().def, "back to the gun it had");
+		p.switchGun();
+		p.switchGun();
+		assertEquals(RIFLE, p.selectedGun().def, "switching goes round all three");
+	}
+
+	@Test
 	void droppingAndPickingUpGuns() {
 		PlayerComponent p = player();
 		assertEquals(2, p.gunCount());

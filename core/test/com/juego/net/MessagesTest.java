@@ -19,7 +19,33 @@ class MessagesTest {
 		m.settings.gravity = 400;
 		m.settings.airAccelerate = 100;
 		m.settings.autoBunnyhop = true;
+		m.settings.maxSpeed = 320;
+		m.settings.maxVelocity = 2000;
+		m.settings.fallDamage = false;
 		assertEquals(m.settings, Messages.Movement.read(roundTrip(m)).settings);
+	}
+
+	@Test
+	void knifePingAndFallRoundTrip() {
+		Messages.Fire fire = new Messages.Fire();
+		fire.slot = 2;
+		fire.alt = true;
+		fire.origin.set(1, 2, 3);
+		fire.direction.set(0, 0, -1);
+		Messages.Fire f = Messages.Fire.read(roundTrip(fire));
+		assertEquals(2, f.slot);
+		assertTrue(f.alt, "the stab");
+		assertEquals(new com.badlogic.gdx.math.Vector3(0, 0, -1), f.direction);
+
+		Messages.Ping ping = new Messages.Ping(Protocol.PING);
+		ping.timeMs = 9_876_543_210L;
+		Messages.Ping p = Messages.Ping.read(Protocol.PONG, roundTrip(ping));
+		assertEquals(9_876_543_210L, p.timeMs);
+		assertEquals(Protocol.PONG, p.type());
+
+		Messages.Fall fall = new Messages.Fall();
+		fall.speed = 61.5f;
+		assertEquals(61.5f, Messages.Fall.read(roundTrip(fall)).speed);
 	}
 
 	@Test

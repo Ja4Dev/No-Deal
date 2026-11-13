@@ -28,6 +28,8 @@ public class PlayerComponent implements Component {
 	/** Guns carried, indexed by {@link GunDefinition.Slot#ordinal()}. A slot is null after dropping its gun. */
 	public final Gun[] guns = new Gun[GunDefinition.Slot.values().length];
 	public int selectedSlot;
+	/** The slot in hand before the last switch, to go back to it after the knife. */
+	private int previousSlot;
 	/** Makes the guns a player spawns with (primary, secondary). */
 	private final Supplier<Gun[]> loadout;
 
@@ -50,6 +52,14 @@ public class PlayerComponent implements Component {
 	public float crouchAmount;
 	/** Horizontal velocity, units per second. */
 	public final Vector3 velocity = new Vector3();
+	/**
+	 * For the speedometer (cl_showspeed): horizontal speed at the last jump,
+	 * how much more (or less) than at the jump before it, whether that one
+	 * was part of the same chain of hops, and when it was (wall clock).
+	 */
+	public float jumpSpeed, jumpGain;
+	public boolean jumpChained;
+	public long jumpMs;
 
 	// How the view is pushed away from the aim, in degrees up and to the right.
 	/** By the spray pattern while shooting (WeaponSystem); comes back down when the trigger is released. */
@@ -102,11 +112,28 @@ public class PlayerComponent implements Component {
 		for (int i = 1; i < guns.length; i++) {
 			int slot = (selectedSlot + i) % guns.length;
 			if (guns[slot] != null) {
+				previousSlot = selectedSlot;
 				selectedSlot = slot;
 				return true;
 			}
 		}
 		return false;
+	}
+
+	/** The knife key: takes the knife, or with the knife in hand, the gun held before. */
+	public void toggleKnife() {
+		int knife = GunDefinition.Slot.MELEE.ordinal();
+		if (selectedSlot != knife) {
+			if (guns[knife] != null) {
+				previousSlot = selectedSlot;
+				selectedSlot = knife;
+			}
+		} else if (previousSlot != knife && guns[previousSlot] != null) {
+			selectedSlot = previousSlot;
+			previousSlot = knife;
+		} else {
+			switchGun();
+		}
 	}
 
 	private void resetLoadout() {

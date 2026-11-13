@@ -25,6 +25,8 @@ public class HUD extends Menu {
 	private final Label feedLabel;
 	private final Label centerLabel;
 	private final Label promptLabel;
+	/** cl_showfps (top left) and cl_showspeed (under the crosshair): hidden when empty. */
+	private final Label statsLabel, speedLabel, jumpLabel;
 	private final Crosshair crosshair = new Crosshair();
 	private boolean crosshairVisible = true;
 	/** Extra gap of the dynamic crosshair, in pixels: target and what is drawn (eased towards it). */
@@ -74,6 +76,14 @@ public class HUD extends Menu {
 		promptLabel = new Label("", new Label.LabelStyle(font, Color.WHITE));
 		promptLabel.setFontScale(1.4f);
 		promptLabel.setAlignment(Align.center);
+		statsLabel = new Label("", new Label.LabelStyle(font, Color.WHITE));
+		statsLabel.setFontScale(1.2f);
+		speedLabel = new Label("", new Label.LabelStyle(font, Color.WHITE));
+		speedLabel.setFontScale(1.9f);
+		speedLabel.setAlignment(Align.center);
+		jumpLabel = new Label("", new Label.LabelStyle(font, Color.WHITE));
+		jumpLabel.setFontScale(1.3f);
+		jumpLabel.setAlignment(Align.center);
 
 		vignetteTexture = new Texture(createVignette(256));
 		vignetteTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
@@ -101,6 +111,27 @@ public class HUD extends Menu {
 		stage.addActor(feedLabel);
 		stage.addActor(centerLabel);
 		stage.addActor(promptLabel);
+		stage.addActor(statsLabel);
+		stage.addActor(speedLabel);
+		stage.addActor(jumpLabel);
+	}
+
+	/** The FPS and ping line (cl_showfps); null hides it. */
+	public void setStats(String text) {
+		statsLabel.setText(text == null ? "" : text);
+	}
+
+	/**
+	 * The speedometer (cl_showspeed): the speed now, and under it the speed of
+	 * the last jump, green if it gained on the hop before, red if it lost.
+	 * Null hides it.
+	 *
+	 * @param gain positive, negative, or 0 (white: the first hop, or not hopping)
+	 */
+	public void setSpeed(String speed, String jump, float gain) {
+		speedLabel.setText(speed == null ? "" : speed);
+		jumpLabel.setText(speed == null || jump == null ? "" : jump);
+		jumpLabel.setColor(gain > 0 ? Color.GREEN : gain < 0 ? Color.SALMON : Color.WHITE);
 	}
 
 	/** Red, transparent in the middle and stronger towards the edges and corners. */
@@ -191,6 +222,8 @@ public class HUD extends Menu {
 		healthLabel.setVisible(visible);
 		ammoLabel.setVisible(visible);
 		promptLabel.setVisible(visible);
+		speedLabel.setVisible(visible);
+		jumpLabel.setVisible(visible);
 	}
 
 	/** Big centered message, e.g. "¡Ganaste la partida!". Null or empty hides it. */
@@ -215,6 +248,16 @@ public class HUD extends Menu {
 		centerLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.8f, Align.center);
 		promptLabel.pack();
 		promptLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.3f, Align.center);
+		statsLabel.pack();
+		// Phones have the kill feed in the top left: the numbers go under the clock instead.
+		if (Platform.touch)
+			statsLabel.setPosition(stage.getWidth() / 2, stage.getHeight() - 76, Align.top);
+		else
+			statsLabel.setPosition(12, stage.getHeight() - 12, Align.topLeft);
+		speedLabel.pack();
+		speedLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.22f, Align.center);
+		jumpLabel.pack();
+		jumpLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.22f - 30, Align.center);
 	}
 
 	private void updateDamageEffects(int health) {
@@ -231,7 +274,7 @@ public class HUD extends Menu {
 	public void update(int health, Gun gun) {
 		healthLabel.setText(health);
 		updateDamageEffects(health);
-		if (gun == null)
+		if (gun == null || gun.def.isMelee())
 			ammoLabel.setText("-");
 		else if (gun.hasInfiniteReserve())
 			ammoLabel.setText(gun.getMagazine());

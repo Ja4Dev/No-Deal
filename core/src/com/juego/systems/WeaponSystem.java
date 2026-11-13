@@ -38,6 +38,8 @@ import com.juego.utils.PlayerMovement;
  * The local player's guns: hitscan shooting with spray recoil (see
  * {@link Recoil}), reloading, switching, aiming down sights, and the
  * first-person gun moving with your steps and kicking back on each shot.
+ * Also the knife: a slash (fire) and a stronger, shorter stab (aim), which
+ * the server resolves.
  */
 public class WeaponSystem extends EntitySystem implements EntityListener, Disposable {
 
@@ -62,6 +64,14 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	/** First-person model and shot sound of every gun in the game, by gun id: any gun can be picked up. */
 	private final ObjectMap<String, Entity> viewModels = new ObjectMap<>();
 	private final ObjectMap<String, Sound> shotSounds = new ObjectMap<>();
+	/** The knife hitting a wall, by gun id (only melee weapons have one). */
+	private final ObjectMap<String, Sound> wallHitSounds = new ObjectMap<>();
+	private final ObjectMap<String, GunDefinition> definitions = new ObjectMap<>();
+	/** When the knife can attack again, and how far into its swing the view model is (seconds; NaN: not swinging). */
+	private long meleeReadyMs;
+	private float swingTime = Float.NaN;
+	private boolean swingIsStab;
+	private static final float SLASH_SECONDS = 0.3f, STAB_SECONDS = 0.4f;
 	/** The gun in hand last frame, to notice when it changes (switch, drop, pickup, respawn). */
 	private Gun heldGun;
 	private final Array<String> acquired = new Array<>();
@@ -121,8 +131,11 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			headHitSounds.add(acquire("sounds/hits/head-" + i + ".wav"));
 		}
 		for (GunDefinition def : Assets.armory.all()) {
+			definitions.put(def.id, def);
 			viewModels.put(def.id, gameWorld.entityFactory.createGunView(def));
 			shotSounds.put(def.id, acquire(def.sound));
+			if (def.hitSound != null)
+				wallHitSounds.put(def.id, acquire(def.hitSound));
 		}
 		syncViewModel();
 	}
@@ -179,8 +192,9 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		return fireSpreadDegrees;
 	}
 
+	/** How fast the player moves, as a share of running (whatever sv_maxspeed makes running). */
 	private float speedFraction() {
-		return playerComponent.velocity.len() / PlayerMovement.RUN_SPEED;
+		return playerComponent.velocity.len() / gameWorld.playerSystem().movement().runSpeed();
 	}
 
 	private float inaccuracy(GunDefinition def) {
@@ -200,7 +214,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		Gun gun = playerComponent.selectedGun();
 		if (gun == null)
 			return;
-		float speedFraction = Math.min(1f, playerComponent.velocity.len() / PlayerMovement.RUN_SPEED);
+		float speedFraction = Math.min(1f, speedFraction());
 		float targetBob = playerComponent.onGround ? speedFraction : 0;
 		bobAmount += (targetBob - bobAmount) * Math.min(1f, delta * 8f);
 		bobPhase = (bobPhase + delta * STEP_RATE * MathUtils.PI2 * Math.max(speedFraction, 0.3f)) % MathUtils.PI2;
@@ -211,6 +225,23 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		float y = offset[1] - Math.abs(MathUtils.cos(bobPhase)) * 0.07f * bobAmount + gunKick * 0.06f;
 		float z = offset[2] + gunKick * 0.45f; // towards the eye
 		gunTilt.setEulerAngles(0, gunKick * 5f, 0); // muzzle up
+		if (!Float.isNaN(swingTime)) {
+			// The knife's attack: out and back in one smooth movement.
+			swingTime += delta;
+			float t = Math.min(1, swingTime / (swingIsStab ? STAB_SECONDS : SLASH_SECONDS));
+			float amount = MathUtils.sin(MathUtils.PI * t);
+			if (swingIsStab) { // straight forward
+				z -= 1.6f * amount;
+				y += 0.25f * amount;
+				gunTilt.setEulerAngles(0, -8 * amount, 0);
+			} else { // across, right to left, the blade turned over
+				x += (0.9f - 2f * t) * amount;
+				z -= 0.5f * amount;
+				gunTilt.setEulerAngles((35 - 85 * t) * amount, -10 * amount, -40 * amount);
+			}
+			if (t >= 1)
+				swingTime = Float.NaN;
+		}
 		ModelComponent model = viewModels.get(gun.def.id).getComponent(ModelComponent.class);
 		model.instance.transform.set(x, y, z, gunTilt.x, gunTilt.y, gunTilt.z, gunTilt.w);
 	}
@@ -223,6 +254,14 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			reload(gun);
 		if (Controls.isJustPressed(Action.SWITCH_GUN)) {
 			playerComponent.switchGun();
+			return;
+		}
+		if (Controls.isJustPressed(Action.KNIFE)) {
+			playerComponent.toggleKnife();
+			return;
+		}
+		if (gun.def.isMelee()) {
+			handleMelee(gun);
 			return;
 		}
 		long now = System.currentTimeMillis();
@@ -242,6 +281,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			heldGun = gun;
 			recoil.reset();
 			gunKick = 0;
+			swingTime = Float.NaN;
 			if (zoomed)
 				toggleZoom(); // a different gun never starts aimed
 		}
@@ -315,6 +355,43 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		gameWorld.network.sendFire(gun, rayFrom, ray.direction);
 	}
 
+	/**
+	 * The knife: holding fire slashes, holding aim stabs (slower, stronger,
+	 * shorter). The server decides who it hits; here it swings, whooshes, and
+	 * clinks if the wall is right in front.
+	 */
+	private void handleMelee(Gun gun) {
+		long now = System.currentTimeMillis();
+		if (now < meleeReadyMs)
+			return;
+		boolean slash = Controls.isPressed(Action.FIRE);
+		boolean stab = !slash && Controls.isPressed(Action.AIM);
+		if (!slash && !stab)
+			return;
+		meleeReadyMs = now + gun.def.attackDelayMs(stab);
+		swingIsStab = stab;
+		swingTime = 0;
+		shotSounds.get(gun.def.id).play(Config.fxVolume / 100, stab ? 0.8f : MathUtils.random(0.95f, 1.1f), 0);
+
+		float reach = gun.def.reach(stab);
+		rayFrom.set(camera.position);
+		rayTo.set(camera.direction).scl(reach).add(rayFrom);
+		levelRay.setCollisionObject(null);
+		levelRay.setClosestHitFraction(1f);
+		levelRay.setRayFromWorld(rayFrom);
+		levelRay.setRayToWorld(rayTo);
+		gameWorld.bulletSystem.collisionWorld.rayTest(rayFrom, rayTo, levelRay);
+		if (levelRay.hasHit()) {
+			levelRay.getHitPointWorld(hitPoint);
+			Ray ray = shotRay.set(camera.position, camera.direction);
+			Sound clink = wallHitSounds.get(gun.def.id);
+			// Not if someone stands in between: then it is their blood we hear (the server says so).
+			if (clink != null && !gameWorld.network.isRemotePlayerCloserThan(ray, rayFrom.dst(hitPoint)))
+				clink.play(Config.fxVolume / 100 * 0.8f, MathUtils.random(0.9f, 1.1f), 0);
+		}
+		gameWorld.network.sendFire(gun, stab, camera.position, camera.direction);
+	}
+
 	/** The local ray hit level geometry: leave a bullet hole there. */
 	private void leaveImpactMark(Ray ray) {
 		rayTestCB.getHitPointWorld(hitPoint);
@@ -347,6 +424,14 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	public void playRemoteShot(String gunId, Vector3 shooter, Vector3 origin, Vector3 end) {
 		if (playerComponent == null)
 			return;
+		GunDefinition def = definitions.get(gunId);
+		if (def != null && def.isMelee()) {
+			// A knife: the whoosh, and the clink where it hit the wall (end = origin: it didn't).
+			playAt(shotSounds.get(gunId), shooter, 1);
+			if (!end.epsilonEquals(origin, 0.01f))
+				playAt(wallHitSounds.get(gunId), end, 0.8f);
+			return;
+		}
 		// Start the tracer a little in front of the eye, at about gun height.
 		tmp.set(end).sub(origin).nor();
 		muzzle.set(origin).mulAdd(tmp, 2f).add(0, -0.7f, 0);
@@ -356,6 +441,18 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		if (sound == null || volume < 0.01f)
 			return;
 		sound.play(volume, 1f, SpatialAudio.pan(camera.position, camera.direction, camera.up, shooter));
+	}
+
+	/**
+	 * A knife's sound from somewhere in the world: from the left or the right,
+	 * and heard only nearby (like the hits, not like a gunshot).
+	 */
+	private void playAt(Sound sound, Vector3 where, float loudness) {
+		tmp.set(where).sub(camera.position).scl(HIT_SOUND_RANGE_SCALE).add(camera.position);
+		float volume = Config.fxVolume / 100 * loudness * SpatialAudio.volume(camera.position, tmp);
+		if (sound != null && volume >= 0.01f)
+			sound.play(volume, MathUtils.random(0.95f, 1.05f),
+					SpatialAudio.pan(camera.position, camera.direction, camera.up, where));
 	}
 
 	/**

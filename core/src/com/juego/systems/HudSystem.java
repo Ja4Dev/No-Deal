@@ -28,6 +28,7 @@ import com.juego.utils.Config;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 import com.juego.utils.CrosshairSettings;
+import com.juego.utils.MovementSettings;
 import com.juego.utils.Platform;
 import com.juego.utils.Text;
 
@@ -133,6 +134,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 				follow ? pixels(playerComponent.recoilUp * recoilLeft) : 0);
 		boolean spectating = gameWorld.deathCam().isWatching() && !intermission;
 		hud.setPlayerWidgetsVisible(!spectating);
+		showNumbers();
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
 		if (spectating)
 			showDeathScreen();
@@ -160,14 +162,55 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		console.draw(delta);
 	}
 
+	/** How long the last jump's speed stays on the speedometer after landing for good. */
+	private static final long JUMP_SHOWN_MS = 2500;
+	private long fpsUpdatedMs;
+	private String fpsText;
+
+	/** cl_showfps and cl_showspeed. */
+	private void showNumbers() {
+		if (Config.showFps) {
+			long now = System.currentTimeMillis();
+			if (fpsText == null || now - fpsUpdatedMs >= 250) { // readable: not a new number every frame
+				fpsUpdatedMs = now;
+				int ping = gameWorld.network.pingMs();
+				fpsText = Text.get("hud.fps", Gdx.graphics.getFramesPerSecond())
+						+ (ping < 0 ? "" : "   " + Text.get("hud.ping", ping));
+			}
+			hud.setStats(fpsText);
+		} else {
+			hud.setStats(null);
+			fpsText = null;
+		}
+		if (!Config.showSpeed || playerComponent.isDead()) {
+			hud.setSpeed(null, null, 0);
+			return;
+		}
+		PlayerComponent p = playerComponent;
+		String speed = Integer.toString(Math.round(p.velocity.len() * MovementSettings.SPEED_SCALE));
+		boolean recent = !p.onGround || System.currentTimeMillis() - p.jumpMs < JUMP_SHOWN_MS;
+		String jump = null;
+		if (recent && p.jumpMs != 0) {
+			int gain = Math.round(p.jumpGain);
+			jump = Text.get("hud.jump", Math.round(p.jumpSpeed))
+					+ (p.jumpChained ? " (" + (gain >= 0 ? "+" : "") + gain + ")" : "");
+		}
+		hud.setSpeed(speed, jump, p.jumpChained ? p.jumpGain : 0);
+	}
+
 	/**
-	 * A console line. Match commands run on the server inside this game; when
-	 * playing on someone else's server there is no server here to run them.
+	 * A console line. The player's own settings (cl_showfps, cl_showspeed,
+	 * fps_max) work everywhere; match commands run on the server inside this
+	 * game, so when playing on someone else's server they only show the values.
 	 */
 	private String runCommand(String line) {
-		String lower = line.trim().toLowerCase();
+		String lower = line.trim().toLowerCase().replaceAll("\\s+", " ");
+		String[] words = lower.split(" ");
 		if (lower.equals("ayuda") || lower.equals("help") || lower.equals("?"))
 			return Text.get("console.help", GameServer.commandsHelp());
+		String own = clientVariable(words);
+		if (own != null)
+			return own;
 		if (lower.startsWith("nombre") || lower.startsWith("name")) {
 			String name = line.trim().replaceFirst("(?i)^(nombre|name)\\s*", "");
 			if (name.isEmpty())
@@ -175,10 +218,57 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			return Text.get("console.renamed", gameWorld.network.rename(name));
 		}
 		GameServer server = gameWorld.hostedServer();
+		if (server == null && words[0].startsWith("sv_")) {
+			// Someone else's server: its rules can be seen, not changed.
+			String value = gameWorld.session.client.getMovement().get(words[0]);
+			if (value == null)
+				return Text.get("server.cvarUnknown", words[0]);
+			return words.length < 2 ? Text.get("server.cvar", words[0], value)
+					: Text.get("console.hostOnly", words[0], value);
+		}
 		if (server == null)
 			return Text.get("console.notHost");
 		String reply = server.command(line);
 		return reply != null ? reply : Text.get("console.unknown", line);
+	}
+
+	/**
+	 * cl_showfps, cl_showspeed and fps_max: shows the value, or sets it (and
+	 * keeps it for next time).
+	 *
+	 * @return the answer, or null if it isn't one of these
+	 */
+	private String clientVariable(String[] words) {
+		String name = words[0];
+		boolean toggle = name.equals("cl_showfps") || name.equals("cl_showspeed");
+		if (!toggle && !name.equals("fps_max"))
+			return null;
+		String current = name.equals("cl_showfps") ? (Config.showFps ? "1" : "0")
+				: name.equals("cl_showspeed") ? (Config.showSpeed ? "1" : "0") : Integer.toString(Config.fpsMax);
+		if (words.length < 2)
+			return Text.get("server.cvar", name, current);
+		String value = words[1];
+		if (toggle) {
+			if (!value.equals("0") && !value.equals("1"))
+				return Text.get("server.cvarRange", name, 0, 1);
+			if (name.equals("cl_showfps"))
+				Config.showFps = value.equals("1");
+			else
+				Config.showSpeed = value.equals("1");
+		} else {
+			int fps;
+			try {
+				fps = Integer.parseInt(value);
+			} catch (NumberFormatException e) {
+				return Text.get("server.cvarNotNumber", name, value);
+			}
+			if (fps < 0 || fps > Config.MAX_FPS_MAX)
+				return Text.get("server.cvarRange", name, 0, Config.MAX_FPS_MAX);
+			Config.fpsMax = fps;
+			Config.applyFpsMax();
+		}
+		Config.save();
+		return Text.get("server.cvarChanged", name, value);
 	}
 
 	/** Who killed us, with their stats, and the countdown to respawning. */

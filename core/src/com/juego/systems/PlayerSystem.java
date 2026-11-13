@@ -21,6 +21,7 @@ import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
+import com.juego.utils.FallDamage;
 import com.juego.utils.PlayerMovement;
 import com.juego.utils.MovementSettings;
 
@@ -67,6 +68,10 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 	private boolean jumpRequested;
 	/** The gravity last given to the character controller, to set it again only when sv_gravity changes. */
 	private float appliedGravity = Float.NaN;
+	/** Fastest the player has fallen since leaving the ground (units/s), for the fall damage. */
+	private float fallSpeed;
+	/** Hops landed and jumped again within this long count as one chain on the speedometer. */
+	private static final long CHAIN_MS = 1500;
 
 	/** Positions at the start and end of the last physics step, to interpolate the camera between them. */
 	private final Vector3 stepFrom = new Vector3(), stepTo = new Vector3();
@@ -188,8 +193,9 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		// Crouching is the slowest, and silent like walking.
 		playerComponent.running = !playerComponent.crouched && !Controls.isPressed(Action.WALK)
 				&& (stick == 0 || stick >= TouchControls.RUN_THRESHOLD);
-		wishSpeed = playerComponent.crouched ? PlayerMovement.CROUCH_SPEED
-				: playerComponent.running ? PlayerMovement.RUN_SPEED : PlayerMovement.WALK_SPEED;
+		MovementSettings movement = movement(); // sv_maxspeed
+		wishSpeed = playerComponent.crouched ? movement.crouchSpeed()
+				: playerComponent.running ? movement.runSpeed() : movement.walkSpeed();
 	}
 
 	/** Physics step: turns the keys into a velocity and tells the character controller how far to move. */
@@ -199,6 +205,8 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 			return;
 		getPosition(stepFrom);
 		boolean onGround = characterComponent.characterController.onGround();
+		if (hasStep)
+			checkLanding(onGround, (previousStepFrom.y - stepFrom.y) / timeStep, timeStep);
 		if (hasStep) {
 			// Bumped into something: the velocity becomes what the last step really did
 			// (sliding along the wall), instead of pushing into it at full speed.
@@ -220,10 +228,11 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		// keeps the speed when bunnyhopping.
 		boolean jumping = jumpRequested && onGround && !playerComponent.isDead();
 		PlayerMovement.step(playerComponent.velocity, wishDirection, wishSpeed, onGround && !jumping, timeStep,
-				movement.airAccelerate);
+				movement.airAccelerate, movement.topSpeed());
 		if (jumping) {
 			characterComponent.characterController.jump(new Vector3(0, PlayerMovement.JUMP_SPEED, 0));
 			onGround = false;
+			noteJump();
 		}
 		jumpRequested = false;
 		playerComponent.onGround = onGround;
@@ -233,6 +242,42 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		characterComponent.characterController.setWalkDirection(commanded);
 		previousStepFrom.set(stepFrom);
 		hasStep = true;
+	}
+
+	/**
+	 * Fall damage: while in the air, notes how fast the player falls; on
+	 * landing, tells the server how fast it was (the server decides how much
+	 * that hurts, see FallDamage).
+	 *
+	 * @param falling how fast the last step went down (units/s)
+	 */
+	private void checkLanding(boolean onGround, float falling, float timeStep) {
+		if (playerComponent.isDead()) {
+			fallSpeed = 0;
+			return;
+		}
+		if (!onGround) {
+			fallSpeed = Math.max(fallSpeed, falling);
+			return;
+		}
+		if (fallSpeed <= 0)
+			return;
+		// The step that touched down was cut short by the floor: it would have gone a little faster.
+		float landing = Math.max(fallSpeed, falling) + movement().gravityAcceleration() * timeStep * 0.5f;
+		fallSpeed = 0;
+		if (FallDamage.damage(landing) > 0)
+			gameWorld.network.sendFall(landing);
+	}
+
+	/** A jump: its speed for the speedometer, and how much it gained since the last hop. */
+	private void noteJump() {
+		PlayerComponent p = playerComponent;
+		float speed = p.velocity.len() * MovementSettings.SPEED_SCALE;
+		long now = System.currentTimeMillis();
+		p.jumpChained = now - p.jumpMs < CHAIN_MS;
+		p.jumpGain = p.jumpChained ? speed - p.jumpSpeed : 0;
+		p.jumpSpeed = speed;
+		p.jumpMs = now;
 	}
 
 	private void syncModelAndCamera() {
@@ -271,8 +316,8 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		teleport(spawnPoint);
 	}
 
-	/** The server's movement rules (sv_gravity, sv_airaccelerate, sv_autobunnyhopping). */
-	private MovementSettings movement() {
+	/** The server's movement rules (sv_gravity, sv_airaccelerate, sv_maxspeed...). */
+	public MovementSettings movement() {
 		return gameWorld.session.client.getMovement();
 	}
 
@@ -282,6 +327,7 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		characterComponent.walkDirection.setZero();
 		characterComponent.characterController.setWalkDirection(characterComponent.walkDirection);
 		playerComponent.velocity.setZero();
+		fallSpeed = 0; // a teleport is not a fall
 		hasStep = false; // nothing to interpolate from
 		syncModelAndCamera();
 	}

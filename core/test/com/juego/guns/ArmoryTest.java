@@ -33,6 +33,8 @@ class ArmoryTest {
 			count++;
 			assertTrue(new File(ASSETS, def.model).isFile(), def.id + ": missing model " + def.model);
 			assertTrue(new File(ASSETS, def.sound).isFile(), def.id + ": missing sound " + def.sound);
+			if (def.hitSound != null)
+				assertTrue(new File(ASSETS, def.hitSound).isFile(), def.id + ": missing sound " + def.hitSound);
 		}
 		assertTrue(count >= 2, "expected at least a primary and a secondary gun");
 	}
@@ -43,6 +45,28 @@ class ArmoryTest {
 		assertEquals(GunDefinition.Slot.PRIMARY, armory.get("m4a1").slot);
 		assertEquals(GunDefinition.Slot.SECONDARY, armory.get("magnum").slot);
 		assertTrue(armory.create("magnum").hasInfiniteReserve());
+		for (String id : com.juego.net.Protocol.LOADOUT)
+			armory.get(id);
+	}
+
+	@Test
+	void theKnifeSlashesStabsAndBackstabs() {
+		GunDefinition knife = shipped().get("knife");
+		assertTrue(knife.isMelee());
+		assertEquals(GunDefinition.Slot.MELEE, knife.slot);
+		assertTrue(knife.reach(true) < knife.reach(false), "the stab reaches less");
+		assertTrue(knife.attackDelayMs(true) > knife.attackDelayMs(false), "and takes longer");
+		int slash = knife.meleeDamage(false, false), stab = knife.meleeDamage(true, false);
+		assertTrue(slash < stab, "but hurts more");
+		assertTrue(knife.meleeDamage(false, true) > slash, "from behind more still");
+		assertTrue(knife.meleeDamage(true, true) >= 100, "a stab in the back kills");
+		assertTrue(knife.reach(false) < 10, "an arm's length");
+		com.juego.utils.Text.Language language = com.juego.utils.Text.language();
+		com.juego.utils.Text.setLanguage(com.juego.utils.Text.Language.ES);
+		assertEquals("Cuchillo", shipped().displayName("knife"));
+		assertEquals("M4A1", shipped().displayName("m4a1"));
+		assertEquals("fall", shipped().displayName("fall"), "not a gun: as it is");
+		com.juego.utils.Text.setLanguage(language);
 	}
 
 	@Test
