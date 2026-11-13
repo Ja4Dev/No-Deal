@@ -10,6 +10,7 @@ import java.util.function.LongSupplier;
 import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.physics.bullet.Bullet;
+import com.juego.net.Bluetooth;
 import com.juego.net.GameServer;
 import com.juego.screens.menues.MainMenuScreen;
 import com.juego.screens.menues.MenuScreen;
@@ -25,6 +26,21 @@ public class Core extends ApplicationAdapter {
 	public MusicPlayer musicPlayer;
 	/** Server running inside this game while hosting a match ("Crear partida"); null otherwise. */
 	private GameServer hostedServer;
+	/** Multiplayer over Bluetooth, on platforms that have it (Android); null elsewhere. */
+	public final Bluetooth bluetooth;
+
+	public Core() {
+		this(null);
+	}
+
+	public Core(Bluetooth bluetooth) {
+		this.bluetooth = bluetooth;
+	}
+
+	/** Whether the menus offer playing over Bluetooth. */
+	public boolean hasBluetooth() {
+		return bluetooth != null && bluetooth.isSupported();
+	}
 
 	@Override
 	public void create() {

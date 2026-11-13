@@ -7,6 +7,19 @@
     <uses-feature android:name="android.hardware.touchscreen.multitouch.distinct" android:required="false" />
     <!-- Multiplayer: UDP over Wi-Fi or a hotspot. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Multiplayer over Bluetooth, on phones that have it (it is offered only there). -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <!-- Android 12 and later: "nearby devices". Scanning is only for finding the host, never for location. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <!-- Up to Android 11: the old Bluetooth permissions, and location to scan for devices. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="30" />
 
     <application
         android:allowBackup="true"

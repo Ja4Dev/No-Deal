@@ -114,7 +114,7 @@ public class GameClient implements Disposable {
 	}
 
 	private final LongSupplier clock;
-	private NetSocket socket;
+	private Transport socket;
 	private Connection connection;
 	private Status status = Status.DISCONNECTED;
 	private String failureReason = "";
@@ -147,8 +147,18 @@ public class GameClient implements Disposable {
 		InetSocketAddress address = new InetSocketAddress(host, port);
 		if (address.isUnresolved())
 			throw new IOException("No se encontro el host '" + host + "'");
-		socket = new NetSocket(0);
-		connection = new Connection(address, clock);
+		connect(new NetSocket(0), address, name);
+	}
+
+	/**
+	 * Joins a server through an already open transport, such as a Bluetooth
+	 * link to the host's phone. The client closes it when it disconnects.
+	 *
+	 * @param server the server's address on that transport
+	 */
+	public void connect(Transport transport, InetSocketAddress server, String name) {
+		socket = transport;
+		connection = new Connection(server, clock);
 		Messages.Hello hello = new Messages.Hello();
 		hello.name = localName = Messages.sanitizeName(name);
 		connection.sendReliable(hello);
