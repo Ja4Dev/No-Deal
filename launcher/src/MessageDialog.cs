@@ -187,7 +187,7 @@ namespace NoDeal.Launcher
 
         public static void Error(IWin32Window owner, string heading, string body)
         {
-            new MessageDialog("No Deal", heading, body, null).AddButton("Cerrar", true, null).ShowFor(owner);
+            new MessageDialog("No Deal", heading, body, null).AddButton(L.T("Cerrar", "Close"), true, null).ShowFor(owner);
         }
     }
 }

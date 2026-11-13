@@ -14,6 +14,10 @@ namespace NoDeal.Launcher
     /// </summary>
     static class LaunchFlow
     {
+        // Buttons whose answer is checked: the same text where they are made and where they are compared.
+        static string SearchAgain { get { return L.T("Volver a buscar", "Search again"); } }
+        static string Retry { get { return L.T("Reintentar", "Retry"); } }
+
         public static string JavaDownloadUrl
         {
             get
@@ -31,14 +35,18 @@ namespace NoDeal.Launcher
             if (File.Exists(jar))
                 return true;
             if (Paths.RunningFromZip())
-                MessageDialog.Error(owner, "Primero descomprimí el zip",
-                        "Abriste NoDeal.exe desde adentro del .zip, y así Windows no le deja ver el resto del juego.\n\n"
+                MessageDialog.Error(owner, L.T("Primero descomprimí el zip", "Extract the zip first"),
+                        L.T("Abriste NoDeal.exe desde adentro del .zip, y así Windows no le deja ver el resto del juego.\n\n"
                         + "Cerrá esto, hacé clic derecho en el zip → \"Extraer todo...\" y abrí NoDeal.exe desde la "
-                        + "carpeta que se crea.");
+                        + "carpeta que se crea.",
+                        "You opened NoDeal.exe from inside the .zip, and that way Windows doesn't let it see the rest of the game.\n\n"
+                        + "Close this, right-click the zip → \"Extract All...\" and open NoDeal.exe from the folder it creates."));
             else
-                MessageDialog.Error(owner, "Faltan archivos del juego",
-                        "No encuentro " + jar + ".\n\nNoDeal.exe tiene que estar junto a la carpeta \"game\" que viene "
-                        + "en el zip. Volvé a descomprimir el zip completo.");
+                MessageDialog.Error(owner, L.T("Faltan archivos del juego", "Game files are missing"),
+                        L.T("No encuentro " + jar + ".\n\nNoDeal.exe tiene que estar junto a la carpeta \"game\" que viene "
+                        + "en el zip. Volvé a descomprimir el zip completo.",
+                        "Can't find " + jar + ".\n\nNoDeal.exe has to be next to the \"game\" folder that comes "
+                        + "in the zip. Extract the whole zip again."));
             return false;
         }
 
@@ -51,16 +59,17 @@ namespace NoDeal.Launcher
         {
             while (search.Best == null)
             {
-                var dialog = new MessageDialog("No Deal", "Necesitás Java " + JavaFinder.RequiredMajor + " o más nuevo",
+                var dialog = new MessageDialog("No Deal", L.T("Necesitás Java " + JavaFinder.RequiredMajor + " o más nuevo",
+                        "You need Java " + JavaFinder.RequiredMajor + " or newer"),
                         DescribeMissingJava(search), null);
-                dialog.AddButton("Cerrar", false, null)
-                      .AddButton("Volver a buscar", false, null)
-                      .AddButton("Descargar Java", true, () =>
+                dialog.AddButton(L.T("Cerrar", "Close"), false, null)
+                      .AddButton(SearchAgain, false, null)
+                      .AddButton(L.T("Descargar Java", "Download Java"), true, () =>
                       {
                           OpenUrl(JavaDownloadUrl);
                           return false;
                       });
-                if (dialog.ShowFor(owner) != "Volver a buscar")
+                if (dialog.ShowFor(owner) != SearchAgain)
                     return null;
                 Cursor.Current = Cursors.WaitCursor;
                 search = JavaFinder.Search();
@@ -71,7 +80,8 @@ namespace NoDeal.Launcher
 
         static string DescribeMissingJava(JavaSearch search)
         {
-            var text = new StringBuilder("No Deal está hecho en Java y no encontré una versión que lo pueda correr en esta PC.");
+            var text = new StringBuilder(L.T("No Deal está hecho en Java y no encontré una versión que lo pueda correr en esta PC.",
+                    "No Deal is made in Java, and I couldn't find a version that can run it on this PC."));
             var listed = new HashSet<string>();
             foreach (JavaInstall java in search.Found)
             {
@@ -79,16 +89,19 @@ namespace NoDeal.Launcher
                 if (listed.Count == 6 || !listed.Add(line))
                     continue;
                 if (listed.Count == 1)
-                    text.Append("\n\nEncontré estos, pero no sirven:");
+                    text.Append(L.T("\n\nEncontré estos, pero no sirven:", "\n\nI found these, but they won't do:"));
                 text.Append("\n   •  ").Append(line);
             }
             if (search.Found.Count == 0)
-                text.Append(" No hay ningún Java instalado.");
-            text.Append("\n\nCómo arreglarlo:")
-                .Append("\n   1.  Tocá \"Descargar Java\": se abre la página de Eclipse Temurin (gratis).")
-                .Append("\n   2.  Bajá el instalador .msi de Java ").Append(JavaFinder.RequiredMajor)
-                .Append(" e instalalo con las opciones que trae.")
-                .Append("\n   3.  Volvé acá y tocá \"Volver a buscar\".");
+                text.Append(L.T(" No hay ningún Java instalado.", " There is no Java installed."));
+            text.Append(L.T("\n\nCómo arreglarlo:"
+                + "\n   1.  Tocá \"Descargar Java\": se abre la página de Eclipse Temurin (gratis)."
+                + "\n   2.  Bajá el instalador .msi de Java " + JavaFinder.RequiredMajor + " e instalalo con las opciones que trae."
+                + "\n   3.  Volvé acá y tocá \"Volver a buscar\".",
+                "\n\nHow to fix it:"
+                + "\n   1.  Press \"Download Java\": it opens the Eclipse Temurin page (free)."
+                + "\n   2.  Download the .msi installer of Java " + JavaFinder.RequiredMajor + " and install it with its default options."
+                + "\n   3.  Come back here and press \"Search again\"."));
             return text.ToString();
         }
 
@@ -101,9 +114,9 @@ namespace NoDeal.Launcher
             }
             catch (Exception e)
             {
-                MessageDialog.Error(owner, "No se pudo iniciar Java",
-                        e.Message + "\n\n" + java.JavaExe + "\n\nSi el antivirus lo bloqueó, agregá una excepción "
-                        + "para la carpeta de No Deal.");
+                MessageDialog.Error(owner, L.T("No se pudo iniciar Java", "Couldn't start Java"),
+                        e.Message + "\n\n" + java.JavaExe + L.T("\n\nSi el antivirus lo bloqueó, agregá una excepción "
+                        + "para la carpeta de No Deal.", "\n\nIf the antivirus blocked it, add an exception for the No Deal folder."));
                 return null;
             }
         }
@@ -115,20 +128,20 @@ namespace NoDeal.Launcher
             Diagnosis diagnosis = Diagnosis.For(run, exitCode, log);
             var dialog = new MessageDialog("No Deal", diagnosis.Heading, diagnosis.Advice, Diagnosis.Tail(log, 40));
             if (diagnosis.CanRetry)
-                dialog.AddButton("Reintentar", true, null);
-            dialog.AddButton("Cerrar", !diagnosis.CanRetry, null)
-                  .AddButton("Copiar", false, () =>
+                dialog.AddButton(Retry, true, null);
+            dialog.AddButton(L.T("Cerrar", "Close"), !diagnosis.CanRetry, null)
+                  .AddButton(L.T("Copiar", "Copy"), false, () =>
                   {
                       try { Clipboard.SetText(diagnosis.Heading + "\r\n\r\n" + dialog.DetailText); }
                       catch (Exception) { }
                       return false;
                   })
-                  .AddButton("Abrir log", false, () =>
+                  .AddButton(L.T("Abrir log", "Open log"), false, () =>
                   {
                       OpenFile(run.LogPath);
                       return false;
                   });
-            return dialog.ShowFor(owner) == "Reintentar";
+            return dialog.ShowFor(owner) == Retry;
         }
 
         /// <summary>"NoDeal.exe --client" or "--server [options]": no launcher window, only dialogs if something fails.</summary>
@@ -157,7 +170,11 @@ namespace NoDeal.Launcher
         public static void OpenUrl(string url)
         {
             try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-            catch (Exception) { MessageDialog.Error(null, "No se pudo abrir el navegador", "Entrá a mano a:\n\n" + url); }
+            catch (Exception)
+            {
+                MessageDialog.Error(null, L.T("No se pudo abrir el navegador", "Couldn't open the browser"),
+                        L.T("Entrá a mano a:\n\n", "Go there by hand:\n\n") + url);
+            }
         }
 
         public static void OpenFile(string path)

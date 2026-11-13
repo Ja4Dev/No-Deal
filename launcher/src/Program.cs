@@ -24,11 +24,14 @@ namespace NoDeal.Launcher
 
             GameMode? mode = null;
             var serverArgs = new List<string>();
-            foreach (string arg in args)
+            for (int i = 0; i < args.Length; i++)
             {
+                string arg = args[i];
                 string option = arg.ToLowerInvariant();
                 if (mode == GameMode.Server)
                     serverArgs.Add(arg);
+                else if (option == "--lang" && i + 1 < args.Length && L.Set(args[i + 1]))
+                    i++;
                 else if (option == "--client" || option == "--cliente" || option == "--jugar")
                     mode = GameMode.Client;
                 else if (option == "--server" || option == "--servidor")
@@ -36,13 +39,22 @@ namespace NoDeal.Launcher
                 else
                 {
                     bool help = option == "--help" || option == "-h" || option == "/?";
-                    MessageDialog.Error(null, help ? "Opciones de NoDeal.exe" : "Opción desconocida: " + arg,
-                            "NoDeal.exe                         abre el launcher\n"
+                    MessageDialog.Error(null, help ? L.T("Opciones de NoDeal.exe", "NoDeal.exe options")
+                            : L.T("Opción desconocida: ", "Unknown option: ") + arg,
+                            L.T("NoDeal.exe                         abre el launcher\n"
                             + "NoDeal.exe --client                abre el juego directamente\n"
-                            + "NoDeal.exe --server [opciones]     abre el servidor dedicado\n\n"
+                            + "NoDeal.exe --server [opciones]     abre el servidor dedicado\n"
+                            + "NoDeal.exe --lang es|en            elige el idioma\n\n"
                             + "Las opciones del servidor son las de NoDeal-server.jar, por ejemplo:\n"
                             + "--port 25559 --max-players 4 --bots 4 --nogui\n"
-                            + "(NoDeal.exe --server --help las lista todas).");
+                            + "(NoDeal.exe --server --help las lista todas).",
+                            "NoDeal.exe                         opens the launcher\n"
+                            + "NoDeal.exe --client                opens the game directly\n"
+                            + "NoDeal.exe --server [options]      opens the dedicated server\n"
+                            + "NoDeal.exe --lang es|en            chooses the language\n\n"
+                            + "The server options are NoDeal-server.jar's, for example:\n"
+                            + "--port 25559 --max-players 4 --bots 4 --nogui\n"
+                            + "(NoDeal.exe --server --help lists them all)."));
                     return help ? 0 : 2;
                 }
             }

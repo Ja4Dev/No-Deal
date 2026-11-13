@@ -57,7 +57,7 @@ namespace NoDeal.Launcher
 
         public string Name
         {
-            get { return Mode == GameMode.Client ? "No Deal" : "El servidor"; }
+            get { return Mode == GameMode.Client ? "No Deal" : L.T("El servidor", "The server"); }
         }
 
         /// <param name="console">Open a console window for the server's terminal mode instead of capturing its output.</param>
@@ -78,6 +78,11 @@ namespace NoDeal.Launcher
                 args.Add("--enable-native-access=ALL-UNNAMED"); // LWJGL and Bullet load native code
             args.Add("-jar");
             args.Add(Paths.Jar(mode));
+            if (mode == GameMode.Server && L.Explicit != null && !extraArgs.Contains("--lang"))
+            {
+                args.Add("--lang");
+                args.Add(L.Explicit);
+            }
             args.AddRange(extraArgs);
 
             // java.exe with a hidden console, not javaw.exe: javaw reports a JVM that can't start in a modal

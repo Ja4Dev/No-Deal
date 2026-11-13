@@ -378,5 +378,98 @@ public final class Text {
 		add("server.fell", "{0} se cayó del mapa", "{0} fell off the map");
 		add("server.kill", "{0} mató a {1} con {2}{3}", "{0} killed {1} with {2}{3}");
 		add("server.headshot", " (headshot)", " (headshot)");
+
+		// ---- dedicated server (its window and its terminal) ----
+		add("ds.portFailed", "No se pudo abrir el puerto {0}: {1}. Probá con otro puerto.",
+				"Couldn't open port {0}: {1}. Try another port.");
+		add("ds.started", "Servidor iniciado en el puerto UDP {0} ({1} jugadores, {2} min{3}){4}",
+				"Server started on UDP port {0} ({1} players, {2} min{3}){4}");
+		add("ds.startedFrags", " o {0} bajas", " or {0} kills");
+		add("ds.startedBots", ", con {0} bots ({1})", ", with {0} bots ({1})");
+		add("ds.lanAddress", "En tu red se unen con {0}", "On your network they join with {0}");
+		add("ds.noLan", "No se encontró ninguna red local: solo se puede jugar en esta PC ({0})",
+				"No local network found: only this PC can play ({0})");
+		add("ds.stopped", "Servidor detenido", "Server stopped");
+		add("ds.title", "No Deal - Servidor", "No Deal - Server");
+		add("ds.titleClosing", "No Deal - Servidor (cerrando...)", "No Deal - Server (closing...)");
+		add("ds.start", "Iniciar servidor", "Start server");
+		add("ds.stop", "Detener servidor", "Stop server");
+		add("ds.copyIp", "Copiar IP", "Copy IP");
+		add("ds.publicIp", "Ver IP pública", "Show public IP");
+		add("ds.welcome", "No Deal - servidor dedicado. Elegí el puerto y las reglas, y tocá \"Iniciar servidor\".",
+				"No Deal - dedicated server. Choose the port and the rules, and press \"Start server\".");
+		add("ds.typeHelp", "Escribí 'ayuda' abajo para ver los comandos.", "Type 'help' below to see the commands.");
+		add("ds.port", "Puerto UDP", "UDP port");
+		add("ds.players", "Jugadores", "Players");
+		add("ds.minutes", "Minutos", "Minutes");
+		add("ds.fragLimit", "Bajas para ganar (0 = sin límite)", "Kills to win (0 = no limit)");
+		add("ds.bots", "Bots", "Bots");
+		add("ds.difficulty", "Dificultad", "Difficulty");
+		add("ds.botsHint", "(además de los jugadores; en partida: bot agregar, bot quitar, bot dificultad)",
+				"(besides the players; during the match: bot add, bot kick, bot difficulty)");
+		add("ds.copied", "Copiado: {0}", "Copied: {0}");
+		add("ds.askingPublicIp", "Consultando tu IP pública (api.ipify.org)...", "Looking up your public IP (api.ipify.org)...");
+		add("ds.publicIpIs",
+				"Tu IP pública es {0}. Para jugar por Internet, redirigí el puerto UDP {1} del router a esta PC y compartí {0}:{1}.",
+				"Your public IP is {0}. To play over the Internet, forward UDP port {1} on the router to this PC and share {0}:{1}.");
+		add("ds.publicIpFailed", "No se pudo consultar la IP pública: {0}", "Couldn't look up the public IP: {0}");
+		add("ds.commands", "Comandos: iniciar, detener, estado, ip, limpiar, salir",
+				"Commands: start, stop, status, ip, clear, quit");
+		add("ds.alreadyRunning", "El servidor ya está en marcha.", "The server is already running.");
+		add("ds.notRunning", "El servidor no está en marcha.", "The server isn't running.");
+		add("ds.onYourNetwork", "En tu red: {0}", "On your network: {0}");
+		add("ds.startFirst", "Primero iniciá el servidor.", "Start the server first.");
+		add("ds.unknownCommand", "Comando desconocido '{0}'. Escribí 'ayuda'.", "Unknown command '{0}'. Type 'help'.");
+		add("ds.stoppedDot", "Servidor detenido.", "Server stopped.");
+		add("ds.status", "{0}/{1} jugadores{2} en el puerto {3}. {4}.", "{0}/{1} players{2} on port {3}. {4}.");
+		add("ds.statusBots", " y {0} bots", " and {0} bots");
+		add("ds.playerLine", "  #%d %-16s %s  bajas %d / muertes %d / asistencias %d  %s",
+				"  #%d %-16s %s  kills %d / deaths %d / assists %d  %s");
+		add("ds.dead", "muerto", "dead");
+		add("ds.online", "● EN LÍNEA", "● ONLINE");
+		add("ds.offline", "● DETENIDO", "● STOPPED");
+		add("ds.toJoin", "Para unirse: ", "To join: ");
+		add("ds.onlyThisPc", " (solo esta PC)", " (this PC only)");
+		add("ds.playersCount", "{0}/{1} jugadores", "{0}/{1} players");
+		add("ds.choosePort", "Elegí el puerto y tocá \"Iniciar servidor\"", "Choose the port and press \"Start server\"");
+		add("ds.noMatch", "Sin partida", "No match");
+		add("ds.col.player", "Jugador", "Player");
+		add("ds.col.kills", "Bajas", "Kills");
+		add("ds.col.deaths", "Muertes", "Deaths");
+		add("ds.col.assists", "Asist.", "Assists");
+		add("ds.col.state", "Estado", "State");
+		add("ds.playing", "Jugando, quedan {0}", "Playing, {0} left");
+		add("ds.between", "Entre partidas, la proxima en {0}", "Between matches, the next one in {0}");
+		add("ds.terminalStatus", "{0}/{1} jugadores y {2} bots en el puerto {3}, {4}",
+				"{0}/{1} players and {2} bots on port {3}, {4}");
+		add("ds.terminalCommands", "Comandos: estado (lista los jugadores), salir (avisa a los jugadores y cierra)",
+				"Commands: status (list players), quit (notify players and stop)");
+		add("ds.terminalUnknown", "Comando desconocido '{0}'. Escribí 'ayuda'.", "Unknown command '{0}'. Type 'help'.");
+		add("ds.terminalHelp", "Escribí 'ayuda' para ver los comandos.", "Type 'help' for commands.");
+		add("ds.usage", "Uso: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
+				+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medio] [--lang es|en] [--nogui]\n"
+				+ "  --time-limit  duración de la partida en minutos\n"
+				+ "  --frag-limit  bajas que ganan antes de tiempo (0 = se juega todo el tiempo)\n"
+				+ "  --bots        bots en la partida (0 a {4}), además de los jugadores\n"
+				+ "  --bot-difficulty  {5}\n"
+				+ "  --lang        idioma de los mensajes (si no, el del juego o el del sistema)\n"
+				+ "  --nogui       usar la terminal en vez de abrir la ventana del servidor",
+				"Usage: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
+						+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medium] [--lang es|en] [--nogui]\n"
+						+ "  --time-limit  match length in minutes\n"
+						+ "  --frag-limit  kills that win the match early (0 = play the full time)\n"
+						+ "  --bots        bots in the match (0 to {4}), besides the players\n"
+						+ "  --bot-difficulty  {5}\n"
+						+ "  --lang        language of the messages (otherwise the game's, or the system's)\n"
+						+ "  --nogui       run in the terminal instead of opening the server window");
+		add("ds.title.usage", "Servidor dedicado de No Deal (protocolo v{0})", "No Deal dedicated server (protocol v{0})");
+		add("ds.unknownOption", "Opción desconocida {0}", "Unknown option {0}");
+		add("ds.unknownDifficulty", "Dificultad de bots desconocida {0} ({1})", "Unknown bot difficulty {0} ({1})");
+		add("ds.unknownLanguage", "Idioma desconocido {0} (es, en)", "Unknown language {0} (es, en)");
+		add("ds.badPort", "--port tiene que estar entre 1 y 65535", "--port must be between 1 and 65535");
+		add("ds.badPlayers", "--max-players tiene que estar entre 1 y 32", "--max-players must be between 1 and 32");
+		add("ds.badTime", "--time-limit tiene que estar entre 1 y 120 minutos", "--time-limit must be between 1 and 120 minutes");
+		add("ds.badFrags", "--frag-limit tiene que estar entre 0 (sin límite) y 999", "--frag-limit must be between 0 (none) and 999");
+		add("ds.badBots", "--bots tiene que estar entre 0 y {0}", "--bots must be between 0 and {0}");
 	}
 }

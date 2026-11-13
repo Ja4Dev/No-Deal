@@ -50,6 +50,7 @@ import com.juego.bots.BotDifficulty;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
 import com.juego.net.GameServer.PlayerInfo;
+import com.juego.utils.Text;
 
 /**
  * Console-style window for the dedicated server: choose the port and match
@@ -83,12 +84,12 @@ public class ServerWindow implements ServerHost.View {
 
 	private final ServerHost host;
 	private final Preferences prefs = Preferences.userRoot().node("nodeal/server");
-	private final JFrame frame = new JFrame("No Deal - Servidor");
+	private final JFrame frame = new JFrame(Text.get("ds.title"));
 	private final JSpinner portField, playersField, timeField, fragsField, botsField;
 	private final JComboBox<String> difficultyField = new JComboBox<>();
-	private final JButton startButton = button("Iniciar servidor");
-	private final JButton copyButton = button("Copiar IP");
-	private final JButton publicIpButton = button("Ver IP pública");
+	private final JButton startButton = button(Text.get("ds.start"));
+	private final JButton copyButton = button(Text.get("ds.copyIp"));
+	private final JButton publicIpButton = button(Text.get("ds.publicIp"));
 	private final JLabel stateLabel = label("", MONO_BOLD, DIM);
 	private final JLabel addressLabel = label("", MONO, TEXT);
 	private final JLabel matchLabel = label(" ", MONO_BOLD, TEXT);
@@ -156,8 +157,8 @@ public class ServerWindow implements ServerHost.View {
 		}));
 		DedicatedServer.launch(host, this);
 
-		append(EventType.INFO, "No Deal - servidor dedicado. Elegí el puerto y las reglas, y tocá \"Iniciar servidor\".");
-		append(EventType.INFO, "Escribí 'ayuda' abajo para ver los comandos.");
+		append(EventType.INFO, Text.get("ds.welcome"));
+		append(EventType.INFO, Text.get("ds.typeHelp"));
 		if (optionsGiven)
 			start();
 	}
@@ -174,16 +175,16 @@ public class ServerWindow implements ServerHost.View {
 		});
 
 		JPanel settings = row();
-		settings.add(caption("Puerto UDP"));
+		settings.add(caption(Text.get("ds.port")));
 		settings.add(portField);
 		settings.add(Box.createHorizontalStrut(10));
-		settings.add(caption("Jugadores"));
+		settings.add(caption(Text.get("ds.players")));
 		settings.add(playersField);
 		settings.add(Box.createHorizontalStrut(10));
-		settings.add(caption("Minutos"));
+		settings.add(caption(Text.get("ds.minutes")));
 		settings.add(timeField);
 		settings.add(Box.createHorizontalStrut(10));
-		settings.add(caption("Bajas para ganar (0 = sin límite)"));
+		settings.add(caption(Text.get("ds.fragLimit")));
 		settings.add(fragsField);
 		settings.add(Box.createHorizontalStrut(14));
 		settings.add(startButton);
@@ -195,13 +196,13 @@ public class ServerWindow implements ServerHost.View {
 		});
 
 		JPanel botsRow = row();
-		botsRow.add(caption("Bots"));
+		botsRow.add(caption(Text.get("ds.bots")));
 		botsRow.add(botsField);
 		botsRow.add(Box.createHorizontalStrut(10));
-		botsRow.add(caption("Dificultad"));
+		botsRow.add(caption(Text.get("ds.difficulty")));
 		botsRow.add(difficultyField);
 		botsRow.add(Box.createHorizontalStrut(10));
-		botsRow.add(caption("(además de los jugadores; en partida: bot agregar, bot quitar, bot dificultad)"));
+		botsRow.add(caption(Text.get("ds.botsHint")));
 
 		JPanel addressRow = row();
 		addressRow.add(stateLabel);
@@ -380,7 +381,7 @@ public class ServerWindow implements ServerHost.View {
 	}
 
 	private void quit() {
-		frame.setTitle("No Deal - Servidor (cerrando...)");
+		frame.setTitle(Text.get("ds.titleClosing"));
 		host.quit(); // the host stops the server, then closes the window (setOnDisposed)
 	}
 
@@ -389,13 +390,13 @@ public class ServerWindow implements ServerHost.View {
 			return;
 		String address = (status.addresses.size > 0 ? status.addresses.first() : "127.0.0.1") + ":" + status.port;
 		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(address), null);
-		append(EventType.INFO, "Copiado: " + address);
+		append(EventType.INFO, Text.get("ds.copied", address));
 	}
 
 	/** Asks a public service which IP this network has on the Internet. Only when the button is pressed. */
 	private void lookUpPublicIp() {
 		publicIpButton.setEnabled(false);
-		append(EventType.INFO, "Consultando tu IP pública (api.ipify.org)...");
+		append(EventType.INFO, Text.get("ds.askingPublicIp"));
 		Thread thread = new Thread(() -> {
 			String message;
 			EventType type = EventType.INFO;
@@ -405,11 +406,10 @@ public class ServerWindow implements ServerHost.View {
 						.timeout(Duration.ofSeconds(5)).build();
 				String ip = client.send(request, HttpResponse.BodyHandlers.ofString()).body().trim();
 				int port = (Integer) portField.getValue();
-				message = "Tu IP pública es " + ip + ". Para jugar por Internet, redirigí el puerto UDP " + port
-						+ " del router a esta PC y compartí " + ip + ":" + port + ".";
+				message = Text.get("ds.publicIpIs", ip, port);
 			} catch (Exception e) {
 				type = EventType.WARNING;
-				message = "No se pudo consultar la IP pública: " + e.getMessage();
+				message = Text.get("ds.publicIpFailed", e.getMessage());
 			}
 			EventType finalType = type;
 			String finalMessage = message;
@@ -428,22 +428,22 @@ public class ServerWindow implements ServerHost.View {
 		switch (command) {
 		case "ayuda":
 		case "help":
-			append(EventType.INFO, "Comandos: iniciar, detener, estado, ip, limpiar, salir");
+			append(EventType.INFO, Text.get("ds.commands"));
 			for (String help : GameServer.commandsHelp().split("\n"))
-				if (!help.startsWith("estado"))
+				if (!help.startsWith("estado") && !help.startsWith("status"))
 					append(EventType.INFO, help);
 			break;
 		case "iniciar":
 		case "start":
 			if (status != null && status.running)
-				append(EventType.WARNING, "El servidor ya está en marcha.");
+				append(EventType.WARNING, Text.get("ds.alreadyRunning"));
 			else
 				start();
 			break;
 		case "detener":
 		case "stop":
 			if (status == null || !status.running)
-				append(EventType.WARNING, "El servidor no está en marcha.");
+				append(EventType.WARNING, Text.get("ds.notRunning"));
 			else
 				stop();
 			break;
@@ -456,7 +456,7 @@ public class ServerWindow implements ServerHost.View {
 		case "ip":
 			if (status != null && status.running)
 				for (String ip : status.addresses)
-					append(EventType.INFO, "En tu red: " + ip + ":" + status.port);
+					append(EventType.INFO, Text.get("ds.onYourNetwork", ip + ":" + status.port));
 			lookUpPublicIp();
 			break;
 		case "limpiar":
@@ -467,6 +467,7 @@ public class ServerWindow implements ServerHost.View {
 		case "salir":
 		case "quit":
 		case "exit":
+		case "cerrar":
 			quit();
 			break;
 		default:
@@ -477,24 +478,23 @@ public class ServerWindow implements ServerHost.View {
 				if (reply != null)
 					onEvent(EventType.INFO, reply);
 				else if (server == null && line.toLowerCase().startsWith("bot"))
-					onEvent(EventType.WARNING, "Primero iniciá el servidor.");
+					onEvent(EventType.WARNING, Text.get("ds.startFirst"));
 				else
-					onEvent(EventType.WARNING, "Comando desconocido '" + line + "'. Escribí 'ayuda'.");
+					onEvent(EventType.WARNING, Text.get("ds.unknownCommand", line));
 			});
 		}
 	}
 
 	private void printStatus() {
 		if (status == null || !status.running) {
-			append(EventType.INFO, "Servidor detenido.");
+			append(EventType.INFO, Text.get("ds.stoppedDot"));
 			return;
 		}
-		append(EventType.INFO, status.people + "/" + status.maxPlayers + " jugadores"
-				+ (status.bots > 0 ? " y " + status.bots + " bots" : "") + " en el puerto "
-				+ status.port + ". " + DedicatedServer.describeMatch(status) + ".");
+		append(EventType.INFO, Text.get("ds.status", status.people, status.maxPlayers,
+				status.bots > 0 ? Text.get("ds.statusBots", status.bots) : "", status.port, DedicatedServer.describeMatch(status)));
 		for (PlayerInfo p : status.players)
-			append(EventType.INFO, String.format("  #%d %-16s %s  bajas %d / muertes %d / asistencias %d  %s", p.id,
-					p.name, p.alive ? p.health + " hp" : "muerto", p.kills, p.deaths, p.assists, p.address));
+			append(EventType.INFO, String.format(Text.get("ds.playerLine"), p.id,
+					p.name, p.alive ? p.health + " hp" : Text.get("ds.dead"), p.kills, p.deaths, p.assists, p.address));
 	}
 
 	// ---- log ----
@@ -520,24 +520,24 @@ public class ServerWindow implements ServerHost.View {
 			field.setEnabled(!running && !waiting);
 		difficultyField.setEnabled(!running && !waiting);
 		startButton.setEnabled(!waiting);
-		startButton.setText(running ? "Detener servidor" : "Iniciar servidor");
+		startButton.setText(Text.get(running ? "ds.stop" : "ds.start"));
 		copyButton.setEnabled(running);
 		if (running) {
-			stateLabel.setText("● EN LÍNEA");
+			stateLabel.setText(Text.get("ds.online"));
 			stateLabel.setForeground(GREEN);
-			StringBuilder sb = new StringBuilder("Para unirse: ");
+			StringBuilder sb = new StringBuilder(Text.get("ds.toJoin"));
 			if (status.addresses.size == 0)
-				sb.append("127.0.0.1:").append(status.port).append(" (solo esta PC)");
+				sb.append("127.0.0.1:").append(status.port).append(Text.get("ds.onlyThisPc"));
 			for (int i = 0; i < status.addresses.size; i++)
 				sb.append(i > 0 ? "   " : "").append(status.addresses.get(i)).append(':').append(status.port);
 			addressLabel.setText(sb.toString());
-			matchLabel.setText(status.people + "/" + status.maxPlayers + " jugadores"
+			matchLabel.setText(Text.get("ds.playersCount", status.people, status.maxPlayers)
 					+ (status.bots > 0 ? " + " + status.bots + " bots" : "") + " · " + DedicatedServer.describeMatch(status));
 		} else {
-			stateLabel.setText(waiting ? "● ..." : "● DETENIDO");
+			stateLabel.setText(waiting ? "● ..." : Text.get("ds.offline"));
 			stateLabel.setForeground(waiting ? YELLOW : DIM);
-			addressLabel.setText("Elegí el puerto y tocá \"Iniciar servidor\"");
-			matchLabel.setText("Sin partida");
+			addressLabel.setText(Text.get("ds.choosePort"));
+			matchLabel.setText(Text.get("ds.noMatch"));
 		}
 		players.set(running ? status.players : new Array<>());
 	}
@@ -561,7 +561,8 @@ public class ServerWindow implements ServerHost.View {
 	// ---- players table ----
 
 	private static final class PlayersModel extends AbstractTableModel {
-		private static final String[] COLUMNS = { "#", "Jugador", "Bajas", "Muertes", "Asist.", "Estado" };
+		private static final String[] COLUMNS = { "#", Text.get("ds.col.player"), Text.get("ds.col.kills"),
+				Text.get("ds.col.deaths"), Text.get("ds.col.assists"), Text.get("ds.col.state") };
 		private Array<PlayerInfo> rows = new Array<>();
 
 		void set(Array<PlayerInfo> rows) {
@@ -607,7 +608,7 @@ public class ServerWindow implements ServerHost.View {
 			case 4:
 				return p.assists;
 			default:
-				return p.alive ? p.health + " hp" : "muerto";
+				return p.alive ? p.health + " hp" : Text.get("ds.dead");
 			}
 		}
 	}

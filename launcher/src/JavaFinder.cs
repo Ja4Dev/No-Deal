@@ -32,8 +32,9 @@ namespace NoDeal.Launcher
         /// <summary>"Java 17.0.21 (incluido)" / "Java 21.0.3 de Minecraft" / "Java 21.0.5 en C:\..."</summary>
         public string Describe()
         {
-            string arch = Arch == "x64" ? "" : Arch == "x86" ? " de 32 bits" : " (" + Arch + ")";
-            string where = Bundled ? " (incluido)" : Source == JavaFinder.Minecraft ? " de Minecraft" : " en " + Location;
+            string arch = Arch == "x64" ? "" : Arch == "x86" ? L.T(" de 32 bits", " 32-bit") : " (" + Arch + ")";
+            string where = Bundled ? L.T(" (incluido)", " (included)")
+                    : Source == JavaFinder.Minecraft ? L.T(" de Minecraft", " from Minecraft") : L.T(" en ", " in ") + Location;
             return "Java " + Version + arch + where;
         }
 
@@ -41,11 +42,11 @@ namespace NoDeal.Launcher
         public string Problem()
         {
             if (Major < JavaFinder.RequiredMajor)
-                return "es muy viejo";
+                return L.T("es muy viejo", "too old");
             if (Arch == "arm64")
-                return "es para ARM, el juego necesita Java x64";
+                return L.T("es para ARM, el juego necesita Java x64", "built for ARM, the game needs x64 Java");
             if (!IsSupported)
-                return "no se pudo identificar";
+                return L.T("no se pudo identificar", "couldn't be identified");
             return null;
         }
     }
