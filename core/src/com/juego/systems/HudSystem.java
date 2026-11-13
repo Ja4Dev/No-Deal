@@ -17,6 +17,7 @@ import com.juego.UI.DeathScreen;
 import com.juego.UI.HUD;
 import com.juego.UI.PauseMenu;
 import com.juego.UI.Scoreboard;
+import com.juego.UI.TouchControls;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
 import com.juego.match.Match;
@@ -25,6 +26,7 @@ import com.juego.net.GameServer;
 import com.juego.net.Protocol;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
+import com.juego.utils.Platform;
 
 /**
  * The local player's 2D overlay: HUD (with the match clock), pause menu and
@@ -79,14 +81,26 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		return playerComponent != null && playerComponent.pause;
 	}
 
+	/** Whether the player is playing (not in the pause menu or the console), so the touch controls are on. */
+	public boolean isPlayerInControl() {
+		return playerComponent != null && playerComponent.controlsPlayer();
+	}
+
+	/** Opens the pause menu (the app went to the background). */
+	public void pauseGame() {
+		if (playerComponent != null && !console.isOpen())
+			playerComponent.pause = true;
+	}
+
 	@Override
 	public void update(float delta) {
 		if (player == null)
 			return;
 		boolean consoleKey = Controls.isJustPressed(Action.CONSOLE);
 		if (console.isOpen()) {
-			// Escape or the console key close it; nothing else reaches the game meanwhile.
-			if (consoleKey || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+			// Escape, back, the console key or its Cerrar button close it; nothing else reaches the game meanwhile.
+			if (consoleKey || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
+					|| Gdx.input.isKeyJustPressed(Input.Keys.BACK) || console.consumeCloseRequest()) {
 				console.close();
 				pauseMenu.takeInput();
 			}
@@ -98,7 +112,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			playerComponent.scoreboard = false;
 		}
 		playerComponent.console = console.isOpen();
-		Gdx.input.setCursorCatched(playerComponent.controlsPlayer());
+		Gdx.input.setCursorCatched(playerComponent.controlsPlayer() && !Platform.touch);
 		if (playerComponent.controlsPlayer()) // while paused the pause menu's button controls it
 			playerComponent.scoreboard = Controls.isPressed(Action.SCOREBOARD);
 		else if (playerComponent.console)
@@ -115,16 +129,20 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
 		if (spectating)
 			showDeathScreen();
+		TouchControls touch = gameWorld.touchControls();
+		if (touch != null && playerComponent.controlsPlayer())
+			touch.draw();
 
-		// Opened from the pause menu, the scoreboard replaces it until the next click.
+		// Opened from the pause menu, the scoreboard replaces it until the next click. While playing the
+		// (hidden) pause buttons must not take taps either.
 		boolean scoreboardOverPause = playerComponent.pause && playerComponent.scoreboard;
-		pauseMenu.setInteractive(!scoreboardOverPause);
+		pauseMenu.setInteractive(playerComponent.pause && !scoreboardOverPause);
 		if (!scoreboardOverPause)
 			pauseMenu.update(delta);
 		if (playerComponent.scoreboard || intermission) {
 			rows.clear();
 			gameWorld.getScoreRows(rows);
-			String footer = scoreboardOverPause ? "Clic para volver"
+			String footer = scoreboardOverPause ? (Platform.touch ? "Toca para volver" : "Clic para volver")
 					: intermission ? "Nueva partida en " + (remaining + 999) / 1000 + " s"
 							: "Quedan " + Match.formatClock(remaining);
 			scoreboard.update(gameWorld.getScoreboardTitle(), rows, footer, gameWorld.session.client.getRenames());

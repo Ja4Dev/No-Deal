@@ -27,6 +27,7 @@ import com.juego.net.Messages;
 import com.juego.net.Protocol;
 import com.juego.screens.GameScreen;
 import com.juego.utils.Config;
+import com.juego.utils.Platform;
 
 /**
  * Starts a match. "Un jugador" runs a private server with bots inside the
@@ -95,7 +96,9 @@ public class MultiplayerScreen extends MenuScreen {
 		table.add(backButton).colspan(3).width(256).height(56).padBottom(20).row();
 		table.add(statusLabel).colspan(3).width(560).row();
 		String hintText = singleplayer
-				? "Deathmatch contra bots. Durante la partida, la consola (tecla a la izquierda del 1) agrega o saca bots y cambia la dificultad."
+				? "Deathmatch contra bots. Durante la partida, la consola ("
+						+ (Platform.touch ? "boton >_ arriba a la derecha" : "tecla a la izquierda del 1")
+						+ ") agrega o saca bots y cambia la dificultad."
 				: hosting ? "Deathmatch hasta " + Protocol.MAX_PLAYERS
 						+ " personas, mas los bots. Los demas se unen con tu IP (se muestra al empezar)." : null;
 		if (hintText != null) {
@@ -120,6 +123,7 @@ public class MultiplayerScreen extends MenuScreen {
 				start();
 			}
 		});
+		setBackButton(backButton);
 		backButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {

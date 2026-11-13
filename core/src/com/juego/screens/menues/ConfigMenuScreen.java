@@ -14,6 +14,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.utils.Config;
+import com.juego.utils.Platform;
 
 /** Sound, mouse and video settings. Saved when leaving the screen. */
 public class ConfigMenuScreen extends MenuScreen {
@@ -35,7 +36,11 @@ public class ConfigMenuScreen extends MenuScreen {
 
 		final Slider music = new Slider(0, 100, 1, false, Assets.skin);
 		final Slider effects = new Slider(0, 100, 1, false, Assets.skin);
-		final Slider sensitivity = new Slider(Config.MIN_SENSITIVITY, Config.MAX_SENSITIVITY, 0.1f, false, Assets.skin);
+		// On a touch screen the sensitivity is how fast dragging a finger turns the view.
+		final boolean touch = Platform.touch;
+		final Slider sensitivity = touch
+				? new Slider(Config.MIN_TOUCH_SENSITIVITY, Config.MAX_TOUCH_SENSITIVITY, 0.1f, false, Assets.skin)
+				: new Slider(Config.MIN_SENSITIVITY, Config.MAX_SENSITIVITY, 0.1f, false, Assets.skin);
 		final Label musicValue = new Label("", Assets.skin);
 		final Label effectsValue = new Label("", Assets.skin);
 		final Label sensitivityValue = new Label("", Assets.skin);
@@ -46,11 +51,11 @@ public class ConfigMenuScreen extends MenuScreen {
 
 		music.setValue(Config.musicVolume);
 		effects.setValue(Config.fxVolume);
-		sensitivity.setValue(Config.sensitivity);
+		sensitivity.setValue(touch ? Config.touchSensitivity : Config.sensitivity);
 		fullscreen.setChecked(Config.fullscreen);
 		musicValue.setText((int) Config.musicVolume);
 		effectsValue.setText((int) Config.fxVolume);
-		sensitivityValue.setText(String.format("%.1f", Config.sensitivity));
+		sensitivityValue.setText(String.format("%.1f", sensitivity.getValue()));
 
 		Table table = new Table();
 		table.setFillParent(true);
@@ -58,12 +63,17 @@ public class ConfigMenuScreen extends MenuScreen {
 		section(table, "Sonido");
 		row(table, "Musica", music, musicValue);
 		row(table, "Efectos", effects, effectsValue);
-		section(table, "Mouse");
+		section(table, touch ? "Pantalla tactil" : "Mouse");
 		row(table, "Sensibilidad", sensitivity, sensitivityValue);
-		section(table, "Video");
-		table.add(fullscreen).colspan(3).padBottom(24).row();
+		if (Platform.desktop) {
+			section(table, "Video");
+			table.add(fullscreen).colspan(3).padBottom(24).row();
+		} else {
+			table.add().height(24).colspan(3).row();
+		}
 		Table screens = new Table();
-		screens.add(controls).width(192).height(48).padRight(16);
+		if (!touch) // key bindings: the touch controls are fixed
+			screens.add(controls).width(192).height(48).padRight(16);
 		screens.add(crosshair).width(192).height(48);
 		table.add(screens).colspan(3).padBottom(12).row();
 		table.add(back).colspan(3).width(192).height(48).row();
@@ -86,8 +96,11 @@ public class ConfigMenuScreen extends MenuScreen {
 		sensitivity.addListener(new ChangeListener() {
 			@Override
 			public void changed(ChangeEvent event, Actor actor) {
-				Config.sensitivity = sensitivity.getValue();
-				sensitivityValue.setText(String.format("%.1f", Config.sensitivity));
+				if (touch)
+					Config.touchSensitivity = sensitivity.getValue();
+				else
+					Config.sensitivity = sensitivity.getValue();
+				sensitivityValue.setText(String.format("%.1f", sensitivity.getValue()));
 			}
 		});
 		fullscreen.addListener(new ChangeListener() {
@@ -112,6 +125,7 @@ public class ConfigMenuScreen extends MenuScreen {
 				flow.open(new CrosshairMenuScreen(game, flow));
 			}
 		});
+		setBackButton(back);
 		back.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {

@@ -48,8 +48,22 @@ public class NetSocket implements Closeable {
 	 *                  singleplayer server), not the network
 	 */
 	public NetSocket(int port, boolean localOnly) throws SocketException {
-		this(localOnly ? new DatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), port))
-				: new DatagramSocket(port));
+		this(localOnly ? new DatagramSocket(new InetSocketAddress(LOOPBACK, port)) : new DatagramSocket(port));
+	}
+
+	/**
+	 * 127.0.0.1, where the game connects to its own private server. Not
+	 * InetAddress.getLoopbackAddress(): on Android that is the IPv6 ::1, which
+	 * never receives what is sent to 127.0.0.1.
+	 */
+	static final InetAddress LOOPBACK;
+
+	static {
+		try {
+			LOOPBACK = InetAddress.getByAddress(new byte[] { 127, 0, 0, 1 });
+		} catch (java.net.UnknownHostException e) {
+			throw new ExceptionInInitializerError(e); // can't happen: 4 bytes is a valid IPv4 address
+		}
 	}
 
 	private NetSocket(DatagramSocket socket) {

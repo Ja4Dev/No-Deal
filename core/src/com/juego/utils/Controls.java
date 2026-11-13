@@ -4,6 +4,7 @@ import java.util.EnumMap;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.juego.UI.TouchControls;
 
 /**
  * Rebindable controls. Every action is bound to either a key or a mouse
@@ -175,13 +176,37 @@ public final class Controls {
 		}
 	}
 
+	/**
+	 * The on-screen controls while playing on a phone or tablet, or null. Their
+	 * buttons count as pressing the action, besides its key (a phone can have a
+	 * keyboard plugged in too).
+	 */
+	public static TouchControls touch;
+
 	public static boolean isPressed(Action action) {
+		if (touch != null && touch.isPressed(action))
+			return true;
 		Binding b = bindings.get(action);
-		return b.mouse ? Gdx.input.isButtonPressed(b.code) : Gdx.input.isKeyPressed(b.code);
+		if (b.mouse)
+			// On a touch screen every finger counts as the left mouse button: only the on-screen buttons fire.
+			return !Platform.touch && Gdx.input.isButtonPressed(b.code);
+		return Gdx.input.isKeyPressed(b.code);
 	}
 
 	public static boolean isJustPressed(Action action) {
+		if (touch != null && touch.isJustPressed(action))
+			return true;
+		if (action == Action.PAUSE && Gdx.input.isKeyJustPressed(Input.Keys.BACK))
+			return true; // Android's back button
 		Binding b = bindings.get(action);
-		return b.mouse ? Gdx.input.isButtonJustPressed(b.code) : Gdx.input.isKeyJustPressed(b.code);
+		if (b.mouse)
+			return !Platform.touch && Gdx.input.isButtonJustPressed(b.code);
+		return Gdx.input.isKeyJustPressed(b.code);
+	}
+
+	/** How to tell the player to use an action: its key ("G"), or on a touch screen the button's label ("AGARRAR"). */
+	public static String promptName(Action action) {
+		String label = Platform.touch ? TouchControls.label(action) : null;
+		return label != null ? label : get(action).displayName();
 	}
 }

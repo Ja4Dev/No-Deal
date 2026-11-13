@@ -5,13 +5,14 @@ import com.badlogic.gdx.Screen;
 import com.juego.core.Core;
 import com.juego.core.GameSession;
 import com.juego.core.GameWorld;
+import com.juego.utils.Platform;
 
 public class GameScreen implements Screen {
 	private final GameWorld gameWorld;
 
 	public GameScreen(Core game, GameSession session) {
 		gameWorld = new GameWorld(game, session);
-		Gdx.input.setCursorCatched(true);
+		Gdx.input.setCursorCatched(!Platform.touch);
 	}
 
 	@Override
@@ -33,8 +34,10 @@ public class GameScreen implements Screen {
 	public void show() {
 	}
 
+	/** Leaving the app mid-match (a call, the home button) opens the pause menu. */
 	@Override
 	public void pause() {
+		gameWorld.appPaused();
 	}
 
 	@Override

@@ -1,6 +1,4 @@
 allprojects {
-    apply plugin: "eclipse"
-
     version = '1.0'
     ext {
         appName = "NoDeal"
@@ -15,7 +13,9 @@ allprojects {
     }
 }
 
-subprojects {
+// Android has its own plugin (and Java settings): everything else is a plain Java project.
+configure(subprojects.findAll { it.name != 'android' }) {
+    apply plugin: "eclipse"
     apply plugin: "java-library"
 
     java {
@@ -29,6 +29,11 @@ subprojects {
 }
 
 project(":core") {
+    // The game itself stays Java 8 (language and library) because iOS (MobiVM) runs Java 8 bytecode.
+    // Android, desktop and the server use it from Java 17 code.
+    tasks.named('compileJava') {
+        options.release = 8
+    }
     dependencies {
         api "com.badlogicgames.gdx:gdx:$gdxVersion"
         api "com.badlogicgames.gdx:gdx-bullet:$gdxVersion"

@@ -12,6 +12,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
+import com.juego.UI.TouchControls;
 import com.juego.components.CharacterComponent;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
@@ -39,8 +40,12 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 	private static final float MOUSE_SCALE = 0.022f;
 	/** How fast a punch (shot or hit) springs back, per second. */
 	private static final float PUNCH_RECOVERY = 14f;
+	/** Degrees the view turns for a drag across the whole screen height, at touch sensitivity 1. */
+	private static final float TOUCH_DEGREES = 160f;
 
 	private final PerspectiveCamera camera;
+	/** The field of view when not zoomed in, to slow the touch look down while aiming. */
+	private final float normalFieldOfView;
 	private final GameWorld gameWorld;
 	private Entity player;
 	private PlayerComponent playerComponent;
@@ -70,6 +75,7 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 
 	public PlayerSystem(GameWorld gameWorld, PerspectiveCamera camera) {
 		this.camera = camera;
+		this.normalFieldOfView = camera.fieldOfView;
 		this.gameWorld = gameWorld;
 	}
 
@@ -124,9 +130,19 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 
 	private void look() {
 		PlayerComponent p = playerComponent;
-		float scale = Config.sensitivity * MOUSE_SCALE;
-		p.yaw -= Gdx.input.getDeltaX() * scale;
-		p.pitch += Gdx.input.getDeltaY() * scale;
+		TouchControls touch = Controls.touch;
+		if (touch != null) {
+			// A drag across the whole screen height turns TOUCH_DEGREES; slower while zoomed in, like the
+			// scope narrows the view.
+			float scale = TOUCH_DEGREES * Config.touchSensitivity / touch.screenHeight()
+					* camera.fieldOfView / normalFieldOfView;
+			p.yaw -= touch.lookDeltaX() * scale;
+			p.pitch += touch.lookDeltaY() * scale;
+		} else {
+			float scale = Config.sensitivity * MOUSE_SCALE;
+			p.yaw -= Gdx.input.getDeltaX() * scale;
+			p.pitch += Gdx.input.getDeltaY() * scale;
+		}
 		p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch));
 		p.yaw %= 360f;
 	}
@@ -143,9 +159,14 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 			wishDirection.sub(right);
 		if (Controls.isPressed(Action.RIGHT))
 			wishDirection.add(right);
+		// The joystick is analog: pushed a little the player walks, pushed to the edge runs.
+		TouchControls touch = Controls.touch;
+		float stick = touch == null ? 0 : touch.stickAmount();
+		if (stick > 0)
+			wishDirection.mulAdd(forward, touch.moveY()).mulAdd(right, touch.moveX());
 		wishDirection.nor(); // diagonals aren't faster
 		playerComponent.moving = !wishDirection.isZero();
-		playerComponent.running = !Controls.isPressed(Action.WALK);
+		playerComponent.running = !Controls.isPressed(Action.WALK) && (stick == 0 || stick >= TouchControls.RUN_THRESHOLD);
 		wishSpeed = playerComponent.running ? PlayerMovement.RUN_SPEED : PlayerMovement.WALK_SPEED;
 	}
 
