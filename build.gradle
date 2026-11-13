@@ -53,3 +53,6 @@ project(":server") {
         implementation "com.badlogicgames.gdx:gdx-bullet-platform:$gdxVersion:natives-desktop"
     }
 }
+
+// Windows launcher (NoDeal.exe) and package: packageWindows, zipWindows.
+apply from: "launcher/launcher.gradle"

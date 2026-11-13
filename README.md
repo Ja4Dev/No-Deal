@@ -16,6 +16,22 @@ Requirements: **JDK 17** or newer (a JRE is not enough).
 
 Run from the project root: the `run` task sets `core/assets` as the working directory so assets resolve correctly.
 
+### Windows launcher (`NoDeal.exe`)
+```bash
+./gradlew zipWindows                 # build/distributions/NoDeal-1.0-windows.zip, Java included (~80 MB)
+./gradlew zipWindows -PwithoutJava   # NoDeal-1.0-windows-sin-java.zip, uses the Java installed on the PC
+./gradlew packageWindows             # the same, unzipped, in build/windows/NoDeal/
+```
+
+The zip holds `NoDeal.exe`, the game and server jars in `game/` and a trimmed Java 17 runtime in `runtime/` (built with `jlink`, 43 MB). Players unzip it and double-click `NoDeal.exe`, a launcher window with **Jugar** and **Servidor dedicado**:
+
+- **Finding Java:** the bundled `runtime/` first, then `JAVA_HOME`, the installers' registry keys (Oracle, Temurin, Microsoft, Zulu, Liberica, Corretto...), the `PATH`, the usual install folders, IntelliJ's `~/.jdks` and the Java runtimes Minecraft downloads. If none is Java 17 or newer, it lists what it found and why each one doesn't work, opens the Temurin download page and searches again after you install it.
+- **When the game doesn't start:** the output of the game or server goes to `%LOCALAPPDATA%\NoDeal\logs` (`cliente.log`, `servidor.log`). If it closes with an error, the launcher comes back and explains it: Java too old, OpenGL/video drivers, out of memory, native libraries blocked by the antivirus, a JVM crash, damaged files, invalid server options. It also shows the end of the log, with buttons to open it, copy it or try again. It also tells you if you opened the exe from inside the zip without extracting it.
+- While the game runs, the launcher hides. It closes when you quit the game normally.
+- **Shortcuts:** `NoDeal.exe --client` opens the game straight away. `NoDeal.exe --server [options]` opens the dedicated server, passing it the server's options (`--port 25559 --bots 4`...). With `--nogui` it runs in a console window.
+
+The launcher is written in C# (`launcher/src`) and compiled with the `csc.exe` of the .NET Framework 4.x that comes with Windows 10 and 11, so it needs nothing else to build or to run. Building the package needs Windows.
+
 ## Description
 <p>No Deal was an attempt to develop a simple first person shooter game I carried out as a final academic project for my technical high scool, in the year 2020.
 Unfortunately, the project couldn't end as I wanted, but I think I got a really good basic template to everyone who want to create a Java 3D First Person game.</p>
