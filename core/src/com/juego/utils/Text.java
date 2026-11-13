@@ -346,14 +346,20 @@ public final class Text {
 				+ "bot lista  muestra los bots\n"
 				+ "  dificultades: {0}\n"
 				+ "  (tambien bot_add, bot_kick y bot_difficulty, como en CS)\n"
-				+ "estado  jugadores y tiempo de la partida",
+				+ "estado  jugadores y tiempo de la partida\n"
+				+ "sv_gravity [valor]  gravedad (800 es la normal, como en CS)\n"
+				+ "sv_airaccelerate [valor]  control en el aire (10 normal; 100 para bunnyhop)\n"
+				+ "sv_autobunnyhopping [0|1]  mantener el salto vuelve a saltar al caer",
 				"bot add [count] [difficulty]  adds bots\n"
 						+ "bot kick [name | count | all]  removes bots\n"
 						+ "bot difficulty <difficulty>  changes the difficulty of every bot\n"
 						+ "bot list  shows the bots\n"
 						+ "  difficulties: {0}\n"
 						+ "  (also bot_add, bot_kick and bot_difficulty, as in CS)\n"
-						+ "status  players and match time");
+						+ "status  players and match time\n"
+						+ "sv_gravity [value]  gravity (800 is normal, as in CS)\n"
+						+ "sv_airaccelerate [value]  control in the air (10 is normal; 100 for bunnyhop)\n"
+						+ "sv_autobunnyhopping [0|1]  holding jump jumps again on landing");
 		add("server.status", "{0}/{1} jugadores y {2} bots, {3}", "{0}/{1} players and {2} bots, {3}");
 		add("server.difficultyNow", "Dificultad de los bots: {0}. Opciones: {1}", "Bot difficulty: {0}. Options: {1}");
 		add("server.unknownDifficulty", "No conozco la dificultad '{0}'. Opciones: {1}", "Unknown difficulty '{0}'. Options: {1}");
@@ -378,6 +384,12 @@ public final class Text {
 		add("server.fell", "{0} se cayó del mapa", "{0} fell off the map");
 		add("server.kill", "{0} mató a {1} con {2}{3}", "{0} killed {1} with {2}{3}");
 		add("server.headshot", " (headshot)", " (headshot)");
+		add("server.cvar", "{0} = {1}", "{0} = {1}");
+		add("server.cvarChanged", "{0} ahora es {1}", "{0} is now {1}");
+		add("server.cvarRange", "{0} tiene que estar entre {1} y {2}", "{0} must be between {1} and {2}");
+		add("server.cvarNotNumber", "{0}: '{1}' no es un numero", "{0}: '{1}' isn't a number");
+		add("server.cvarUnknown", "No conozco {0}", "Unknown variable {0}");
+		add("feed.movement", "El servidor cambio {0} a {1}", "The server set {0} to {1}");
 
 		// ---- dedicated server (its window and its terminal) ----
 		add("ds.portFailed", "No se pudo abrir el puerto {0}: {1}. Probá con otro puerto.",
@@ -447,19 +459,23 @@ public final class Text {
 		add("ds.terminalUnknown", "Comando desconocido '{0}'. Escribí 'ayuda'.", "Unknown command '{0}'. Type 'help'.");
 		add("ds.terminalHelp", "Escribí 'ayuda' para ver los comandos.", "Type 'help' for commands.");
 		add("ds.usage", "Uso: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
-				+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medio] [--lang es|en] [--nogui]\n"
+				+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medio] [--gravity 800] [--airaccelerate 10] "
+				+ "[--autobunnyhop] [--lang es|en] [--nogui]\n"
 				+ "  --time-limit  duración de la partida en minutos\n"
 				+ "  --frag-limit  bajas que ganan antes de tiempo (0 = se juega todo el tiempo)\n"
 				+ "  --bots        bots en la partida (0 a {4}), además de los jugadores\n"
 				+ "  --bot-difficulty  {5}\n"
+				+ "  --gravity, --airaccelerate, --autobunnyhop  como sv_gravity, sv_airaccelerate y sv_autobunnyhopping\n"
 				+ "  --lang        idioma de los mensajes (si no, el del juego o el del sistema)\n"
 				+ "  --nogui       usar la terminal en vez de abrir la ventana del servidor",
 				"Usage: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
-						+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medium] [--lang es|en] [--nogui]\n"
+						+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medium] [--gravity 800] [--airaccelerate 10] "
+						+ "[--autobunnyhop] [--lang es|en] [--nogui]\n"
 						+ "  --time-limit  match length in minutes\n"
 						+ "  --frag-limit  kills that win the match early (0 = play the full time)\n"
 						+ "  --bots        bots in the match (0 to {4}), besides the players\n"
 						+ "  --bot-difficulty  {5}\n"
+						+ "  --gravity, --airaccelerate, --autobunnyhop  like sv_gravity, sv_airaccelerate and sv_autobunnyhopping\n"
 						+ "  --lang        language of the messages (otherwise the game's, or the system's)\n"
 						+ "  --nogui       run in the terminal instead of opening the server window");
 		add("ds.title.usage", "Servidor dedicado de No Deal (protocolo v{0})", "No Deal dedicated server (protocol v{0})");

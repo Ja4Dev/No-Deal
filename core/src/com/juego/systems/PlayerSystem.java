@@ -22,6 +22,7 @@ import com.juego.utils.Config;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 import com.juego.utils.PlayerMovement;
+import com.juego.utils.MovementSettings;
 
 /**
  * Local player movement: mouse look, walking with acceleration and friction,
@@ -64,6 +65,8 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 	private final Vector3 wishDirection = new Vector3();
 	private float wishSpeed;
 	private boolean jumpRequested;
+	/** The gravity last given to the character controller, to set it again only when sv_gravity changes. */
+	private float appliedGravity = Float.NaN;
 
 	/** Positions at the start and end of the last physics step, to interpolate the camera between them. */
 	private final Vector3 stepFrom = new Vector3(), stepTo = new Vector3();
@@ -108,6 +111,7 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		modelComponent = entity.getComponent(ModelComponent.class);
 		modelComponent.instance.transform.getTranslation(spawnPoint);
 		hasStep = false;
+		appliedGravity = Float.NaN; // a new body falls with the default gravity until told otherwise
 	}
 
 	@Override
@@ -130,8 +134,10 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		if (playing) {
 			look();
 			readMovementKeys();
-			if (Controls.isJustPressed(Action.JUMP))
-				jumpRequested = true; // kept until a physics step can use it
+			// Kept until a physics step can use it. With sv_autobunnyhopping, holding the key is enough:
+			// the player jumps again the moment they land.
+			if (Controls.isJustPressed(Action.JUMP) || (movement().autoBunnyhop && Controls.isPressed(Action.JUMP)))
+				jumpRequested = true;
 			if (Gdx.input.isKeyJustPressed(Input.Keys.B))
 				teleportToSpawn(); // debug: get unstuck
 		}
@@ -204,8 +210,18 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		}
 		if (playerComponent.isDead())
 			playerComponent.velocity.setZero();
-		PlayerMovement.step(playerComponent.velocity, wishDirection, wishSpeed, onGround, timeStep);
-		if (jumpRequested && onGround && !playerComponent.isDead()) {
+		MovementSettings movement = movement();
+		float gravity = movement.gravityAcceleration();
+		if (gravity != appliedGravity) { // sv_gravity changed (or a new body)
+			characterComponent.characterController.setGravity(new Vector3(0, -gravity, 0));
+			appliedGravity = gravity;
+		}
+		// Jumping the step you land skips that step's friction, as in Quake and CS: that is what
+		// keeps the speed when bunnyhopping.
+		boolean jumping = jumpRequested && onGround && !playerComponent.isDead();
+		PlayerMovement.step(playerComponent.velocity, wishDirection, wishSpeed, onGround && !jumping, timeStep,
+				movement.airAccelerate);
+		if (jumping) {
 			characterComponent.characterController.jump(new Vector3(0, PlayerMovement.JUMP_SPEED, 0));
 			onGround = false;
 		}
@@ -253,6 +269,11 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 
 	private void teleportToSpawn() {
 		teleport(spawnPoint);
+	}
+
+	/** The server's movement rules (sv_gravity, sv_airaccelerate, sv_autobunnyhopping). */
+	private MovementSettings movement() {
+		return gameWorld.session.client.getMovement();
 	}
 
 	/** Moves the player instantly (spawns, server corrections). */

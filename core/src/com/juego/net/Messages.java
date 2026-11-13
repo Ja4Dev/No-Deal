@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.juego.utils.Text;
+import com.juego.utils.MovementSettings;
 
 /**
  * Payloads of every message, with their binary encoding. Each message knows
@@ -288,6 +289,28 @@ public final class Messages {
 		public static Rename read(ByteBuffer in) {
 			Rename m = new Rename();
 			m.name = readString(in);
+			return m;
+		}
+	}
+
+	/** Server to clients: the movement rules (see MovementSettings). */
+	public static class Movement implements Message {
+		public final MovementSettings settings = new MovementSettings();
+
+		public byte type() {
+			return Protocol.MOVEMENT;
+		}
+
+		public void write(ByteBuffer out) {
+			out.putShort((short) settings.gravity).putFloat(settings.airAccelerate)
+					.put((byte) (settings.autoBunnyhop ? 1 : 0));
+		}
+
+		public static Movement read(ByteBuffer in) {
+			Movement m = new Movement();
+			m.settings.gravity = in.getShort();
+			m.settings.airAccelerate = in.getFloat();
+			m.settings.autoBunnyhop = in.get() != 0;
 			return m;
 		}
 	}

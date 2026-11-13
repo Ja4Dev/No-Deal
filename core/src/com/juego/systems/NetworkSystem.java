@@ -213,6 +213,9 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			feed(me ? Text.get("feed.renamedMe", client.getPlayer(event.playerId).name)
 					: Text.get("feed.renamed", event.gun, name(event.playerId)));
 			break;
+		case MOVEMENT:
+			feed(Text.get("feed.movement", event.gun, event.value));
+			break;
 		case HIT:
 			gameWorld.weaponSystem().showHit(event.position, event.from, event.headshot, me);
 			break;

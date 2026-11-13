@@ -506,13 +506,18 @@ public class Bot {
 
 	// ---- moving ----
 
+	/** Falls with the server's sv_gravity, in this world's units/s². */
+	public void setGravity(float gravity) {
+		body.controller.setGravity(new Vector3(0, -gravity, 0));
+	}
+
 	/** Turns the decision into the body's movement for the next physics step (same rules as a player). */
-	public void move() {
+	public void move(float airAccelerate) {
 		if (!body.isInWorld())
 			return;
 		body.getPosition(stepFrom);
 		onGround = body.controller.onGround();
-		PlayerMovement.step(velocity, wishDirection, wishSpeed, onGround, BotWorld.STEP);
+		PlayerMovement.step(velocity, wishDirection, wishSpeed, onGround, BotWorld.STEP, airAccelerate);
 		commanded.set(velocity).scl(BotWorld.STEP);
 		body.controller.setWalkDirection(commanded);
 	}

@@ -73,7 +73,7 @@ class PlayerMovementTest {
 		for (int i = 0; i < 300; i++)
 			PlayerMovement.step(velocity, RIGHT, PlayerMovement.RUN_SPEED, false, DT);
 		assertTrue(velocity.x < -1f, "the velocity turned towards the strafe");
-		assertTrue(velocity.len() <= PlayerMovement.MAX_AIR_SPEED + 1e-4f, "never faster than the cap");
+		assertTrue(velocity.len() <= PlayerMovement.MAX_SPEED + 1e-4f, "never faster than the cap");
 	}
 
 	@Test

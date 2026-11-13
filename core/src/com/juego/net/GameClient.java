@@ -13,6 +13,7 @@ import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.IntMap;
 import com.juego.match.Match;
 import com.juego.utils.Text;
+import com.juego.utils.MovementSettings;
 
 /**
  * Client side of a multiplayer match. Holds a model of the match (who is
@@ -92,7 +93,7 @@ public class GameClient implements Disposable {
 	public static class Event {
 		public enum Type {
 			JOINED, LEFT, KILL, RESPAWN, SET_POSITION, MATCH_END, MATCH_START, SHOT, WEAPON_SPAWN, WEAPON_REMOVE,
-			DAMAGE, HIT, RENAMED
+			DAMAGE, HIT, RENAMED, MOVEMENT
 		}
 
 		public final Type type;
@@ -101,8 +102,10 @@ public class GameClient implements Disposable {
 		public boolean headshot;
 		/** MATCH_END: ordinal of Match.EndReason. DAMAGE: amount. */
 		public int detail;
-		/** KILL, SHOT, WEAPON_SPAWN: gun id or name. RENAMED: the old name. */
+		/** KILL, SHOT, WEAPON_SPAWN: gun id or name. RENAMED: the old name. MOVEMENT: the variable that changed. */
 		public String gun = "";
+		/** MOVEMENT: its new value, as typed in the console. */
+		public String value = "";
 		/** Where it happens. SHOT: where the bullet stopped. DAMAGE: where the shot came from. HIT: where it hit. */
 		public final Vector3 position = new Vector3();
 		/** SHOT: where the bullet started. WEAPON_SPAWN: where the gun was thrown from. HIT: the bullet's direction. */
@@ -123,6 +126,9 @@ public class GameClient implements Disposable {
 	private long connectStartMs, nextStateMs;
 	private int localId, teleportId, sequence;
 	private boolean crouched;
+	/** The server's gravity and air control (sv_gravity...), for the local player's movement. */
+	private final MovementSettings movement = new MovementSettings();
+	private boolean movementKnown;
 	private String mapName = "";
 	private String localName = "";
 	private int fragLimit;
@@ -340,6 +346,24 @@ public class GameClient implements Disposable {
 			events.add(e);
 			break;
 		}
+		case Protocol.MOVEMENT: {
+			MovementSettings incoming = Messages.Movement.read(in).settings;
+			// The first one comes with the welcome; later ones are changes worth telling the player.
+			if (movementKnown) {
+				for (String name : new String[] { MovementSettings.GRAVITY, MovementSettings.AIR_ACCELERATE,
+						MovementSettings.AUTO_BUNNYHOP }) {
+					if (incoming.get(name).equals(movement.get(name)))
+						continue;
+					Event e = new Event(Event.Type.MOVEMENT);
+					e.gun = name;
+					e.value = incoming.get(name);
+					events.add(e);
+				}
+			}
+			movement.set(incoming);
+			movementKnown = true;
+			break;
+		}
 		case Protocol.PLAYER_RENAMED: {
 			Messages.PlayerRenamed m = Messages.PlayerRenamed.read(in);
 			PlayerInfo p = players.get(m.playerId);
@@ -379,6 +403,11 @@ public class GameClient implements Disposable {
 		status = newStatus;
 		failureReason = reason;
 		NetLog.info("Client", reason);
+	}
+
+	/** The movement rules the server set (its defaults until it says otherwise). */
+	public MovementSettings getMovement() {
+		return movement;
 	}
 
 	/** Whether the local player is crouching, sent with the next states. */

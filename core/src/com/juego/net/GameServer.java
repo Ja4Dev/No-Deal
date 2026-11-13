@@ -31,6 +31,7 @@ import com.juego.guns.GunDefinition;
 import com.juego.match.Match;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.Text;
+import com.juego.utils.MovementSettings;
 
 /**
  * Authoritative deathmatch server. The same class runs inside the host's game
@@ -74,6 +75,8 @@ public class GameServer implements Disposable {
 		public BotDifficulty botDifficulty = BotDifficulty.MEDIO;
 		/** Only this computer can join: the private server behind "Un jugador". */
 		public boolean localOnly;
+		/** Gravity, air acceleration and auto bunnyhop at the start (changed later with sv_ commands). */
+		public final MovementSettings movement = new MovementSettings();
 	}
 
 	/** What a server event is about, so a console can color or filter it. */
@@ -153,6 +156,8 @@ public class GameServer implements Disposable {
 	private final NetSocket udp;
 	/** Every way packets arrive: UDP, plus Bluetooth when hosting over it ({@link #addTransport}). */
 	private final MultiTransport socket;
+	/** Gravity and air control now (sv_gravity...): starts as the config's, changed from the console. */
+	private final MovementSettings movement = new MovementSettings();
 	private final MapCollision map;
 	private final Array<Vector3> spawnPoints = new Array<>();
 
@@ -194,6 +199,7 @@ public class GameServer implements Disposable {
 
 	public GameServer(Config config, FileHandleResolver files, Armory armory, LongSupplier clock) throws IOException {
 		this.config = config;
+		movement.set(config.movement);
 		this.armory = armory;
 		this.clock = clock;
 		JsonValue mapData = new JsonReader().parse(files.resolve("data/maps/" + config.map + ".json"));
@@ -435,6 +441,7 @@ public class GameServer implements Disposable {
 		welcome.fragLimit = config.fragLimit;
 		welcome.spawn.set(player.position);
 		connection.sendReliable(welcome);
+		connection.sendReliable(movementMessage());
 		for (ServerPlayer other : byId.values()) {
 			if (other != player)
 				connection.sendReliable(joined(other));
@@ -601,6 +608,7 @@ public class GameServer implements Disposable {
 		byId.put(id, p);
 		placeAtSpawn(p, now);
 		p.bot = new Bot(id, name, difficulty, botWorld, nav, p.position, random);
+		p.bot.setGravity(movement.gravityAcceleration());
 		respawnBot(p);
 		broadcastReliable(joined(p), p);
 		event(EventType.JOIN, Text.get("server.botJoined", name, difficulty.label()));
@@ -688,7 +696,7 @@ public class GameServer implements Disposable {
 				if (p.alive)
 					p.bot.think(now, BotWorld.STEP, targets, fighting, botHost);
 				if (p.alive)
-					p.bot.move();
+					p.bot.move(movement.airAccelerate);
 			}
 			botWorld.step();
 			for (ServerPlayer p : botsThisStep) {
@@ -723,6 +731,42 @@ public class GameServer implements Disposable {
 
 	// ---- console commands ----
 
+	/** sv_gravity / sv_airaccelerate / sv_autobunnyhopping: shows the value, or sets it and tells everyone. */
+	private String movementCommand(String[] words) {
+		String name = words[0];
+		String current = movement.get(name);
+		if (current == null)
+			return Text.get("server.cvarUnknown", name);
+		if (words.length < 2)
+			return Text.get("server.cvar", name, current);
+		String error = movement.set(name, words[1]);
+		if (error != null)
+			return error;
+		applyMovement(); // the players see it in their feed
+		String reply = Text.get("server.cvarChanged", name, movement.get(name));
+		NetLog.info(TAG, reply);
+		return reply;
+	}
+
+	/** The movement rules now in force. */
+	public MovementSettings getMovement() {
+		return movement;
+	}
+
+	/** After a change: bots fall with the new gravity, and every player is told. */
+	private void applyMovement() {
+		for (ServerPlayer p : byId.values())
+			if (p.isBot())
+				p.bot.setGravity(movement.gravityAcceleration());
+		broadcastReliable(movementMessage(), null);
+	}
+
+	private Messages.Movement movementMessage() {
+		Messages.Movement m = new Messages.Movement();
+		m.settings.set(movement);
+		return m;
+	}
+
 	/** The help for {@link #command}, one command per line (both languages' commands work). */
 	public static String commandsHelp() {
 		return Text.get("server.commandsHelp", BotDifficulty.choices());
@@ -744,6 +788,8 @@ public class GameServer implements Disposable {
 		else if (lower.equals("bots"))
 			lower = "bot lista";
 		String[] words = lower.split(" ");
+		if (words[0].startsWith("sv_"))
+			return movementCommand(words);
 		if (words[0].equals("estado") || words[0].equals("status") || words[0].equals("jugadores")
 				|| words[0].equals("players")) {
 			return Text.get("server.status", getPlayerCount(), config.maxPlayers, getBotCount(), describeMatch())

@@ -35,7 +35,7 @@ class MovementValidatorTest {
 		for (int i = 1; i <= 30; i++) {
 			client += 16;
 			server += 16;
-			assertTrue(validator.accept(new Vector3(i * PlayerMovement.MAX_AIR_SPEED * 0.016f, 4, 0), client, server),
+			assertTrue(validator.accept(new Vector3(i * PlayerMovement.MAX_SPEED * 0.016f, 4, 0), client, server),
 					"step " + i);
 		}
 	}
