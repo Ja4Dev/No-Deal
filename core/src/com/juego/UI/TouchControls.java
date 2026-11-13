@@ -93,7 +93,8 @@ public class TouchControls implements Disposable {
 		JUMP(Action.JUMP, -85, 360, 50),
 		/** Toggles: holding a finger down to stay crouched would take a thumb away from the rest. */
 		CROUCH(Action.CROUCH, -85, 150, 44),
-		SWITCH_GUN(Action.SWITCH_GUN, -215, 440, 44),
+		/** No number keys on a phone: goes round the three weapons. */
+		SWITCH_GUN(Action.NEXT_WEAPON, -215, 440, 44),
 		RELOAD(Action.RELOAD, -90, 495, 44),
 		DROP(Action.DROP, -360, 475, 44),
 		PAUSE(Action.PAUSE, -60, -60, 36),

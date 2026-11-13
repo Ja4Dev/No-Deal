@@ -24,6 +24,7 @@ import com.juego.utils.Controls.Action;
 import com.juego.utils.FallDamage;
 import com.juego.utils.PlayerMovement;
 import com.juego.utils.MovementSettings;
+import com.juego.utils.Video;
 
 /**
  * Local player movement: mouse look, walking with acceleration and friction,
@@ -54,8 +55,6 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 	private static final float TOUCH_DEGREES = 160f;
 
 	private final PerspectiveCamera camera;
-	/** The field of view when not zoomed in, to slow the touch look down while aiming. */
-	private final float normalFieldOfView;
 	private final GameWorld gameWorld;
 	private Entity player;
 	private PlayerComponent playerComponent;
@@ -91,7 +90,6 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 
 	public PlayerSystem(GameWorld gameWorld, PerspectiveCamera camera) {
 		this.camera = camera;
-		this.normalFieldOfView = camera.fieldOfView;
 		this.gameWorld = gameWorld;
 	}
 
@@ -159,7 +157,7 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 			// A drag across the whole screen height turns TOUCH_DEGREES; slower while zoomed in, like the
 			// scope narrows the view.
 			float scale = TOUCH_DEGREES * Config.touchSensitivity / touch.screenHeight()
-					* camera.fieldOfView / normalFieldOfView;
+					* camera.fieldOfView / Video.verticalFov();
 			p.yaw -= touch.lookDeltaX() * scale;
 			p.pitch += touch.lookDeltaY() * scale;
 		} else {

@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
@@ -17,9 +18,10 @@ import com.juego.utils.Text;
 
 /**
  * The in-game console: a line to type commands at the top of the screen and
- * the last answers above it. Whoever runs the server (singleplayer or "Crear
- * partida") uses it to add and remove bots or change their difficulty
- * mid-match.
+ * the answers above it, which scroll back (wheel, Page Up / Page Down, or
+ * dragging on a phone) so nothing typed earlier is lost. Whoever runs the
+ * server (singleplayer or "Crear partida") uses it to add and remove bots or
+ * change their difficulty mid-match.
  */
 public class Console extends Menu {
 	/** Runs a typed line and returns what to show (may be several lines). */
@@ -27,11 +29,16 @@ public class Console extends Menu {
 		String execute(String line);
 	}
 
-	private static final int MAX_LINES = 12;
+	/** Lines shown at once. */
+	private static final int VISIBLE_LINES = 12;
+	/** Lines kept to scroll back to (the oldest go). */
+	static final int MAX_LINES = 1000;
+	private static final float LINE_HEIGHT = 20;
 
 	private final Executor executor;
 	private final TextField input;
 	private final Label log;
+	private final ScrollPane scroll;
 	private final Array<String> lines = new Array<>();
 	private final Array<String> history = new Array<>();
 	private int historyIndex;
@@ -64,7 +71,15 @@ public class Console extends Menu {
 				closeRequested = true;
 			}
 		});
-		panel.add(log).colspan(2).growX().left().bottom().height(MAX_LINES * 20).row();
+		ScrollPane.ScrollPaneStyle scrollStyle = new ScrollPane.ScrollPaneStyle(
+				Assets.skin.get(ScrollPane.ScrollPaneStyle.class));
+		scrollStyle.background = null; // the panel's dark background shows through
+		scroll = new ScrollPane(log, scrollStyle);
+		scroll.setScrollingDisabled(true, false);
+		scroll.setFadeScrollBars(false);
+		scroll.setOverscroll(false, false);
+		scroll.setSmoothScrolling(false);
+		panel.add(scroll).colspan(2).growX().left().bottom().height(VISIBLE_LINES * LINE_HEIGHT).row();
 		panel.add(input).growX().height(32).padTop(6);
 		panel.add(close).width(110).height(32).padTop(6).padLeft(8);
 		panel.setBounds(0, Core.VIRTUAL_HEIGHT - 320, Core.VIRTUAL_WIDTH, 320);
@@ -83,6 +98,8 @@ public class Console extends Menu {
 		input.setText("");
 		Gdx.input.setInputProcessor(stage);
 		stage.setKeyboardFocus(input);
+		stage.setScrollFocus(scroll); // the wheel scrolls the answers wherever the mouse is
+		scrollToBottom();
 		if (Platform.touch)
 			Gdx.input.setOnscreenKeyboardVisible(true);
 	}
@@ -121,6 +138,7 @@ public class Console extends Menu {
 		history.add(line);
 		historyIndex = history.size;
 		print("> " + line);
+		scrollToBottom(); // whatever was being read, the answer to this is at the bottom
 		if (line.equalsIgnoreCase("limpiar") || line.equalsIgnoreCase("clear")) {
 			lines.clear();
 			log.setText("");
@@ -132,17 +150,49 @@ public class Console extends Menu {
 	}
 
 	public void print(String text) {
+		// Reading something further up: stay there. Otherwise follow the new lines.
+		boolean following = isAtBottom();
 		for (String line : text.split("\n"))
 			lines.add(line);
 		while (lines.size > MAX_LINES)
 			lines.removeIndex(0);
 		log.setText(String.join("\n", lines));
+		if (following)
+			scrollToBottom();
+	}
+
+	/** How many lines are kept now (for tests). */
+	int lineCount() {
+		return lines.size;
+	}
+
+	private boolean isAtBottom() {
+		return scroll.getMaxY() <= 0 || scroll.getScrollY() >= scroll.getMaxY() - 1;
+	}
+
+	private void scrollToBottom() {
+		scroll.layout();
+		scroll.setScrollY(scroll.getMaxY());
+		scroll.updateVisualScroll();
+	}
+
+	/** Page Up / Page Down scroll a screenful; Ctrl+End goes back to the newest line. */
+	private void pageKeys() {
+		float page = (VISIBLE_LINES - 1) * LINE_HEIGHT;
+		if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.PAGE_UP))
+			scroll.setScrollY(scroll.getScrollY() - page);
+		else if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.PAGE_DOWN))
+			scroll.setScrollY(scroll.getScrollY() + page);
+		else if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.END)
+				&& Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.CONTROL_LEFT))
+			scrollToBottom();
 	}
 
 	public void draw(float delta) {
 		if (!open)
 			return;
 		browseHistory();
+		pageKeys();
 		stage.getViewport().apply();
 		stage.act(delta);
 		stage.draw();

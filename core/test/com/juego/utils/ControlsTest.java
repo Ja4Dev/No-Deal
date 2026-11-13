@@ -1,7 +1,9 @@
 package com.juego.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -33,6 +35,41 @@ class ControlsTest {
 		assertEquals(Binding.key(Input.Keys.R), Controls.get(Action.JUMP));
 		assertEquals(Binding.key(Input.Keys.SPACE), Controls.get(Action.RELOAD), "reload got jump's old key");
 		assertNoDuplicates();
+	}
+
+	@Test
+	void weaponsGoOnNumbersQAndTheWheel() {
+		assertEquals(Binding.key(Input.Keys.NUM_1), Controls.get(Action.PRIMARY));
+		assertEquals(Binding.key(Input.Keys.NUM_2), Controls.get(Action.SECONDARY));
+		assertEquals(Binding.key(Input.Keys.NUM_3), Controls.get(Action.KNIFE));
+		assertEquals(Binding.key(Input.Keys.Q), Controls.get(Action.LAST_WEAPON));
+		assertEquals(Binding.wheel(1), Controls.get(Action.NEXT_WEAPON), "wheel down: next, as CS");
+		assertEquals(Binding.wheel(-1), Controls.get(Action.PREVIOUS_WEAPON));
+		assertNoDuplicates();
+	}
+
+	@Test
+	void theWheelCanBeBoundAndCountsForOneFrame() {
+		Controls.set(Action.JUMP, Binding.wheel(1)); // bunnyhop on the wheel, as in CS; next weapon gets space
+		assertEquals(Binding.key(Input.Keys.SPACE), Controls.get(Action.NEXT_WEAPON));
+		assertEquals("W:1", Binding.wheel(5).serialize());
+		assertEquals(Binding.wheel(-1), Binding.parse("W:-1"));
+		assertNull(Binding.parse("W:2"));
+		String saved = Controls.serialize();
+		Controls.resetDefaults();
+		Controls.deserialize(saved);
+		assertEquals(Binding.wheel(1), Controls.get(Action.JUMP));
+
+		Controls.newFrame();
+		assertFalse(Controls.isJustPressed(Action.JUMP));
+		Controls.scrolled(1);
+		assertFalse(Controls.isJustPressed(Action.JUMP), "counts from the next frame on");
+		Controls.newFrame();
+		assertTrue(Controls.isJustPressed(Action.JUMP));
+		assertTrue(Controls.isPressed(Action.JUMP));
+		assertFalse(Controls.isJustPressed(Action.PREVIOUS_WEAPON), "up is another binding");
+		Controls.newFrame();
+		assertFalse(Controls.isJustPressed(Action.JUMP), "only that frame");
 	}
 
 	@Test

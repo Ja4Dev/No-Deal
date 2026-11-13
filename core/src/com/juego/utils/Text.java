@@ -117,7 +117,28 @@ public final class Text {
 		add("menu.musicPause", "Pausa", "Pause");
 
 		// ---- options ----
-		add("options.fullscreen", " Pantalla Completa", " Fullscreen");
+		// The menu font has no accents.
+		add("video.mode", "Pantalla", "Display mode");
+		add("video.mode.WINDOWED", "Ventana", "Windowed");
+		add("video.mode.FULLSCREEN", "Pantalla completa", "Fullscreen");
+		add("video.mode.BORDERLESS", "Ventana sin bordes", "Borderless window");
+		add("video.aspect", "Relacion de aspecto", "Aspect ratio");
+		add("video.aspect.all", "Todas", "All");
+		add("video.resolution", "Resolucion", "Resolution");
+		add("video.fps", "Limite de FPS", "FPS limit");
+		add("video.fps.vsync", "Sincronizado (VSync)", "Synced (VSync)");
+		add("video.fov", "Campo de vision", "Field of view");
+		add("video.shadows", "Sombras", "Shadows");
+		add("video.shadows.OFF", "Apagadas", "Off");
+		add("video.shadows.LOW", "Bajas", "Low");
+		add("video.shadows.MEDIUM", "Medias", "Medium");
+		add("video.shadows.HIGH", "Altas", "High");
+		add("video.msaa", "Antialiasing", "Antialiasing");
+		add("video.msaa.off", "No", "Off");
+		add("video.restart", "{0} (al reiniciar)", "{0} (on restart)");
+		add("video.apply", "Aplicar", "Apply");
+		add("video.applyHint", "Pantalla y resolucion cambian al tocar Aplicar.",
+				"Display mode and resolution change when you press Apply.");
 		add("options.controls", "Controles", "Controls");
 		add("options.crosshair", "Mira", "Crosshair");
 		add("options.sound", "Sonido", "Sound");
@@ -130,8 +151,8 @@ public final class Text {
 		add("options.language", "Idioma", "Language");
 
 		// ---- controls ----
-		add("controls.hint", "Hace clic en una accion y despues presiona la tecla o boton que quieras usar.",
-				"Click an action, then press the key or button you want for it.");
+		add("controls.hint", "Hace clic en una accion y despues presiona una tecla, un boton o la rueda del mouse.",
+				"Click an action, then press a key or a button, or turn the mouse wheel.");
 		add("controls.waiting", "Presiona...", "Press...");
 		add("action.FORWARD", "Adelante", "Forward");
 		add("action.BACKWARD", "Atras", "Back");
@@ -143,7 +164,11 @@ public final class Text {
 		add("action.FIRE", "Disparar", "Fire");
 		add("action.AIM", "Apuntar", "Aim");
 		add("action.RELOAD", "Recargar", "Reload");
-		add("action.SWITCH_GUN", "Cambiar arma", "Switch gun");
+		add("action.LAST_WEAPON", "Ultima arma usada", "Last used weapon");
+		add("action.PRIMARY", "Arma principal", "Primary weapon");
+		add("action.SECONDARY", "Pistola", "Pistol");
+		add("action.NEXT_WEAPON", "Arma siguiente", "Next weapon");
+		add("action.PREVIOUS_WEAPON", "Arma anterior", "Previous weapon");
 		add("action.DROP", "Soltar / agarrar arma", "Drop / pick up gun");
 		add("action.SCOREBOARD", "Puntuacion", "Scoreboard");
 		add("action.PAUSE", "Pausa", "Pause");
@@ -154,6 +179,8 @@ public final class Text {
 		add("key.other", "Tecla {0}", "Key {0}");
 		add("mouse.left", "Clic izquierdo", "Left click");
 		add("mouse.right", "Clic derecho", "Right click");
+		add("mouse.wheelUp", "Rueda arriba", "Wheel up");
+		add("mouse.wheelDown", "Rueda abajo", "Wheel down");
 		add("mouse.middle", "Clic medio", "Middle click");
 		add("mouse.other", "Boton {0}", "Button {0}");
 

@@ -67,20 +67,34 @@ class DamageTest {
 	}
 
 	@Test
-	void theKnifeKeyTakesTheKnifeAndPutsItAway() {
+	void numbersWheelAndLastWeapon() {
 		GunDefinition knife = def(GunDefinition.Slot.MELEE, 0, -1);
 		PlayerComponent p = new PlayerComponent("ct",
 				() -> new Gun[] { new Gun(RIFLE), new Gun(PISTOL), new Gun(knife) }, 1);
 		assertEquals(RIFLE, p.selectedGun().def, "starts with the primary");
-		p.switchGun();
-		assertEquals(PISTOL, p.selectedGun().def);
-		p.toggleKnife();
+		assertTrue(p.lastWeapon());
+		assertEquals(PISTOL, p.selectedGun().def, "Q right after spawning: the pistol");
+		assertTrue(p.select(2));
 		assertEquals(knife, p.selectedGun().def);
-		p.toggleKnife();
-		assertEquals(PISTOL, p.selectedGun().def, "back to the gun it had");
-		p.switchGun();
-		p.switchGun();
-		assertEquals(RIFLE, p.selectedGun().def, "switching goes round all three");
+		assertFalse(p.select(2), "already in hand");
+		assertTrue(p.lastWeapon());
+		assertEquals(PISTOL, p.selectedGun().def, "Q: back to the one before");
+		assertTrue(p.lastWeapon());
+		assertEquals(knife, p.selectedGun().def, "and Q again goes back and forth");
+
+		assertTrue(p.switchGun());
+		assertEquals(RIFLE, p.selectedGun().def, "next after the knife: round to the primary");
+		assertTrue(p.previousGun());
+		assertEquals(knife, p.selectedGun().def, "previous before the primary: the knife");
+		assertTrue(p.previousGun());
+		assertEquals(PISTOL, p.selectedGun().def);
+
+		p.removeGun(0); // dropped the rifle
+		assertFalse(p.select(0), "nothing in that slot");
+		assertTrue(p.switchGun());
+		assertEquals(knife, p.selectedGun().def, "the wheel skips the empty slot");
+		assertTrue(p.switchGun());
+		assertEquals(PISTOL, p.selectedGun().def);
 	}
 
 	@Test

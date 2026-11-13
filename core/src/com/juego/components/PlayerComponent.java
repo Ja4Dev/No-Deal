@@ -94,8 +94,24 @@ public class PlayerComponent implements Component {
 		int slot = gun.def.slot.ordinal();
 		Gun previous = guns[slot];
 		guns[slot] = gun;
+		if (selectedSlot != slot)
+			previousSlot = selectedSlot;
 		selectedSlot = slot;
 		return previous;
+	}
+
+	/** Takes the weapon in a slot (1, 2, 3). @return false if that slot is empty or already in hand */
+	public boolean select(int slot) {
+		if (slot < 0 || slot >= guns.length || guns[slot] == null || slot == selectedSlot)
+			return false;
+		previousSlot = selectedSlot;
+		selectedSlot = slot;
+		return true;
+	}
+
+	/** Back to the weapon held before (Q), if there still is one. */
+	public boolean lastWeapon() {
+		return select(previousSlot) || switchGun();
 	}
 
 	/** Empties a slot; if it was the gun in hand, takes the other one. @return the removed gun */
@@ -107,33 +123,23 @@ public class PlayerComponent implements Component {
 		return removed;
 	}
 
-	/** Takes the next gun carried. @return false if there is no other gun */
+	/** Takes the next weapon carried: primary, secondary, knife, primary... @return false if there is no other */
 	public boolean switchGun() {
-		for (int i = 1; i < guns.length; i++) {
-			int slot = (selectedSlot + i) % guns.length;
-			if (guns[slot] != null) {
-				previousSlot = selectedSlot;
-				selectedSlot = slot;
-				return true;
-			}
-		}
-		return false;
+		return cycle(1);
 	}
 
-	/** The knife key: takes the knife, or with the knife in hand, the gun held before. */
-	public void toggleKnife() {
-		int knife = GunDefinition.Slot.MELEE.ordinal();
-		if (selectedSlot != knife) {
-			if (guns[knife] != null) {
-				previousSlot = selectedSlot;
-				selectedSlot = knife;
-			}
-		} else if (previousSlot != knife && guns[previousSlot] != null) {
-			selectedSlot = previousSlot;
-			previousSlot = knife;
-		} else {
-			switchGun();
+	/** The other way round: knife, secondary, primary, knife... */
+	public boolean previousGun() {
+		return cycle(-1);
+	}
+
+	private boolean cycle(int step) {
+		for (int i = 1; i < guns.length; i++) {
+			int slot = Math.floorMod(selectedSlot + step * i, guns.length);
+			if (guns[slot] != null)
+				return select(slot);
 		}
+		return false;
 	}
 
 	private void resetLoadout() {
@@ -145,6 +151,7 @@ public class PlayerComponent implements Component {
 		selectedSlot = GunDefinition.Slot.PRIMARY.ordinal();
 		if (guns[selectedSlot] == null)
 			switchGun();
+		previousSlot = GunDefinition.Slot.SECONDARY.ordinal(); // Q right after spawning: the pistol, as in CS
 	}
 
 	/** Notes a hit for the HUD's damage effect. {@code source} may be null. */
