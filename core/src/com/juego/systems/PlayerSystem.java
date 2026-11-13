@@ -40,6 +40,12 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 	private static final float MOUSE_SCALE = 0.022f;
 	/** How fast a punch (shot or hit) springs back, per second. */
 	private static final float PUNCH_RECOVERY = 14f;
+	/**
+	 * How much of the spray pattern the view follows, as in CS: the bullets go
+	 * the whole way, so the rest is pulled down by the player (the crosshair
+	 * can show it, see CrosshairSettings.followRecoil).
+	 */
+	public static final float VIEW_RECOIL = 0.5f;
 	/** Degrees the view turns for a drag across the whole screen height, at touch sensitivity 1. */
 	private static final float TOUCH_DEGREES = 160f;
 
@@ -225,7 +231,7 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 		PlayerComponent p = playerComponent;
 		if (p == null)
 			return;
-		float up = p.recoilUp + p.punchUp, rightward = p.recoilRight + p.punchRight;
+		float up = p.recoilUp * VIEW_RECOIL + p.punchUp, rightward = p.recoilRight * VIEW_RECOIL + p.punchRight;
 		float pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch - up));
 		cameraRotation.setEulerAngles(p.yaw - rightward, pitch, 0);
 		camera.direction.set(0, 0, 1);

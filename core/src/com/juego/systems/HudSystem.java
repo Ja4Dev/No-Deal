@@ -24,8 +24,10 @@ import com.juego.match.Match;
 import com.juego.net.GameClient;
 import com.juego.net.GameServer;
 import com.juego.net.Protocol;
+import com.juego.utils.Config;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
+import com.juego.utils.CrosshairSettings;
 import com.juego.utils.Platform;
 
 /**
@@ -122,8 +124,12 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		long remaining = gameWorld.getMatchRemainingMs();
 		hud.setClock(intermission ? "Fin" : Match.formatClock(remaining));
 		showDamage();
+		// The view climbs only part of the spray; following the recoil, the crosshair climbs the rest.
+		float recoilLeft = 1 - PlayerSystem.VIEW_RECOIL;
+		boolean follow = Config.crosshair.followRecoil;
 		hud.setCrosshair(playerComponent.selectedGun() != null && !playerComponent.isDead() && !pauseMenu.isShowingSettings(),
-				spreadPixels());
+				spreadPixels(), follow ? pixels(playerComponent.recoilRight * recoilLeft) : 0,
+				follow ? pixels(playerComponent.recoilUp * recoilLeft) : 0);
 		boolean spectating = gameWorld.deathCam().isWatching() && !intermission;
 		hud.setPlayerWidgetsVisible(!spectating);
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
@@ -209,10 +215,17 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			playerComponent.punchUp += Math.min(2.5f, 0.6f + damage / 40f);
 	}
 
-	/** How far from the screen center the gun's inaccuracy cone reaches, in window pixels. */
+	/** How far the dynamic crosshair opens: the inaccuracy of moving and/or of spraying, as chosen. */
 	private float spreadPixels() {
+		WeaponSystem weapons = gameWorld.weaponSystem();
+		CrosshairSettings settings = Config.crosshair;
+		return pixels((settings.dynamicMove ? weapons.moveSpreadDegrees() : 0)
+				+ (settings.dynamicFire ? weapons.fireSpreadDegrees() : 0));
+	}
+
+	/** An angle away from the screen center, in window pixels. */
+	private float pixels(float degrees) {
 		PerspectiveCamera camera = gameWorld.renderSystem.perspectiveCamera;
-		float degrees = gameWorld.weaponSystem().spreadDegrees();
 		return (float) (Math.tan(Math.toRadians(degrees)) / Math.tan(Math.toRadians(camera.fieldOfView / 2))
 				* Gdx.graphics.getHeight() / 2);
 	}

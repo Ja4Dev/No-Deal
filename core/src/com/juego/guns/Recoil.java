@@ -74,12 +74,19 @@ public class Recoil {
 	 * @param speedFraction horizontal speed divided by the run speed
 	 */
 	public float inaccuracy(GunDefinition def, float speedFraction, boolean airborne) {
+		return def.spreadBase + firingInaccuracy(def) + movementInaccuracy(def, speedFraction, airborne);
+	}
+
+	/** The part of {@link #inaccuracy} that comes from the shots in a row (degrees). */
+	public float firingInaccuracy(GunDefinition def) {
+		return def.spreadPerShot * Math.min(shots, MAX_SPREAD_SHOTS);
+	}
+
+	/** The part of {@link #inaccuracy} that comes from moving and jumping (degrees). */
+	public float movementInaccuracy(GunDefinition def, float speedFraction, boolean airborne) {
 		// Walking (half speed) is as accurate as standing still; it gets worse from there to running.
 		float moving = MathUtils.clamp((speedFraction - 0.55f) / 0.45f, 0, 1);
-		float spread = def.spreadBase + def.spreadPerShot * Math.min(shots, MAX_SPREAD_SHOTS) + def.spreadMove * moving;
-		if (airborne)
-			spread += def.spreadAir;
-		return spread;
+		return def.spreadMove * moving + (airborne ? def.spreadAir : 0);
 	}
 
 	private static int patternLength(GunDefinition def) {

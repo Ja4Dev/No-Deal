@@ -5,6 +5,7 @@ import com.badlogic.gdx.Preferences;
 import com.juego.bots.BotDifficulty;
 import com.juego.net.GameServer;
 import com.juego.net.Messages;
+import com.juego.net.Protocol;
 
 /**
  * Player settings. Saved with libGDX Preferences (on desktop, an XML file in
@@ -27,6 +28,9 @@ public final class Config {
 	/** Bots chosen last time for "Un jugador" and for "Crear partida", and their difficulty. */
 	public static int singleplayerBots = 5, hostBots = 0;
 	public static BotDifficulty botDifficulty = BotDifficulty.MEDIO;
+	/** Match rules chosen last time for "Un jugador" and "Crear partida": minutes, and kills to win (0 = none). */
+	public static int timeLimitMinutes = Protocol.DEFAULT_TIME_LIMIT_MINUTES, fragLimit = Protocol.DEFAULT_FRAG_LIMIT;
+	public static final int MAX_TIME_LIMIT_MINUTES = 30, MAX_FRAG_LIMIT = 50;
 
 	private Config() {
 	}
@@ -45,6 +49,8 @@ public final class Config {
 		BotDifficulty difficulty = BotDifficulty.parse(prefs.getString("botDifficulty", ""));
 		if (difficulty != null)
 			botDifficulty = difficulty;
+		timeLimitMinutes = Math.max(1, Math.min(MAX_TIME_LIMIT_MINUTES, prefs.getInteger("timeLimit", timeLimitMinutes)));
+		fragLimit = Math.max(0, Math.min(MAX_FRAG_LIMIT, prefs.getInteger("fragLimit", fragLimit)));
 		crosshair.load(prefs);
 		Controls.deserialize(prefs.getString("controls", ""));
 	}
@@ -60,6 +66,8 @@ public final class Config {
 		prefs.putInteger("singleplayerBots", singleplayerBots);
 		prefs.putInteger("hostBots", hostBots);
 		prefs.putString("botDifficulty", botDifficulty.id());
+		prefs.putInteger("timeLimit", timeLimitMinutes);
+		prefs.putInteger("fragLimit", fragLimit);
 		crosshair.save(prefs);
 		prefs.putString("controls", Controls.serialize());
 		prefs.flush();

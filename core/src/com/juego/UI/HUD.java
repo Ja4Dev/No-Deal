@@ -29,6 +29,8 @@ public class HUD extends Menu {
 	private boolean crosshairVisible = true;
 	/** Extra gap of the dynamic crosshair, in pixels: target and what is drawn (eased towards it). */
 	private float crosshairSpread, shownSpread;
+	/** Offset from the center of the screen where the crosshair is drawn (following the recoil), in pixels. */
+	private float crosshairX, crosshairY;
 	// Damage feedback: red edges that flash on every hit (and stay faintly when
 	// health is low), and an arc around the crosshair pointing where the hit came from.
 	private final Texture vignetteTexture, indicatorTexture;
@@ -151,12 +153,15 @@ public class HUD extends Menu {
 
 	/**
 	 * @param visible       false hides it (no gun in hand, dead)
-	 * @param spreadPixels  how far the gun's inaccuracy reaches from the center of the screen, for the
-	 *                      dynamic crosshair
+	 * @param spreadPixels  how far the dynamic crosshair opens (0 when it isn't dynamic)
+	 * @param offsetX       where it is drawn, right of the center of the screen (following the recoil)
+	 * @param offsetY       and above the center
 	 */
-	public void setCrosshair(boolean visible, float spreadPixels) {
+	public void setCrosshair(boolean visible, float spreadPixels, float offsetX, float offsetY) {
 		crosshairVisible = visible;
 		crosshairSpread = spreadPixels;
+		crosshairX = offsetX;
+		crosshairY = offsetY;
 	}
 
 	/** Hint at the bottom of the screen, e.g. "[G] Agarrar AK-47". Null hides it. */
@@ -245,12 +250,13 @@ public class HUD extends Menu {
 
 	private void drawCrosshair() {
 		float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.1f);
-		float target = Config.crosshair.dynamic ? Math.min(crosshairSpread, Gdx.graphics.getHeight() * 0.12f) : 0;
+		float target = Math.min(crosshairSpread, Gdx.graphics.getHeight() * 0.12f);
 		// Opens fast, closes a little slower, like CS.
 		float rate = target > shownSpread ? 30f : 12f;
 		shownSpread += (target - shownSpread) * Math.min(1f, delta * rate);
 		if (crosshairVisible)
-			crosshair.draw(Config.crosshair, Gdx.graphics.getWidth() / 2f, Gdx.graphics.getHeight() / 2f, shownSpread);
+			crosshair.draw(Config.crosshair, Gdx.graphics.getWidth() / 2f + crosshairX,
+					Gdx.graphics.getHeight() / 2f + crosshairY, shownSpread);
 	}
 
 	@Override

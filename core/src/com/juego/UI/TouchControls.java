@@ -92,7 +92,7 @@ public class TouchControls implements Disposable {
 		JUMP(Action.JUMP, "SALTO", -85, 360, 50),
 		SWITCH_GUN(Action.SWITCH_GUN, "ARMA", -215, 440, 44),
 		RELOAD(Action.RELOAD, "RECARGA", -90, 495, 44),
-		DROP(Action.DROP, "AGARRAR", -360, 475, 44),
+		DROP(Action.DROP, "SOLTAR\nAGARRAR", -360, 475, 44),
 		PAUSE(Action.PAUSE, "II", -60, -60, 36),
 		SCOREBOARD(Action.SCOREBOARD, "PTS", -150, -60, 36),
 		CONSOLE(Action.CONSOLE, ">_", -240, -60, 36);

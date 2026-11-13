@@ -80,7 +80,7 @@ public final class Protocol {
 	public static final byte PLAYER_RENAMED = 22;
 	/** A player can change their name at most this often. */
 	public static final long RENAME_COOLDOWN_MS = 2000;
-	/** Damage that makes an assist if someone else finishes the victim off (as in CS). */
+	/** Doing more than this damage makes an assist if someone else finishes the victim off (as in CS). */
 	public static final int ASSIST_DAMAGE = 40;
 	/** Headshots do this many times the damage, as in CS: one is lethal with any gun up to ~85 units. */
 	public static final int HEADSHOT_MULTIPLIER = 4;

@@ -44,7 +44,7 @@ public class CrosshairMenuScreen extends MenuScreen {
 	private final SelectBox<String> style, color;
 	private final Slider size, thickness, gap, opacity;
 	private final Label sizeValue, thicknessValue, gapValue, opacityValue;
-	private final CheckBox outline, dynamic;
+	private final CheckBox outline, dynamicMove, dynamicFire, followRecoil;
 
 	/** Opened from the main menu. */
 	public CrosshairMenuScreen(Core game) {
@@ -73,15 +73,17 @@ public class CrosshairMenuScreen extends MenuScreen {
 		gapValue = new Label("", Assets.skin);
 		opacityValue = new Label("", Assets.skin);
 		outline = new CheckBox(" Borde negro", Assets.skin);
-		dynamic = new CheckBox(" Dinamica (se abre al moverte y disparar)", Assets.skin);
+		dynamicMove = new CheckBox(" Se abre al moverte y saltar", Assets.skin);
+		dynamicFire = new CheckBox(" Se abre al disparar seguido", Assets.skin);
+		followRecoil = new CheckBox(" Sigue el retroceso (marca donde va la bala)", Assets.skin);
 		TextButton defaults = new TextButton("Restaurar", Assets.skin);
 		TextButton back = new TextButton("Volver", Assets.skin);
 
 		Label title = new Label("Mira", Assets.skin);
 		title.setFontScale(2f);
 		Table table = new Table();
-		table.setPosition(100, 120);
-		table.setSize(600, 480);
+		table.setPosition(100, 70);
+		table.setSize(600, 560);
 		table.top().left();
 		table.add(title).colspan(3).left().padBottom(24).row();
 		row(table, "Estilo", style, null);
@@ -91,7 +93,9 @@ public class CrosshairMenuScreen extends MenuScreen {
 		row(table, "Separacion", gap, gapValue);
 		row(table, "Opacidad", opacity, opacityValue);
 		table.add(outline).colspan(3).left().padTop(8).row();
-		table.add(dynamic).colspan(3).left().padTop(8).padBottom(28).row();
+		table.add(dynamicMove).colspan(3).left().padTop(8).row();
+		table.add(dynamicFire).colspan(3).left().padTop(8).row();
+		table.add(followRecoil).colspan(3).left().padTop(8).padBottom(24).row();
 		Table buttons = new Table();
 		buttons.add(defaults).width(192).height(48).padRight(16);
 		buttons.add(back).width(192).height(48);
@@ -113,11 +117,14 @@ public class CrosshairMenuScreen extends MenuScreen {
 				settings.gap = (int) gap.getValue();
 				settings.opacity = opacity.getValue() / 100f;
 				settings.outline = outline.isChecked();
-				settings.dynamic = dynamic.isChecked();
+				settings.dynamicMove = dynamicMove.isChecked();
+				settings.dynamicFire = dynamicFire.isChecked();
+				settings.followRecoil = followRecoil.isChecked();
 				refreshValues();
 			}
 		};
-		for (Actor actor : new Actor[] { style, color, size, thickness, gap, opacity, outline, dynamic })
+		for (Actor actor : new Actor[] { style, color, size, thickness, gap, opacity, outline, dynamicMove, dynamicFire,
+				followRecoil })
 			actor.addListener(changed);
 		defaults.addListener(new ClickListener() {
 			@Override
@@ -154,7 +161,9 @@ public class CrosshairMenuScreen extends MenuScreen {
 		gap.setValue(settings.gap);
 		opacity.setValue(Math.round(settings.opacity * 100));
 		outline.setChecked(settings.outline);
-		dynamic.setChecked(settings.dynamic);
+		dynamicMove.setChecked(settings.dynamicMove);
+		dynamicFire.setChecked(settings.dynamicFire);
+		followRecoil.setChecked(settings.followRecoil);
 		refreshValues();
 	}
 
@@ -189,9 +198,13 @@ public class CrosshairMenuScreen extends MenuScreen {
 		shapes.rect(x + w / 2, y, w / 2, h / 2);
 		shapes.end();
 
-		// With the dynamic crosshair on, show it opening and closing as if running and stopping.
-		float spread = settings.dynamic ? Math.max(0, MathUtils.sin(time * 2f)) * 22f * Crosshair.scale() : 0;
-		crosshair.draw(settings, x + w / 2, y + h / 2, spread);
+		// A loop of 4 seconds: running (2 s), then a spray (2 s), to show each option at work.
+		float phase = time % 4f, scale = Crosshair.scale();
+		float running = phase < 2 ? MathUtils.sin(phase / 2 * MathUtils.PI) : 0;
+		float spraying = phase >= 2 ? MathUtils.sin((phase - 2) / 2 * MathUtils.PI) : 0;
+		float spread = ((settings.dynamicMove ? running * 22f : 0) + (settings.dynamicFire ? spraying * 16f : 0)) * scale;
+		float climb = settings.followRecoil ? spraying * 28f * scale : 0;
+		crosshair.draw(settings, x + w / 2, y + h / 2 + climb, spread);
 		stage.getViewport().apply();
 	}
 

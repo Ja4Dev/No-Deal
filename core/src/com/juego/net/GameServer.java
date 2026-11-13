@@ -1023,10 +1023,10 @@ public class GameServer implements Disposable {
 			victim.bot.die();
 		if (killer != null && killer != victim)
 			killer.kills++;
-		// Whoever else did enough damage to this life gets an assist.
+		// Whoever else did more than ASSIST_DAMAGE to this life gets an assist.
 		for (com.badlogic.gdx.utils.IntIntMap.Entry e : victim.damageFrom) {
 			ServerPlayer helper = byId.get(e.key);
-			if (helper != null && helper != killer && helper != victim && e.value >= Protocol.ASSIST_DAMAGE)
+			if (helper != null && helper != killer && helper != victim && e.value > Protocol.ASSIST_DAMAGE)
 				helper.assists++;
 		}
 		victim.damageFrom.clear();

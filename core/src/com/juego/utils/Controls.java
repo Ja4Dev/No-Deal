@@ -207,6 +207,6 @@ public final class Controls {
 	/** How to tell the player to use an action: its key ("G"), or on a touch screen the button's label ("AGARRAR"). */
 	public static String promptName(Action action) {
 		String label = Platform.touch ? TouchControls.label(action) : null;
-		return label != null ? label : get(action).displayName();
+		return label != null ? label.replace('\n', '/') : get(action).displayName(); // "SOLTAR/AGARRAR"
 	}
 }

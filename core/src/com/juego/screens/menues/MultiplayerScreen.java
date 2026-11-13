@@ -48,8 +48,8 @@ public class MultiplayerScreen extends MenuScreen {
 
 	private final GameSession.Kind kind;
 	private final TextField nameField, hostField, portField;
-	private final Slider botsSlider;
-	private final Label botsValue;
+	private final Slider botsSlider, timeSlider, fragSlider;
+	private final Label botsValue, timeValue, fragValue;
 	private final SelectBox<String> difficultyBox;
 	private final TextButton startButton, backButton;
 	private final Label statusLabel;
@@ -89,6 +89,12 @@ public class MultiplayerScreen extends MenuScreen {
 		botsSlider = new Slider(singleplayer ? 1 : 0, GameServer.MAX_BOTS, 1, false, Assets.skin);
 		botsSlider.setValue(singleplayer ? Config.singleplayerBots : Config.hostBots);
 		botsValue = new Label("", Assets.skin);
+		timeSlider = new Slider(1, Config.MAX_TIME_LIMIT_MINUTES, 1, false, Assets.skin);
+		timeSlider.setValue(Config.timeLimitMinutes);
+		timeValue = new Label("", Assets.skin);
+		fragSlider = new Slider(0, Config.MAX_FRAG_LIMIT, 1, false, Assets.skin);
+		fragSlider.setValue(Config.fragLimit);
+		fragValue = new Label("", Assets.skin);
 		difficultyBox = new SelectBox<>(Assets.skin);
 		Array<String> difficulties = new Array<>();
 		for (BotDifficulty d : BotDifficulty.values())
@@ -119,6 +125,7 @@ public class MultiplayerScreen extends MenuScreen {
 		buildTable();
 		stage.setKeyboardFocus(nameField);
 		showBots();
+		showLimits();
 
 		botsSlider.addListener(new ChangeListener() {
 			@Override
@@ -126,6 +133,14 @@ public class MultiplayerScreen extends MenuScreen {
 				showBots();
 			}
 		});
+		ChangeListener limits = new ChangeListener() {
+			@Override
+			public void changed(ChangeEvent event, Actor actor) {
+				showLimits();
+			}
+		};
+		timeSlider.addListener(limits);
+		fragSlider.addListener(limits);
 		startButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
@@ -167,7 +182,7 @@ public class MultiplayerScreen extends MenuScreen {
 		Label title = new Label(singleplayer ? "Un jugador" : hosting ? "Crear partida" : "Unirse a partida",
 				Assets.skin);
 		title.setFontScale(2f);
-		table.add(title).colspan(3).padBottom(24).row();
+		table.add(title).colspan(3).padBottom(16).row();
 		row(table, "Nombre", nameField, null);
 		if (networkBox != null)
 			row(table, "Conexion", networkBox, null);
@@ -185,6 +200,8 @@ public class MultiplayerScreen extends MenuScreen {
 		if (!joining) {
 			row(table, "Bots", botsSlider, botsValue);
 			row(table, "Dificultad", difficultyBox, null);
+			row(table, "Duracion", timeSlider, timeValue);
+			row(table, "Bajas para ganar", fragSlider, fragValue);
 		}
 		table.add().height(10).row();
 		table.add(startButton).colspan(3).width(256).height(56).padBottom(10).row();
@@ -217,12 +234,18 @@ public class MultiplayerScreen extends MenuScreen {
 
 	private static void row(Table table, String name, Actor widget, Label value) {
 		table.add(new Label(name, Assets.skin)).right().padRight(12);
-		table.add(widget).width(280).height(36).padBottom(10);
+		table.add(widget).width(280).height(34).padBottom(8);
 		if (value != null)
-			table.add(value).width(40).padLeft(10).padBottom(10).left();
+			table.add(value).width(100).padLeft(10).padBottom(8).left();
 		else
-			table.add().width(40);
+			table.add().width(100);
 		table.row();
+	}
+
+	private void showLimits() {
+		timeValue.setText((int) timeSlider.getValue() + " min");
+		int frags = (int) fragSlider.getValue();
+		fragValue.setText(frags == 0 ? "Sin limite" : Integer.toString(frags));
 	}
 
 	private void showBots() {
@@ -401,6 +424,8 @@ public class MultiplayerScreen extends MenuScreen {
 				config.localOnly = kind == GameSession.Kind.SINGLEPLAYER;
 				config.bots = bots;
 				config.botDifficulty = difficulty;
+				config.timeLimitMinutes = (int) timeSlider.getValue();
+				config.fragLimit = (int) fragSlider.getValue();
 				game.startHostedServer(config, clock);
 				serverStarted = true;
 				port = game.getHostedPort();
@@ -416,8 +441,11 @@ public class MultiplayerScreen extends MenuScreen {
 				Config.singleplayerBots = bots;
 			else if (kind == GameSession.Kind.HOST)
 				Config.hostBots = bots;
-			if (kind != GameSession.Kind.JOIN)
+			if (kind != GameSession.Kind.JOIN) {
 				Config.botDifficulty = difficulty;
+				Config.timeLimitMinutes = (int) timeSlider.getValue();
+				Config.fragLimit = (int) fragSlider.getValue();
+			}
 			showStatus(kind == GameSession.Kind.JOIN ? "Conectando a " + host + ":" + port + "..."
 					: bots > 0 ? "Preparando la partida y los bots..." : "Creando partida...");
 			startButton.setDisabled(true);
