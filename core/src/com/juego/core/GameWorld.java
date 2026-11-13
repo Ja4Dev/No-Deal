@@ -217,13 +217,29 @@ public class GameWorld {
 
 	public String getScoreboardTitle() {
 		int fragLimit = session.client.getFragLimit();
-		String mode = Text.get(session.isSingleplayer() ? "match.singleplayer" : "match.deathmatch");
-		return fragLimit > 0 ? Text.get("match.fragLimit", mode, fragLimit) : mode;
+		boolean teams = session.client.getMode().hasTeams();
+		String mode = teams ? session.client.getMode().label()
+				: Text.get(session.isSingleplayer() ? "match.singleplayer" : "match.deathmatch");
+		return fragLimit > 0 ? Text.get(teams ? "match.teamFragLimit" : "match.fragLimit", mode, fragLimit) : mode;
 	}
 
 	public void getScoreRows(Array<Scoreboard.Row> out) {
-		for (GameClient.PlayerInfo p : session.client.getPlayers())
-			out.add(new Scoreboard.Row().set(p.name, p.kills, p.deaths, p.assists, p.id == session.client.getLocalId()));
+		for (GameClient.PlayerInfo p : session.client.getPlayers()) {
+			Scoreboard.Row row = new Scoreboard.Row().set(p.name, p.kills, p.deaths, p.assists,
+					p.id == session.client.getLocalId());
+			row.team = p.team;
+			out.add(row);
+		}
+	}
+
+	/** Team match: each team's kills, by Team ordinal; null in deathmatch. */
+	public int[] getTeamScores() {
+		if (!session.client.getMode().hasTeams())
+			return null;
+		int[] scores = new int[com.juego.match.Team.values().length];
+		for (com.juego.match.Team team : com.juego.match.Team.values())
+			scores[team.ordinal()] = session.client.getTeamScore(team);
+		return scores;
 	}
 
 	public void resize(int width, int height) {

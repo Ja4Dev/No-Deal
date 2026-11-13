@@ -14,7 +14,7 @@ package com.juego.net;
 public final class Protocol {
 	public static final short MAGIC = 0x4E44; // "ND"
 	/** Bumped on any incompatible change; checked in HELLO. */
-	public static final int VERSION = 9;
+	public static final int VERSION = 10;
 	public static final int DEFAULT_PORT = 25559;
 	public static final int MAX_PLAYERS = 4;
 	/** Keeps datagrams under the typical internet MTU to avoid IP fragmentation. */
@@ -85,8 +85,12 @@ public final class Protocol {
 	public static final byte PONG = 25;
 	/** Client to server: the player landed hard (fall damage). Reliable. */
 	public static final byte FALL = 26;
+	/** Client to server: "put me in this team" (team match). Reliable. */
+	public static final byte TEAM = 27;
 	/** The "gun" of a death by falling, in KILL messages. */
 	public static final String FALL_KILL = "fall";
+	/** The "gun" of a KILL when a living player changes team: they leave the fight, without a death. */
+	public static final String TEAM_SWITCH = "team";
 	/** A player can change their name at most this often. */
 	public static final long RENAME_COOLDOWN_MS = 2000;
 	/** Doing more than this damage makes an assist if someone else finishes the victim off (as in CS). */

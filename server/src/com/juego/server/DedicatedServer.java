@@ -13,6 +13,7 @@ import com.badlogic.gdx.ApplicationLogger;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.juego.bots.BotDifficulty;
+import com.juego.match.GameMode;
 import com.juego.match.Match;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
@@ -29,7 +30,8 @@ import com.juego.utils.Text;
  * <pre>
  * java -jar NoDeal-server.jar [--port 25559] [--max-players 4] [--time-limit 10] [--frag-limit 20]
  *                             [--bots 0] [--bot-difficulty medio] [--gravity 800] [--airaccelerate 10]
- *                             [--autobunnyhop] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]
+ *                             [--autobunnyhop] [--mode dm|tdm] [--friendlyfire] [+sv_maxspeed 250 ...]
+ *                             [--lang es|en] [--nogui]
  * </pre>
  *
  * Terminal commands: {@code status}, {@code help}, {@code quit}, and the
@@ -80,6 +82,16 @@ public class DedicatedServer {
 				}
 				case "--autobunnyhop":
 					config.movement.autoBunnyhop = true;
+					break;
+				case "--mode": {
+					String name = args[++i];
+					config.mode = GameMode.parse(name);
+					if (config.mode == null)
+						throw new IllegalArgumentException(Text.get("ds.unknownMode", name));
+					break;
+				}
+				case "--friendlyfire":
+					config.friendlyFire = true;
 					break;
 				case "--nogui":
 					noGui = true;

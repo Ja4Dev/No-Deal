@@ -71,7 +71,8 @@ public class DeathScreen extends Menu {
 		} else {
 			title.setText("");
 			name.setText(Text.get(!fell ? "death.died"
-					: com.juego.net.Protocol.FALL_KILL.equals(gun) ? "death.fallDamage" : "death.fell"));
+					: com.juego.net.Protocol.FALL_KILL.equals(gun) ? "death.fallDamage"
+							: com.juego.net.Protocol.TEAM_SWITCH.equals(gun) ? "death.teamSwitch" : "death.fell"));
 			weapon.setText("");
 			stats.setText("");
 		}

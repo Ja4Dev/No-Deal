@@ -10,6 +10,7 @@ import com.juego.bullet.CharacterBody;
 import com.juego.guns.GunDefinition;
 import com.juego.guns.Recoil;
 import com.juego.utils.CharacterShape;
+import com.juego.match.Team;
 import com.juego.utils.MovementSettings;
 import com.juego.utils.PlayerMovement;
 
@@ -34,6 +35,7 @@ public class Bot {
 	/** Another player, as the bot sees it. */
 	public static final class Target {
 		public int id;
+		public Team team = Team.NONE;
 		public boolean alive, crouched;
 		/** Capsule center. */
 		public final Vector3 position = new Vector3();
@@ -54,6 +56,8 @@ public class Bot {
 
 	public final int id;
 	public final String name;
+	/** Team match: its side; it never fights its teammates (NONE in deathmatch). */
+	public Team team = Team.NONE;
 	private BotDifficulty difficulty;
 	private final BotWorld world;
 	private final NavGrid nav;
@@ -224,7 +228,7 @@ public class Bot {
 		Target current = null, nearest = null;
 		float nearestDistance = Float.MAX_VALUE;
 		for (Target t : targets) {
-			if (t.id == id || !t.alive || !canSee(t, nowMs))
+			if (t.id == id || !t.alive || isTeammate(t) || !canSee(t, nowMs))
 				continue;
 			if (t.id == targetId)
 				current = t;
@@ -255,6 +259,10 @@ public class Bot {
 		lastSeen.set(chosen.position);
 		lastSeenMs = nowMs;
 		return chosen;
+	}
+
+	private boolean isTeammate(Target t) {
+		return team.isTeam() && t.team == team;
 	}
 
 	/** In range, in the field of view (or the one shooting at us, or what we heard) and not behind a wall. */
@@ -394,7 +402,7 @@ public class Bot {
 			Target nearest = null;
 			float best = Float.MAX_VALUE;
 			for (Target t : targets) {
-				if (t.id == id || !t.alive)
+				if (t.id == id || !t.alive || isTeammate(t))
 					continue;
 				float d = t.position.dst2(position);
 				if (d < best) {

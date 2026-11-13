@@ -167,6 +167,7 @@ public final class Text {
 		add("action.FIRE", "Disparar", "Fire");
 		add("action.AIM", "Apuntar", "Aim");
 		add("action.RELOAD", "Recargar", "Reload");
+		add("pause.team", "Cambiar de equipo", "Switch team");
 		add("action.LAST_WEAPON", "Ultima arma usada", "Last used weapon");
 		add("action.PRIMARY", "Arma principal", "Primary weapon");
 		add("action.SECONDARY", "Pistola", "Pistol");
@@ -243,18 +244,19 @@ public final class Text {
 		add("mp.difficulty", "Dificultad", "Difficulty");
 		add("mp.duration", "Duracion", "Length");
 		add("mp.fragLimit", "Bajas para ganar", "Kills to win");
+		add("mp.mode", "Modo", "Mode");
 		add("mp.minutes", "{0} min", "{0} min");
 		add("mp.noLimit", "Sin limite", "No limit");
 		add("mp.consoleWhere.touch", "boton >_ arriba a la derecha", ">_ button, top right");
 		add("mp.consoleWhere.key", "tecla a la izquierda del 1", "the key left of 1");
 		add("mp.hint.singleplayer",
-				"Deathmatch contra bots. Durante la partida, la consola ({0}) agrega o saca bots y cambia la dificultad.",
-				"Deathmatch against bots. During the match, the console ({0}) adds or removes bots and changes their difficulty.");
-		add("mp.hint.host", "Deathmatch hasta {0} personas, mas los bots. Los demas se unen con tu IP (se muestra al empezar).",
-				"Deathmatch for up to {0} people, plus bots. The others join with your IP (shown when the match starts).");
+				"Contra bots, todos contra todos o por equipos. Durante la partida, la consola ({0}) agrega o saca bots y cambia la dificultad.",
+				"Against bots, everyone for themselves or in teams. During the match, the console ({0}) adds or removes bots and changes their difficulty.");
+		add("mp.hint.host", "Hasta {0} personas, mas los bots. Los demas se unen con tu IP (se muestra al empezar).",
+				"Up to {0} people, plus bots. The others join with your IP (shown when the match starts).");
 		add("mp.hint.hostBluetooth",
-				"Deathmatch hasta {0} personas, mas los bots. Los demas eligen \"{1}\" en Unirse a partida, con Conexion: Bluetooth (por Wi-Fi tambien se pueden unir con tu IP).",
-				"Deathmatch for up to {0} people, plus bots. The others pick \"{1}\" in Join game, with Connection: Bluetooth (over Wi-Fi they can also join with your IP).");
+				"Hasta {0} personas, mas los bots. Los demas eligen \"{1}\" en Unirse a partida, con Conexion: Bluetooth (por Wi-Fi tambien se pueden unir con tu IP).",
+				"Up to {0} people, plus bots. The others pick \"{1}\" in Join game, with Connection: Bluetooth (over Wi-Fi they can also join with your IP).");
 		add("mp.hint.joinBluetooth",
 				"Elegi el telefono de quien creo la partida. Si no aparece, que toque Crear otra vez: su telefono queda visible unos minutos.",
 				"Pick the phone of whoever created the match. If it isn't listed, they should tap Create again: their phone stays visible for a few minutes.");
@@ -310,12 +312,14 @@ public final class Text {
 		add("match.singleplayer", "Un jugador contra bots", "Singleplayer against bots");
 		add("match.deathmatch", "Deathmatch", "Deathmatch");
 		add("match.fragLimit", "{0}: gana el primero en llegar a {1} bajas", "{0}: first to {1} kills wins");
+		add("match.teamFragLimit", "{0}: gana el primer equipo en llegar a {1} bajas", "{0}: first team to {1} kills wins");
 		add("death.respawnIn", "Reviviendo en {0}s", "Respawning in {0}s");
 		add("death.respawning", "Reviviendo...", "Respawning...");
 		add("death.killedBy", "Te eliminó", "Killed by");
 		add("death.headshot", "  -  a la cabeza", "  -  headshot");
 		add("death.stats", "Bajas {0}      Muertes {1}      Asistencias {2}", "Kills {0}      Deaths {1}      Assists {2}");
 		add("death.fell", "Te caíste del mapa", "You fell off the map");
+		add("death.teamSwitch", "Cambiaste de equipo", "You changed teams");
 		add("death.fallDamage", "Te mató la caída", "The fall killed you");
 		add("death.died", "Moriste", "You died");
 
@@ -330,6 +334,8 @@ public final class Text {
 		add("feed.joined", "{0} se unió", "{0} joined");
 		add("feed.left", "{0} salió", "{0} left");
 		add("feed.fell", "{0} se cayó del mapa", "{0} fell off the map");
+		add("feed.teamChanged", "{0} se pasó a {1}", "{0} joined {1}");
+		add("feed.youTeam", "Ahora estás en {0}", "You are now on {0}");
 		add("feed.fallDied", "{0} murió por la caída", "{0} died from the fall");
 		add("feed.headshot", ", a la cabeza", ", headshot");
 		add("feed.newMatch", "Nueva partida", "New match");
@@ -338,6 +344,9 @@ public final class Text {
 		add("center.matchOver", "Fin de la partida", "Match over");
 		add("center.youWon", "¡Ganaste la partida!", "You won the match!");
 		add("center.winner", "Ganó {0}", "{0} won");
+		add("center.yourTeamWon", "¡Ganó tu equipo!", "Your team won!");
+		add("center.teamWon", "Ganó {0}", "{0} won");
+		add("center.draw", "Empate", "Draw");
 
 		// ---- console ----
 		add("console.welcome", "Consola. Escribi 'ayuda' para ver los comandos; {0} para cerrar.",
@@ -345,18 +354,32 @@ public final class Text {
 		add("console.help", "Comandos:\nnombre <nuevo>  cambia tu nombre\n"
 				+ "cl_showfps [0|1]  muestra los FPS y el ping\n"
 				+ "cl_showspeed [0|1]  muestra tu velocidad y la de cada salto\n"
-				+ "fps_max [valor]  limita los FPS (0 = los de la pantalla)\n{0}\nlimpiar  borra la consola",
+				+ "fps_max [valor]  limita los FPS (0 = los de la pantalla)\n"
+				+ "equipo [rojo|azul|auto]  por equipos: te cambia de equipo\n{0}\nlimpiar  borra la consola",
 				"Commands:\nname <new>  changes your name\n"
 						+ "cl_showfps [0|1]  shows the FPS and the ping\n"
 						+ "cl_showspeed [0|1]  shows your speed and that of each jump\n"
-						+ "fps_max [value]  caps the FPS (0 = the screen's refresh rate)\n{0}\nclear  clears the console");
+						+ "fps_max [value]  caps the FPS (0 = the screen's refresh rate)\n"
+						+ "team [red|blue|auto]  in a team match: changes your team\n{0}\nclear  clears the console");
 		add("console.hostOnly", "{0} lo cambia quien creo la partida. Ahora: {1}",
 				"{0} is changed by whoever created the match. Now: {1}");
 		add("hud.fps", "{0} FPS", "{0} FPS");
+		add("hud.team", "Equipo {0}", "{0} team");
+		add("team.NONE", "Ninguno", "None");
+		add("team.RED", "Rojo", "Red");
+		add("team.BLUE", "Azul", "Blue");
+		add("mode.DEATHMATCH", "Todos contra todos", "Deathmatch");
+		add("mode.TEAM_DEATHMATCH", "Por equipos", "Team deathmatch");
 		add("hud.ping", "ping {0} ms", "ping {0} ms");
 		add("hud.jump", "salto {0}", "jump {0}");
 		add("console.renameUsage", "Uso: nombre <nuevo nombre> (hasta {0} letras)", "Usage: name <new name> (up to {0} letters)");
 		add("console.renamed", "Ahora te llamas {0}.", "You are now {0}.");
+		add("console.noTeams", "Esta partida es todos contra todos.", "This match is everyone against everyone.");
+		add("console.team", "Estás en {0}. Para cambiar: equipo rojo, equipo azul o equipo auto.",
+				"You are on {0}. To change: team red, team blue or team auto.");
+		add("console.teamUsage", "Uso: equipo rojo | azul | auto", "Usage: team red | blue | auto");
+		add("console.teamAsked", "Pediste pasarte a {0}.", "You asked to join {0}.");
+		add("console.teamAuto", "el equipo que necesite jugadores", "whichever team needs players");
 		add("console.notHost", "Los comandos los usa quien creo la partida (o la consola del servidor dedicado).",
 				"Commands are for whoever created the match (or the dedicated server's console).");
 		add("console.unknown", "No conozco '{0}'. Escribi 'ayuda'.", "Unknown command '{0}'. Type 'help'.");
@@ -385,7 +408,7 @@ public final class Text {
 		add("server.botJoined", "{0} entró a la partida (bot {1})", "{0} joined the match ({1} bot)");
 		add("server.botLeft", "{0} salió de la partida (bot)", "{0} left the match (bot)");
 		add("server.botDifficulty", "Dificultad de los bots: {0}", "Bot difficulty: {0}");
-		add("server.commandsHelp", "bot agregar [cantidad] [dificultad]  agrega bots\n"
+		add("server.commandsHelp", "bot agregar [cantidad] [dificultad] [rojo|azul]  agrega bots\n"
 				+ "bot quitar [nombre | cantidad | todos]  saca bots\n"
 				+ "bot dificultad <dificultad>  cambia la dificultad de todos los bots\n"
 				+ "bot lista  muestra los bots\n"
@@ -397,8 +420,9 @@ public final class Text {
 				+ "sv_autobunnyhopping [0|1]  mantener el salto vuelve a saltar al caer\n"
 				+ "sv_maxspeed [valor]  velocidad al correr con el cuchillo (250 normal; las armas pesan)\n"
 				+ "sv_maxvelocity [valor]  velocidad maxima, aun con bunnyhop (750 normal)\n"
-				+ "sv_falldamage [0|1]  las caidas fuertes lastiman",
-				"bot add [count] [difficulty]  adds bots\n"
+				+ "sv_falldamage [0|1]  las caidas fuertes lastiman\n"
+				+ "mp_friendlyfire [0|1]  por equipos: los compañeros se lastiman",
+				"bot add [count] [difficulty] [red|blue]  adds bots\n"
 						+ "bot kick [name | count | all]  removes bots\n"
 						+ "bot difficulty <difficulty>  changes the difficulty of every bot\n"
 						+ "bot list  shows the bots\n"
@@ -410,7 +434,8 @@ public final class Text {
 						+ "sv_autobunnyhopping [0|1]  holding jump jumps again on landing\n"
 						+ "sv_maxspeed [value]  running speed with the knife (250 is normal; weapons weigh)\n"
 						+ "sv_maxvelocity [value]  top speed, even bunnyhopping (750 is normal)\n"
-						+ "sv_falldamage [0|1]  hard falls hurt");
+						+ "sv_falldamage [0|1]  hard falls hurt\n"
+						+ "mp_friendlyfire [0|1]  team match: teammates hurt each other");
 		add("server.status", "{0}/{1} jugadores y {2} bots, {3}", "{0}/{1} players and {2} bots, {3}");
 		add("server.difficultyNow", "Dificultad de los bots: {0}. Opciones: {1}", "Bot difficulty: {0}. Options: {1}");
 		add("server.unknownDifficulty", "No conozco la dificultad '{0}'. Opciones: {1}", "Unknown difficulty '{0}'. Options: {1}");
@@ -433,6 +458,10 @@ public final class Text {
 		add("server.winner", "Ganó {0} con {1} bajas.", "{0} won with {1} kills.");
 		add("server.newMatch", "Empieza una nueva partida", "A new match begins");
 		add("server.fell", "{0} se cayó del mapa", "{0} fell off the map");
+		add("server.teamWon", "Ganó {0}, {1} a {2}.", "{0} won, {1} to {2}.");
+		add("server.draw", "Empate a {0}.", "A draw at {0}.");
+		add("server.teamChanged", "{0} se pasó a {1}", "{0} joined {1}");
+		add("server.teamScores", "Rojo {0}, Azul {1}", "Red {0}, Blue {1}");
 		add("server.fallDied", "{0} murió por la caída", "{0} died from the fall");
 		add("server.kill", "{0} mató a {1} con {2}{3}", "{0} killed {1} with {2}{3}");
 		add("server.headshot", " (headshot)", " (headshot)");
@@ -512,7 +541,9 @@ public final class Text {
 		add("ds.terminalHelp", "Escribí 'ayuda' para ver los comandos.", "Type 'help' for commands.");
 		add("ds.usage", "Uso: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
 				+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medio] [--gravity 800] [--airaccelerate 10] "
-				+ "[--autobunnyhop] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]\n"
+				+ "[--autobunnyhop] [--mode dm|tdm] [--friendlyfire] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]\n"
+				+ "  --mode        dm: todos contra todos; tdm: por equipos (las bajas para ganar son del equipo)\n"
+				+ "  --friendlyfire  por equipos, los compañeros se lastiman (mp_friendlyfire 1)\n"
 				+ "  --time-limit  duración de la partida en minutos\n"
 				+ "  --frag-limit  bajas que ganan antes de tiempo (0 = se juega todo el tiempo)\n"
 				+ "  --bots        bots en la partida (0 a {4}), además de los jugadores\n"
@@ -523,7 +554,9 @@ public final class Text {
 				+ "  --nogui       usar la terminal en vez de abrir la ventana del servidor",
 				"Usage: java -jar NoDeal-server.jar [--port {0}] [--max-players {1}] [--time-limit {2}] "
 						+ "[--frag-limit {3}] [--bots 0] [--bot-difficulty medium] [--gravity 800] [--airaccelerate 10] "
-						+ "[--autobunnyhop] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]\n"
+						+ "[--autobunnyhop] [--mode dm|tdm] [--friendlyfire] [+sv_maxspeed 250 ...] [--lang es|en] [--nogui]\n"
+						+ "  --mode        dm: deathmatch; tdm: team deathmatch (the kills to win are the team's)\n"
+						+ "  --friendlyfire  in a team match, teammates hurt each other (mp_friendlyfire 1)\n"
 						+ "  --time-limit  match length in minutes\n"
 						+ "  --frag-limit  kills that win the match early (0 = play the full time)\n"
 						+ "  --bots        bots in the match (0 to {4}), besides the players\n"
@@ -533,7 +566,10 @@ public final class Text {
 						+ "  --lang        language of the messages (otherwise the game's, or the system's)\n"
 						+ "  --nogui       run in the terminal instead of opening the server window");
 		add("ds.title.usage", "Servidor dedicado de No Deal (protocolo v{0})", "No Deal dedicated server (protocol v{0})");
+		add("ds.mode", "Modo", "Mode");
 		add("ds.unknownOption", "Opción desconocida {0}", "Unknown option {0}");
+		add("ds.unknownMode", "No conozco el modo {0}: dm (todos contra todos) o tdm (por equipos)",
+				"Unknown mode {0}: dm (deathmatch) or tdm (team deathmatch)");
 		add("ds.unknownDifficulty", "Dificultad de bots desconocida {0} ({1})", "Unknown bot difficulty {0} ({1})");
 		add("ds.unknownLanguage", "Idioma desconocido {0} (es, en)", "Unknown language {0} (es, en)");
 		add("ds.badPort", "--port tiene que estar entre 1 y 65535", "--port must be between 1 and 65535");

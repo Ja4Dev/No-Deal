@@ -30,6 +30,9 @@ import com.juego.guns.Armory;
 import com.juego.guns.GroundWeapons;
 import com.juego.guns.GunDefinition;
 import com.juego.match.Match;
+import com.juego.match.GameMode;
+import com.juego.match.Team;
+import com.juego.match.TeamSpawns;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.FallDamage;
 import com.juego.utils.Text;
@@ -83,6 +86,10 @@ public class GameServer implements Disposable {
 		public boolean localOnly;
 		/** Gravity, air acceleration and auto bunnyhop at the start (changed later with sv_ commands). */
 		public final MovementSettings movement = new MovementSettings();
+		/** Everyone against everyone, or two teams. */
+		public GameMode mode = GameMode.DEATHMATCH;
+		/** Team match: teammates can hurt each other (mp_friendlyfire). */
+		public boolean friendlyFire;
 	}
 
 	/** What a server event is about, so a console can color or filter it. */
@@ -128,6 +135,8 @@ public class GameServer implements Disposable {
 		boolean crouched;
 		/** Null for people. */
 		Bot bot;
+		/** Team match: Red or Blue (NONE in deathmatch). */
+		Team team = Team.NONE;
 		final MovementValidator validator = new MovementValidator();
 		final Vector3 position = new Vector3();
 		final long[] lastFireMs = { Long.MIN_VALUE / 2, Long.MIN_VALUE / 2 };
@@ -201,6 +210,12 @@ public class GameServer implements Disposable {
 	private NavGrid nav;
 	private BotDifficulty botDifficulty;
 	private final Random random = new Random();
+	/** Team match: where each team spawns, its kills, whether teammates hurt each other. */
+	private final TeamSpawns teamSpawns;
+	private final int[] teamScores = new int[Team.values().length];
+	private boolean friendlyFire;
+	/** Bots should be moved between teams to even them out (done at the end of the tick). */
+	private boolean rebalancePending;
 	private final Array<Bot.Target> targets = new Array<>();
 	private float botAccumulator;
 	private long lastBotUpdateMs = Long.MIN_VALUE;
@@ -219,6 +234,8 @@ public class GameServer implements Disposable {
 		JsonValue mapData = new JsonReader().parse(files.resolve("data/maps/" + config.map + ".json"));
 		for (JsonValue point : mapData.get("spawnPoints"))
 			spawnPoints.add(new Vector3(point.getFloat(0), point.getFloat(1), point.getFloat(2)));
+		teamSpawns = TeamSpawns.load(mapData, spawnPoints);
+		friendlyFire = config.friendlyFire;
 		map = new MapCollision(files.resolve(mapData.getString("model")));
 		mapObject.setCollisionShape(map.shape);
 		mapObject.setUserValue(Protocol.WORLD);
@@ -299,7 +316,110 @@ public class GameServer implements Disposable {
 	/** E.g. "jugando, quedan 7:42", for the consoles. */
 	public String describeMatch() {
 		long remaining = match.remainingMs(clock.getAsLong());
-		return Text.get(match.isPlaying() ? "server.playing" : "server.between", Match.formatClock(remaining));
+		String clockText = Text.get(match.isPlaying() ? "server.playing" : "server.between", Match.formatClock(remaining));
+		if (!config.mode.hasTeams())
+			return clockText;
+		return clockText + ", " + Text.get("server.teamScores", teamScores[Team.RED.ordinal()],
+				teamScores[Team.BLUE.ordinal()]);
+	}
+
+	/** Everyone against everyone, or teams. */
+	public GameMode getMode() {
+		return config.mode;
+	}
+
+	/** Team match: a team's kills. */
+	public int getTeamScore(Team team) {
+		return teamScores[team.ordinal()];
+	}
+
+	// ---- teams ----
+
+	private boolean sameTeam(ServerPlayer a, ServerPlayer b) {
+		return config.mode.hasTeams() && a.team.isTeam() && a.team == b.team;
+	}
+
+	private int teamSize(Team team, ServerPlayer except) {
+		int size = 0;
+		for (ServerPlayer p : byId.values())
+			if (p != except && p.team == team)
+				size++;
+		return size;
+	}
+
+	/** The team that needs players: the smaller one; if even, the one behind; if even again, Red. NONE in deathmatch. */
+	private Team autoTeam(ServerPlayer except) {
+		if (!config.mode.hasTeams())
+			return Team.NONE;
+		int red = teamSize(Team.RED, except), blue = teamSize(Team.BLUE, except);
+		if (red != blue)
+			return red < blue ? Team.RED : Team.BLUE;
+		return teamScores[Team.BLUE.ordinal()] < teamScores[Team.RED.ordinal()] ? Team.BLUE : Team.RED;
+	}
+
+	private Team winningTeam() {
+		int red = teamScores[Team.RED.ordinal()], blue = teamScores[Team.BLUE.ordinal()];
+		return red == blue ? Team.NONE : red > blue ? Team.RED : Team.BLUE;
+	}
+
+	/** A player asks for a team (NONE: whichever needs players). */
+	private void handleTeam(ServerPlayer p, Team wanted, long now) {
+		if (!config.mode.hasTeams())
+			return;
+		Team team = wanted.isTeam() ? wanted : autoTeam(p);
+		if (team == p.team)
+			return;
+		switchTeam(p, team, now);
+		event(EventType.INFO, Text.get("server.teamChanged", p.name, team.label()));
+		rebalancePending = true; // bots even the teams out again
+	}
+
+	/**
+	 * Moves a player to the other team. Alive, they leave the fight (without a
+	 * death) and come back on their new side after the usual wait, as in CS;
+	 * otherwise switching would be a way to heal.
+	 */
+	private void switchTeam(ServerPlayer p, Team team, long now) {
+		p.team = team;
+		if (p.isBot())
+			p.bot.team = team;
+		p.damageFrom.clear();
+		if (!p.alive)
+			return;
+		p.health = 0;
+		p.alive = false;
+		p.respawnAtMs = now + Protocol.RESPAWN_DELAY_MS;
+		removeHitbox(p);
+		if (p.isBot())
+			p.bot.die();
+		Messages.Kill kill = new Messages.Kill();
+		kill.killerId = Protocol.WORLD;
+		kill.victimId = p.id;
+		kill.gun = Protocol.TEAM_SWITCH;
+		broadcastReliable(kill, null);
+	}
+
+	/**
+	 * Keeps the teams even: while one has two players more than the other,
+	 * one of its bots changes sides (people choose their own team).
+	 */
+	private void rebalanceBots(long now) {
+		if (!config.mode.hasTeams())
+			return;
+		for (int guard = 0; guard < Protocol.MAX_MATCH_PLAYERS; guard++) {
+			int red = teamSize(Team.RED, null), blue = teamSize(Team.BLUE, null);
+			if (Math.abs(red - blue) <= 1)
+				return;
+			Team bigger = red > blue ? Team.RED : Team.BLUE;
+			ServerPlayer moved = null;
+			for (ServerPlayer p : byId.values())
+				if (p.isBot() && p.team == bigger && (moved == null || !p.alive)) // a dead one, if there is
+					moved = p;
+			if (moved == null)
+				return; // only people on the bigger team
+			switchTeam(moved, bigger.other(), now);
+			event(EventType.INFO, Text.get("server.teamChanged", moved.name, moved.team.label()));
+		}
 	}
 
 	/** One line per player, for the dedicated server console. */
@@ -316,7 +436,8 @@ public class GameServer implements Disposable {
 		Array<PlayerInfo> result = new Array<>(byId.size);
 		for (ServerPlayer p : byId.values())
 			result.add(new PlayerInfo(p.id, p.name,
-					p.isBot() ? "bot (" + p.bot.getDifficulty().label() + ")" : NetUtils.format(p.connection.address),
+					(p.isBot() ? "bot (" + p.bot.getDifficulty().label() + ")" : NetUtils.format(p.connection.address))
+							+ (p.team.isTeam() ? ", " + p.team.label() : ""),
 					p.kills, p.deaths, p.assists, p.health, p.alive, p.isBot()));
 		result.sort((a, b) -> Integer.compare(a.id, b.id));
 		return result;
@@ -350,6 +471,10 @@ public class GameServer implements Disposable {
 		}
 		updateBots(now);
 		updateMatch(now);
+		if (rebalancePending) {
+			rebalancePending = false;
+			rebalanceBots(now);
+		}
 		weapons.update(now);
 		if (now >= nextSnapshotMs) {
 			nextSnapshotMs = now + Protocol.SNAPSHOT_INTERVAL_MS;
@@ -412,6 +537,9 @@ public class GameServer implements Disposable {
 			case Protocol.FALL:
 				handleFall(player, Messages.Fall.read(message.payload), now);
 				break;
+			case Protocol.TEAM:
+				handleTeam(player, Messages.TeamRequest.read(message.payload).team, now);
+				break;
 			case Protocol.DISCONNECT:
 				event(EventType.LEAVE, Text.get("server.left", player.name));
 				removePlayer(player);
@@ -454,6 +582,7 @@ public class GameServer implements Disposable {
 		player.hitbox.setCollisionShape(hitboxShape);
 		player.hitbox.setUserValue(id);
 		resetLoadout(player);
+		player.team = autoTeam(null);
 		player.validator.setLimits(movement.fastestSpeed(), movement.runSpeed(), now);
 		byId.put(id, player);
 		byAddress.put(connection.address, player);
@@ -465,6 +594,7 @@ public class GameServer implements Disposable {
 		welcome.map = config.map;
 		welcome.fragLimit = config.fragLimit;
 		welcome.spawn.set(player.position);
+		welcome.mode = config.mode;
 		connection.sendReliable(welcome);
 		connection.sendReliable(movementMessage());
 		for (ServerPlayer other : byId.values()) {
@@ -475,6 +605,7 @@ public class GameServer implements Disposable {
 			connection.sendReliable(weaponSpawn(w, false)); // already lying there: no throw animation
 		broadcastReliable(joined(player), player);
 		event(EventType.JOIN, Text.get("server.joined", player.name, id, NetUtils.format(connection.address)));
+		rebalancePending = true; // a person took a place: a bot may have to change sides
 		return player;
 	}
 
@@ -669,11 +800,16 @@ public class GameServer implements Disposable {
 	 */
 	private void hurt(ServerPlayer victim, ServerPlayer attacker, int damage, boolean headshot, Vector3 where,
 			Vector3 direction, Vector3 source, GunDefinition gun, long now) {
-		victim.damageFrom.getAndIncrement(attacker.id, 0, Math.min(damage, Math.max(0, victim.health)));
+		boolean teammate = sameTeam(attacker, victim);
+		if (teammate && !friendlyFire)
+			return; // the bullet stops in a teammate, harmlessly
+		if (!teammate)
+			victim.damageFrom.getAndIncrement(attacker.id, 0, Math.min(damage, Math.max(0, victim.health)));
 		victim.health -= damage;
 		broadcastHit(victim, headshot, where, direction);
 		if (victim.isBot()) {
-			victim.bot.hurtBy(attacker.id, source, now);
+			if (!teammate) // a teammate's stray bullet doesn't make it an enemy
+				victim.bot.hurtBy(attacker.id, source, now);
 		} else {
 			Messages.Damage hurt = new Messages.Damage();
 			hurt.amount = damage;
@@ -746,8 +882,10 @@ public class GameServer implements Disposable {
 		shot.origin.set(origin);
 		shot.end.set(end);
 		for (ServerPlayer p : byId.values()) {
-			if (p.isBot())
-				p.bot.hearShot(shooter.id, origin, botNowMs);
+			if (p.isBot()) {
+				if (!sameTeam(p, shooter))
+					p.bot.hearShot(shooter.id, origin, botNowMs);
+			}
 			else if (p != shooter)
 				p.connection.sendUnreliable(shot);
 		}
@@ -773,6 +911,11 @@ public class GameServer implements Disposable {
 	 *         full match ({@link Protocol#MAX_MATCH_PLAYERS})
 	 */
 	public String addBot(BotDifficulty difficulty) {
+		return addBot(difficulty, null);
+	}
+
+	/** @param team in a team match, the bot's team (null: whichever needs players) */
+	public String addBot(BotDifficulty difficulty, Team team) {
 		if (getBotCount() >= MAX_BOTS || byId.size >= Protocol.MAX_MATCH_PLAYERS)
 			return null;
 		long now = clock.getAsLong();
@@ -785,10 +928,13 @@ public class GameServer implements Disposable {
 		p.hitbox.setCollisionShape(hitboxShape);
 		p.hitbox.setUserValue(id);
 		resetLoadout(p);
+		p.team = team != null ? team : autoTeam(null);
 		byId.put(id, p);
 		placeAtSpawn(p, now);
 		p.bot = new Bot(id, name, difficulty, botWorld, nav, p.position, random);
 		p.bot.setGravity(movement.gravityAcceleration());
+		p.bot.team = p.team;
+		rebalancePending = true; // "bot agregar 4 azul" against one Red: the teams are evened out
 		respawnBot(p);
 		broadcastReliable(joined(p), p);
 		event(EventType.JOIN, Text.get("server.botJoined", name, difficulty.label()));
@@ -908,6 +1054,7 @@ public class GameServer implements Disposable {
 		for (ServerPlayer p : byId.values()) {
 			Bot.Target t = targets.get(i++);
 			t.id = p.id;
+			t.team = p.team;
 			t.alive = p.alive;
 			t.crouched = p.crouched;
 			t.position.set(p.position);
@@ -978,6 +1125,14 @@ public class GameServer implements Disposable {
 		String[] words = lower.split(" ");
 		if (words[0].startsWith("sv_"))
 			return movementCommand(words);
+		if (words[0].equals("mp_friendlyfire")) {
+			if (words.length < 2)
+				return Text.get("server.cvar", words[0], friendlyFire ? "1" : "0");
+			if (!words[1].equals("0") && !words[1].equals("1"))
+				return Text.get("server.cvarRange", words[0], 0, 1);
+			friendlyFire = words[1].equals("1");
+			return Text.get("server.cvarChanged", words[0], words[1]);
+		}
 		if (words[0].equals("estado") || words[0].equals("status") || words[0].equals("jugadores")
 				|| words[0].equals("players")) {
 			return Text.get("server.status", getPlayerCount(), config.maxPlayers, getBotCount(), describeMatch())
@@ -1022,10 +1177,14 @@ public class GameServer implements Disposable {
 	/** "bot agregar", "bot agregar 3", "bot agregar dificil", "bot agregar 2 muy dificil"... */
 	private String addBotsCommand(String args) {
 		int count = 1;
+		Team team = null;
 		StringBuilder difficultyText = new StringBuilder();
 		for (String word : args.split(" ")) {
+			Team named = config.mode.hasTeams() && !word.isEmpty() && !word.equals("a") ? Team.parse(word) : null;
 			if (word.matches("\\d{1,3}"))
 				count = Integer.parseInt(word);
+			else if (named != null && named.isTeam())
+				team = named; // "bot agregar 3 azul"
 			else if (!word.isEmpty())
 				difficultyText.append(difficultyText.length() == 0 ? "" : " ").append(word);
 		}
@@ -1037,7 +1196,7 @@ public class GameServer implements Disposable {
 		}
 		Array<String> added = new Array<>();
 		for (int i = 0; i < count; i++) {
-			String name = addBot(difficulty);
+			String name = addBot(difficulty, team);
 			if (name == null)
 				break;
 			added.add(name);
@@ -1206,21 +1365,34 @@ public class GameServer implements Disposable {
 
 	private void updateMatch(long now) {
 		int topKills = 0;
-		for (ServerPlayer p : byId.values())
-			topKills = Math.max(topKills, p.kills);
+		if (config.mode.hasTeams()) // the kill limit is the team's
+			topKills = Math.max(teamScores[Team.RED.ordinal()], teamScores[Team.BLUE.ordinal()]);
+		else
+			for (ServerPlayer p : byId.values())
+				topKills = Math.max(topKills, p.kills);
 		switch (match.update(now, topKills)) {
 		case ENDED: {
-			ServerPlayer winner = leader();
 			Messages.MatchEnd end = new Messages.MatchEnd();
-			end.winnerId = winner == null ? Protocol.WORLD : winner.id;
 			end.reason = match.getEndReason().ordinal();
+			String reason = Text.get(match.getEndReason() == Match.EndReason.FRAG_LIMIT ? "server.byFragLimit" : "server.byTime");
+			if (config.mode.hasTeams()) {
+				end.winnerId = Protocol.WORLD;
+				end.winnerTeam = winningTeam();
+				int red = teamScores[Team.RED.ordinal()], blue = teamScores[Team.BLUE.ordinal()];
+				event(EventType.MATCH, Text.get("server.matchOver", reason, end.winnerTeam.isTeam()
+						? Text.get("server.teamWon", end.winnerTeam.label(), Math.max(red, blue), Math.min(red, blue))
+						: Text.get("server.draw", red)));
+			} else {
+				ServerPlayer winner = leader();
+				end.winnerId = winner == null ? Protocol.WORLD : winner.id;
+				event(EventType.MATCH, Text.get("server.matchOver", reason,
+						winner == null ? Text.get("server.noKills") : Text.get("server.winner", winner.name, winner.kills)));
+			}
 			broadcastReliable(end, null);
-			event(EventType.MATCH, Text.get("server.matchOver",
-					Text.get(match.getEndReason() == Match.EndReason.FRAG_LIMIT ? "server.byFragLimit" : "server.byTime"),
-					winner == null ? Text.get("server.noKills") : Text.get("server.winner", winner.name, winner.kills)));
 			break;
 		}
 		case RESTARTED:
+			java.util.Arrays.fill(teamScores, 0);
 			// A copy: placeAtSpawn and teleport iterate the players too, and libGDX map
 			// iterators can't be nested.
 			for (ServerPlayer p : byId.values().toArray()) {
@@ -1264,8 +1436,13 @@ public class GameServer implements Disposable {
 		removeHitbox(victim);
 		if (victim.isBot())
 			victim.bot.die();
-		if (killer != null && killer != victim)
-			killer.kills++;
+		if (killer != null && killer != victim) {
+			// Killing a teammate (with mp_friendlyfire) takes a kill off, from the player and the team.
+			int score = sameTeam(killer, victim) ? -1 : 1;
+			killer.kills += score;
+			if (killer.team.isTeam())
+				teamScores[killer.team.ordinal()] += score;
+		}
 		// Whoever else did more than ASSIST_DAMAGE to this life gets an assist.
 		for (com.badlogic.gdx.utils.IntIntMap.Entry e : victim.damageFrom) {
 			ServerPlayer helper = byId.get(e.key);
@@ -1314,10 +1491,11 @@ public class GameServer implements Disposable {
 	}
 
 	private void placeAtSpawn(ServerPlayer p, long now) {
-		// Pick the spawn point farthest from every other living player.
-		Vector3 best = spawnPoints.first();
+		// Pick the spawn point farthest from every other living player (in a team match, among the team's).
+		Array<Vector3> points = p.team.isTeam() ? teamSpawns.of(p.team) : spawnPoints;
+		Vector3 best = points.first();
 		float bestDistance = -1;
-		for (Vector3 candidate : spawnPoints) {
+		for (Vector3 candidate : points) {
 			float nearest = Float.MAX_VALUE;
 			for (ServerPlayer other : byId.values()) {
 				if (other != p && other.alive)
@@ -1374,6 +1552,7 @@ public class GameServer implements Disposable {
 
 	private void removePlayer(ServerPlayer p) {
 		byId.remove(p.id);
+		rebalancePending = true;
 		if (p.isBot())
 			p.bot.dispose();
 		else
@@ -1406,11 +1585,13 @@ public class GameServer implements Disposable {
 		snapshot.tick = tick++;
 		snapshot.phase = match.getPhase().ordinal();
 		snapshot.remainingMs = (int) Math.min(Integer.MAX_VALUE, match.remainingMs(clock.getAsLong()));
+		System.arraycopy(teamScores, 0, snapshot.teamScores, 0, teamScores.length);
 		for (ServerPlayer p : byId.values()) {
 			Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
 			e.playerId = p.id;
 			e.alive = p.alive;
 			e.crouched = p.crouched;
+			e.team = p.team;
 			e.health = Math.max(0, p.health);
 			e.kills = p.kills;
 			e.deaths = p.deaths;

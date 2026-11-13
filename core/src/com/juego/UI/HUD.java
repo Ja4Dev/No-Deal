@@ -13,12 +13,18 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.LongArray;
 import com.juego.guns.Gun;
+import com.juego.match.Team;
+import com.juego.utils.Text;
 import com.juego.utils.Config;
 import com.juego.utils.Display;
 import com.juego.utils.Platform;
 
 public class HUD extends Menu {
 	private final BitmapFont font;
+	/** For texts with colors ([#ff6152]...[]): the kill feed and the team scores. */
+	private final BitmapFont markupFont;
+	/** Team match: the score under the clock, and our team above the health. */
+	private final Label teamScoreLabel, myTeamLabel;
 	private final Image healthWidget, ammoWidget, timerWidget;
 	private final Label healthLabel;
 	private final Label ammoLabel;
@@ -66,8 +72,15 @@ public class HUD extends Menu {
 		timeLabel = new Label("15:00", style);
 		timeLabel.setFontScale(2f);
 
-		feedLabel = new Label("", new Label.LabelStyle(font, Color.WHITE));
+		markupFont = new BitmapFont();
+		markupFont.getData().markupEnabled = true;
+		feedLabel = new Label("", new Label.LabelStyle(markupFont, Color.WHITE));
 		feedLabel.setFontScale(1.25f);
+		teamScoreLabel = new Label("", new Label.LabelStyle(markupFont, Color.WHITE));
+		teamScoreLabel.setFontScale(1.6f);
+		teamScoreLabel.setAlignment(Align.center);
+		myTeamLabel = new Label("", new Label.LabelStyle(markupFont, Color.WHITE));
+		myTeamLabel.setFontScale(1.2f);
 		centerLabel = new Label("", new Label.LabelStyle(font, Color.RED));
 		centerLabel.setFontScale(2.5f);
 		centerLabel.setAlignment(Align.center);
@@ -105,6 +118,8 @@ public class HUD extends Menu {
 		stage.addActor(ammoLabel);
 		stage.addActor(timeLabel);
 		stage.addActor(feedLabel);
+		stage.addActor(teamScoreLabel);
+		stage.addActor(myTeamLabel);
 		stage.addActor(centerLabel);
 		stage.addActor(promptLabel);
 		stage.addActor(statsLabel);
@@ -209,7 +224,22 @@ public class HUD extends Menu {
 		promptLabel.setText(prompt == null ? "" : prompt);
 	}
 
-	/** Adds a line to the kill feed (top right). Lines fade out after a few seconds. */
+	/**
+	 * Team match: the score under the clock (Red's left, Blue's right) and our
+	 * team above the health. {@code mine} NONE hides them (deathmatch).
+	 */
+	public void setTeams(Team mine, int red, int blue) {
+		if (!mine.isTeam()) {
+			teamScoreLabel.setText("");
+			myTeamLabel.setText("");
+			return;
+		}
+		teamScoreLabel.setText("[#" + Team.RED.hex + "]" + Team.RED.label() + "  " + red + "[]     [#" + Team.BLUE.hex
+				+ "]" + blue + "  " + Team.BLUE.label() + "[]");
+		myTeamLabel.setText("[#" + mine.hex + "]" + Text.get("hud.team", mine.label()) + "[]");
+	}
+
+	/** Adds a line to the kill feed (top right): may have colors, so a "[" must come as "[[". Lines fade out. */
 	public void addFeedMessage(String message) {
 		feedMessages.add(message);
 		feedTimes.add(System.currentTimeMillis());
@@ -229,6 +259,7 @@ public class HUD extends Menu {
 		healthWidget.setVisible(visible);
 		ammoWidget.setVisible(visible);
 		healthLabel.setVisible(visible);
+		myTeamLabel.setVisible(visible);
 		ammoLabel.setVisible(visible);
 		promptLabel.setVisible(visible);
 		speedLabel.setVisible(visible);
@@ -248,6 +279,10 @@ public class HUD extends Menu {
 		}
 		feedLabel.setText(String.join("\n", feedMessages));
 		feedLabel.pack();
+		teamScoreLabel.pack();
+		teamScoreLabel.setPosition(stage.getWidth() / 2, stage.getHeight() - 66, Align.top);
+		myTeamLabel.pack();
+		myTeamLabel.setPosition(12, 72, Align.bottomLeft);
 		// On a touch screen the top right corner has the pause, scoreboard and console buttons.
 		if (Platform.touch)
 			feedLabel.setPosition(12, stage.getHeight() - 12, Align.topLeft);
@@ -315,6 +350,7 @@ public class HUD extends Menu {
 	public void dispose() {
 		super.dispose();
 		font.dispose();
+		markupFont.dispose();
 		vignetteTexture.dispose();
 		indicatorTexture.dispose();
 		crosshair.dispose();

@@ -19,6 +19,7 @@ import com.juego.core.Assets;
 import com.juego.core.GameWorld;
 import com.juego.graphics.SoldierModel;
 import com.juego.guns.Gun;
+import com.juego.match.Team;
 import com.juego.net.GameClient;
 import com.juego.net.Messages;
 import com.juego.net.NetUtils;
@@ -55,6 +56,8 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		final SoldierModel.Pose pose;
 		final Vector3 last = new Vector3();
 		boolean known;
+		/** The team whose uniform it wears now (NONE: its own deathmatch color). */
+		Team painted = Team.NONE;
 		float speed;
 
 		Animation(ModelComponent model) {
@@ -118,13 +121,13 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		if (gameWorld.isSingleplayer()) {
 			String console = Text.get(Platform.touch ? "feed.consoleButton" : "feed.consoleKey",
 					Controls.promptName(Controls.Action.CONSOLE));
-			hud().addFeedMessage(Text.get("feed.consoleHint", console));
+			feed(Text.get("feed.consoleHint", console));
 		} else if (gameWorld.isHosting()) {
 			Array<String> ips = NetUtils.lanAddresses();
-			hud().addFeedMessage(ips.isEmpty() ? Text.get("feed.hosted", gameWorld.getHostedPort())
+			feed(ips.isEmpty() ? Text.get("feed.hosted", gameWorld.getHostedPort())
 					: Text.get("feed.hostedAt", ips.first() + ":" + gameWorld.getHostedPort()));
 		} else {
-			hud().addFeedMessage(Text.get("feed.connected"));
+			feed(Text.get("feed.connected"));
 		}
 	}
 
@@ -158,12 +161,17 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			feed(Text.get("feed.left", name(event.playerId)));
 			break;
 		case KILL: {
-			String victim = name(event.playerId);
-			boolean fall = Protocol.FALL_KILL.equals(event.gun);
-			String gun = fall ? event.gun : Assets.armory.displayName(event.gun); // "knife" -> "Cuchillo"
-			String line = event.killerId == Protocol.WORLD ? Text.get(fall ? "feed.fallDied" : "feed.fell", victim)
-					: name(event.killerId) + " [" + gun + (event.headshot ? Text.get("feed.headshot") : "") + "] " + victim;
-			feed(line);
+			boolean fall = Protocol.FALL_KILL.equals(event.gun), switched = Protocol.TEAM_SWITCH.equals(event.gun);
+			String gun = fall || switched ? event.gun : Assets.armory.displayName(event.gun); // "knife" -> "Cuchillo"
+			// Changing team isn't a death: TEAM_CHANGED tells everyone.
+			if (!switched) {
+				String victim = coloredName(event.playerId);
+				String line = event.killerId == Protocol.WORLD
+						? Text.get(fall ? "feed.fallDied" : "feed.fell", victim)
+						: coloredName(event.killerId) + " " + escape("[" + gun
+								+ (event.headshot ? Text.get("feed.headshot") : "") + "]") + " " + victim;
+				feedMarkup(line);
+			}
 			if (me) {
 				playerComponent.killedByServer();
 				gameWorld.deathCam().onKilled(event.killerId, gun, event.headshot);
@@ -183,9 +191,15 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 				gameWorld.playerSystem().teleport(event.position);
 			break;
 		case MATCH_END: {
-			String message = event.playerId == Protocol.WORLD ? Text.get("center.matchOver")
-					: event.playerId == client.getLocalId() ? Text.get("center.youWon")
-							: Text.get("center.winner", name(event.playerId));
+			String message;
+			if (client.getMode().hasTeams())
+				message = !event.team.isTeam() ? Text.get("center.draw")
+						: event.team == client.getLocalTeam() ? Text.get("center.yourTeamWon")
+								: Text.get("center.teamWon", event.team.label());
+			else
+				message = event.playerId == Protocol.WORLD ? Text.get("center.matchOver")
+						: event.playerId == client.getLocalId() ? Text.get("center.youWon")
+								: Text.get("center.winner", name(event.playerId));
 			feed(message);
 			if (hud() != null)
 				hud().setCenterMessage(message);
@@ -219,6 +233,10 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		case MOVEMENT:
 			feed(Text.get("feed.movement", event.gun, event.value));
 			break;
+		case TEAM_CHANGED:
+			feedMarkup(me ? Text.get("feed.youTeam", colored(event.team.label(), event.team))
+					: Text.get("feed.teamChanged", coloredName(event.playerId), colored(event.team.label(), event.team)));
+			break;
 		case HIT:
 			gameWorld.weaponSystem().showHit(event.position, event.from, event.headshot, me);
 			break;
@@ -235,8 +253,28 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 	}
 
 	private void feed(String message) {
+		feedMarkup(escape(message));
+	}
+
+	/** A feed line with colors ([#ff6152]...[]): everything else in it must be {@link #escape}d. */
+	private void feedMarkup(String markup) {
 		if (hud() != null)
-			hud().addFeedMessage(message);
+			hud().addFeedMessage(markup);
+	}
+
+	/** Text for a line with colors: "[" would start a color. */
+	static String escape(String text) {
+		return text.replace("[", "[[");
+	}
+
+	/** A player's name, in their team's color in a team match. */
+	private String coloredName(int id) {
+		GameClient.PlayerInfo info = client.getPlayer(id);
+		return colored(name(id), info == null ? Team.NONE : info.team);
+	}
+
+	private static String colored(String text, Team team) {
+		return team.isTeam() ? "[#" + team.hex + "]" + escape(text) + "[]" : escape(text);
 	}
 
 	private void applyLocalStats() {
@@ -272,6 +310,10 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			animation.last.set(position);
 			animation.known = true;
 			animation.pose.update(animation.speed, yaw[1], info.crouched, delta);
+			if (info.team != animation.painted && info.team.isTeam()) {
+				SoldierModel.paint(model.instance, info.team); // red or blue uniform
+				animation.painted = info.team;
+			}
 		}
 	}
 

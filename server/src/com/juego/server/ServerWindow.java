@@ -47,6 +47,7 @@ import javax.swing.text.StyledDocument;
 
 import com.badlogic.gdx.utils.Array;
 import com.juego.bots.BotDifficulty;
+import com.juego.match.GameMode;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
 import com.juego.net.GameServer.PlayerInfo;
@@ -80,13 +81,16 @@ public class ServerWindow implements ServerHost.View {
 	private static final Font MONO_BOLD = MONO.deriveFont(Font.BOLD);
 
 	private static final String PREF_PORT = "port", PREF_PLAYERS = "maxPlayers", PREF_TIME = "timeLimit",
-			PREF_FRAGS = "fragLimit", PREF_BOTS = "bots", PREF_BOT_DIFFICULTY = "botDifficulty";
+			PREF_FRAGS = "fragLimit", PREF_BOTS = "bots", PREF_BOT_DIFFICULTY = "botDifficulty", PREF_MODE = "mode";
 
 	private final ServerHost host;
 	private final Preferences prefs = Preferences.userRoot().node("nodeal/server");
 	private final JFrame frame = new JFrame(Text.get("ds.title"));
 	private final JSpinner portField, playersField, timeField, fragsField, botsField;
 	private final JComboBox<String> difficultyField = new JComboBox<>();
+	private final JComboBox<String> modeField = new JComboBox<>();
+	/** What the command line set that the window has no field for (sv_ variables, friendly fire). */
+	private final GameServer.Config options;
 	private final JButton startButton = button(Text.get("ds.start"));
 	private final JButton copyButton = button(Text.get("ds.copyIp"));
 	private final JButton publicIpButton = button(Text.get("ds.publicIp"));
@@ -127,6 +131,9 @@ public class ServerWindow implements ServerHost.View {
 			BotDifficulty difficulty = BotDifficulty.parse(prefs.get(PREF_BOT_DIFFICULTY, ""));
 			if (difficulty != null)
 				config.botDifficulty = difficulty;
+			GameMode mode = GameMode.parse(prefs.get(PREF_MODE, ""));
+			if (mode != null)
+				config.mode = mode;
 			if (DedicatedServer.validate(config) != null)
 				config = new GameServer.Config(); // corrupt preferences: back to defaults
 		}
@@ -141,6 +148,13 @@ public class ServerWindow implements ServerHost.View {
 		difficultyField.setFont(MONO);
 		difficultyField.setBackground(FIELD);
 		difficultyField.setForeground(TEXT);
+		for (GameMode m : GameMode.values())
+			modeField.addItem(m.label());
+		modeField.setSelectedIndex(config.mode.ordinal());
+		modeField.setFont(MONO);
+		modeField.setBackground(FIELD);
+		modeField.setForeground(TEXT);
+		options = config;
 
 		styles.put(EventType.INFO, style(TEXT));
 		styles.put(EventType.JOIN, style(GREEN));
@@ -196,6 +210,9 @@ public class ServerWindow implements ServerHost.View {
 		});
 
 		JPanel botsRow = row();
+		botsRow.add(caption(Text.get("ds.mode")));
+		botsRow.add(modeField);
+		botsRow.add(Box.createHorizontalStrut(10));
 		botsRow.add(caption(Text.get("ds.bots")));
 		botsRow.add(botsField);
 		botsRow.add(Box.createHorizontalStrut(10));
@@ -361,6 +378,10 @@ public class ServerWindow implements ServerHost.View {
 		config.fragLimit = (Integer) fragsField.getValue();
 		config.bots = (Integer) botsField.getValue();
 		config.botDifficulty = BotDifficulty.values()[difficultyField.getSelectedIndex()];
+		config.mode = GameMode.values()[modeField.getSelectedIndex()];
+		config.movement.set(options.movement);
+		config.friendlyFire = options.friendlyFire;
+		prefs.put(PREF_MODE, config.mode.id);
 		prefs.putInt(PREF_BOTS, config.bots);
 		prefs.put(PREF_BOT_DIFFICULTY, config.botDifficulty.id());
 		prefs.putInt(PREF_PORT, config.port);
@@ -519,6 +540,7 @@ public class ServerWindow implements ServerHost.View {
 		for (JSpinner field : new JSpinner[] { portField, playersField, timeField, fragsField, botsField })
 			field.setEnabled(!running && !waiting);
 		difficultyField.setEnabled(!running && !waiting);
+		modeField.setEnabled(!running && !waiting);
 		startButton.setEnabled(!waiting);
 		startButton.setText(Text.get(running ? "ds.stop" : "ds.start"));
 		copyButton.setEnabled(running);

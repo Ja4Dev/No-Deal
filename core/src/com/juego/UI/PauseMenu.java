@@ -33,6 +33,8 @@ public class PauseMenu extends Menu {
 
 	private Image backgroundImage, titleImage;
 	private TextButton resumeButton, scoreButton, settingsButton, nameButton, menuButton;
+	/** Team match only: switches to the other team. */
+	private TextButton teamButton;
 	/** "Cambiar nombre": a text field with Aceptar and Cancelar, over the pause buttons. */
 	private Table namePanel;
 	private TextField nameField;
@@ -82,6 +84,15 @@ public class PauseMenu extends Menu {
 				playerComponent.scoreboard = true;
 			}
 		});
+		if (teamButton != null)
+			teamButton.addListener(new ClickListener() {
+				@Override
+				public void clicked(InputEvent event, float x, float y) {
+					GameClient client = gameWorld.session.client;
+					client.sendTeam(client.getLocalTeam().other());
+					playerComponent.pause = false; // back to the game: you respawn on the other side
+				}
+			});
 		nameButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
@@ -109,11 +120,13 @@ public class PauseMenu extends Menu {
 		titleImage.setPosition(Core.VIRTUAL_WIDTH / 2 - titleImage.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.4f - titleImage.getHeight() / 2);
 		stage.addActor(backgroundImage);
 		stage.addActor(titleImage);
-		TextButton[] buttons = { resumeButton, scoreButton, nameButton, settingsButton, menuButton };
+		TextButton[] buttons = buttons();
+		// Six buttons in a team match: a little closer together, in the same space.
+		float step = buttons.length > 5 ? BUTTON_STEP * 5 / 6f + 2 : BUTTON_STEP;
 		for (int i = 0; i < buttons.length; i++) {
 			buttons[i].setSize(BUTTON_W, BUTTON_H);
 			buttons[i].setPosition(Core.VIRTUAL_WIDTH / 2 - BUTTON_W / 2,
-					Core.VIRTUAL_HEIGHT / 2 + BUTTON_STEP - i * BUTTON_STEP);
+					Core.VIRTUAL_HEIGHT / 2 + BUTTON_STEP - i * step);
 			stage.addActor(buttons[i]);
 		}
 		buildNamePanel();
@@ -126,7 +139,14 @@ public class PauseMenu extends Menu {
 		scoreButton = new TextButton(Text.get("pause.scoreboard"), Assets.skin);
 		settingsButton = new TextButton(Text.get("pause.options"), Assets.skin);
 		nameButton = new TextButton(Text.get("pause.rename"), Assets.skin);
+		if (gameWorld.session.client.getMode().hasTeams())
+			teamButton = new TextButton(Text.get("pause.team"), Assets.skin);
 		menuButton = new TextButton(Text.get("pause.mainMenu"), Assets.skin);
+	}
+
+	private TextButton[] buttons() {
+		return teamButton == null ? new TextButton[] { resumeButton, scoreButton, nameButton, settingsButton, menuButton }
+				: new TextButton[] { resumeButton, scoreButton, teamButton, nameButton, settingsButton, menuButton };
 	}
 
 	/** Gives the keyboard and mouse back to the pause menu (after the console closes). */
@@ -169,7 +189,7 @@ public class PauseMenu extends Menu {
 
 	private void showNamePanel(boolean show) {
 		namePanel.setVisible(show);
-		for (TextButton b : new TextButton[] { resumeButton, scoreButton, nameButton, settingsButton, menuButton })
+		for (TextButton b : buttons())
 			b.setVisible(!show);
 		if (show) {
 			GameClient.PlayerInfo me = gameWorld.session.client.getPlayer(gameWorld.session.client.getLocalId());

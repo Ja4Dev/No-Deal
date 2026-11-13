@@ -161,6 +161,11 @@ public final class SoldierModel {
 		b.setVertexTransform(null);
 	}
 
+	/** Team match: Red's and Blue's uniforms (the first two colors). */
+	public static void paint(ModelInstance instance, com.juego.match.Team team) {
+		paint(instance, team == com.juego.match.Team.BLUE ? 1 : 0);
+	}
+
 	/** Paints a player's copy of the model in that player's color. */
 	public static void paint(ModelInstance instance, int playerId) {
 		Material team = instance.getMaterial(TEAM);
