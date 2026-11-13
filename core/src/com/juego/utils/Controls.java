@@ -20,6 +20,8 @@ public final class Controls {
 		RIGHT("Derecha", Binding.key(Input.Keys.D)),
 		JUMP("Saltar", Binding.key(Input.Keys.SPACE)),
 		WALK("Caminar", Binding.key(Input.Keys.SHIFT_LEFT)),
+		/** Held: slower than walking, lower, and a little more accurate. */
+		CROUCH("Agacharse", Binding.key(Input.Keys.CONTROL_LEFT)),
 		FIRE("Disparar", Binding.mouse(Input.Buttons.LEFT)),
 		AIM("Apuntar", Binding.mouse(Input.Buttons.RIGHT)),
 		RELOAD("Recargar", Binding.key(Input.Keys.R)),

@@ -96,6 +96,7 @@ public final class Messages {
 		public int slot;
 		/** Ammo of the gun in hand, so the server can drop it with the right ammo if the player dies. */
 		public int magazine, reserve;
+		public boolean crouched;
 
 		public byte type() {
 			return Protocol.PLAYER_STATE;
@@ -106,6 +107,7 @@ public final class Messages {
 			writeVector(out, position);
 			out.putFloat(yaw).putFloat(pitch).put((byte) slot);
 			out.putShort((short) magazine).putShort((short) reserve);
+			out.put((byte) (crouched ? 1 : 0));
 		}
 
 		public static PlayerState read(ByteBuffer in) {
@@ -119,6 +121,7 @@ public final class Messages {
 			m.slot = in.get();
 			m.magazine = in.getShort();
 			m.reserve = in.getShort();
+			m.crouched = (in.get() & 1) != 0;
 			return m;
 		}
 	}
@@ -543,7 +546,7 @@ public final class Messages {
 	public static class Snapshot implements Message {
 		public static class Entry {
 			public int playerId;
-			public boolean alive;
+			public boolean alive, crouched;
 			public int health, kills, deaths, assists, slot;
 			public final Vector3 position = new Vector3();
 			public float yaw, pitch;
@@ -563,7 +566,7 @@ public final class Messages {
 		public void write(ByteBuffer out) {
 			out.putInt(tick).put((byte) phase).putInt(remainingMs).put((byte) players.size);
 			for (Entry e : players) {
-				out.put((byte) e.playerId).put((byte) (e.alive ? 1 : 0)).put((byte) e.health);
+				out.put((byte) e.playerId).put((byte) ((e.alive ? 1 : 0) | (e.crouched ? 2 : 0))).put((byte) e.health);
 				out.putShort((short) e.kills).putShort((short) e.deaths).putShort((short) e.assists).put((byte) e.slot);
 				writeVector(out, e.position);
 				out.putFloat(e.yaw).putFloat(e.pitch);
@@ -579,7 +582,9 @@ public final class Messages {
 			for (int i = 0; i < count; i++) {
 				Entry e = new Entry();
 				e.playerId = in.get() & 0xFF;
-				e.alive = in.get() != 0;
+				int flags = in.get();
+				e.alive = (flags & 1) != 0;
+				e.crouched = (flags & 2) != 0;
 				e.health = in.get() & 0xFF;
 				e.kills = in.getShort() & 0xFFFF;
 				e.deaths = in.getShort() & 0xFFFF;

@@ -90,6 +90,8 @@ public class TouchControls implements Disposable {
 		FIRE(Action.FIRE, "FUEGO", -215, 235, 80),
 		AIM(Action.AIM, "MIRA", -360, 330, 50),
 		JUMP(Action.JUMP, "SALTO", -85, 360, 50),
+		/** Toggles: holding a finger down to stay crouched would take a thumb away from the rest. */
+		CROUCH(Action.CROUCH, "AGACHAR", -85, 150, 44),
 		SWITCH_GUN(Action.SWITCH_GUN, "ARMA", -215, 440, 44),
 		RELOAD(Action.RELOAD, "RECARGA", -90, 495, 44),
 		DROP(Action.DROP, "SOLTAR\nAGARRAR", -360, 475, 44),
@@ -134,6 +136,7 @@ public class TouchControls implements Disposable {
 	private final EnumSet<Action> pressed = EnumSet.noneOf(Action.class);
 	private final EnumSet<Action> justPressed = EnumSet.noneOf(Action.class);
 	private int stickPointer = -1;
+	private boolean crouchOn;
 	private float stickOriginX, stickOriginY, stickX, stickY;
 	private float lookX, lookY;
 	private int width = 1, height = 1;
@@ -184,6 +187,17 @@ public class TouchControls implements Disposable {
 			if (roles[p] == Role.BUTTON)
 				pressed.add(pointerButtons[p].action);
 		pressMissedTaps();
+		// Crouch is a switch: "pressed" while it is on, whatever the fingers do.
+		if (justPressed.contains(Action.CROUCH))
+			crouchOn = !crouchOn;
+		pressed.remove(Action.CROUCH);
+		if (crouchOn)
+			pressed.add(Action.CROUCH);
+	}
+
+	/** Whether the crouch switch is on. */
+	public boolean isCrouchOn() {
+		return crouchOn;
 	}
 
 	/**

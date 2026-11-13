@@ -45,6 +45,9 @@ public class PlayerComponent implements Component {
 	/** Where the player aims, in degrees (yaw 0 = +Z; positive pitch looks down). Moved only by the mouse. */
 	public float yaw, pitch;
 	public boolean moving, running, onGround = true;
+	/** Crouching (holding the key), and how far down the view has gone, 0 to 1 (eased). */
+	public boolean crouched;
+	public float crouchAmount;
 	/** Horizontal velocity, units per second. */
 	public final Vector3 velocity = new Vector3();
 

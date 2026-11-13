@@ -114,6 +114,8 @@ public class GameServer implements Disposable {
 		final Connection connection;
 		/** Sent its first state: done loading the level, so the normal timeout applies. */
 		boolean loaded;
+		/** Crouching: the hitbox and the head are lower. */
+		boolean crouched;
 		/** Null for people. */
 		Bot bot;
 		final MovementValidator validator = new MovementValidator();
@@ -465,6 +467,7 @@ public class GameServer implements Disposable {
 			return; // dead, sent before the last teleport, or older than one we already have
 		p.lastSequence = state.sequence;
 		p.yaw = state.yaw;
+		p.crouched = state.crouched;
 		p.pitch = state.pitch;
 		if (state.slot >= 0 && state.slot < p.guns.length) {
 			p.slot = state.slot;
@@ -528,7 +531,7 @@ public class GameServer implements Disposable {
 			ServerPlayer victim = byId.get(hitId);
 			if (victim == null || !victim.alive)
 				return; // hit the level
-			boolean headshot = end.y >= victim.position.y + CharacterShape.HEAD_OFFSET;
+			boolean headshot = end.y >= victim.position.y + CharacterShape.headOffset(victim.crouched);
 			// The farther the bullet flew, the less it hurts (see GunDefinition.rangeModifier).
 			int damage = gun.damageAt(origin.dst(end)) * (headshot ? Protocol.HEADSHOT_MULTIPLIER : 1);
 			victim.damageFrom.getAndIncrement(shooter.id, 0, Math.min(damage, Math.max(0, victim.health)));
@@ -714,6 +717,7 @@ public class GameServer implements Disposable {
 			Bot.Target t = targets.get(i++);
 			t.id = p.id;
 			t.alive = p.alive;
+			t.crouched = p.crouched;
 			t.position.set(p.position);
 		}
 	}
@@ -1094,7 +1098,9 @@ public class GameServer implements Disposable {
 
 	private void setPosition(ServerPlayer p, Vector3 position) {
 		p.position.set(position);
-		p.hitbox.setWorldTransform(tmpTransform.setToTranslation(position));
+		// Crouching, the hitbox goes down with the head (its feet end up in the floor, out of reach).
+		p.hitbox.setWorldTransform(tmpTransform.setToTranslation(position.x,
+				position.y - (p.crouched ? CharacterShape.CROUCH_DROP : 0), position.z));
 		// The server never steps a simulation, which is what normally refreshes the
 		// broadphase: without this, ray tests would still see the hitbox where it was.
 		if (p.hitboxInWorld)
@@ -1154,6 +1160,7 @@ public class GameServer implements Disposable {
 			Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
 			e.playerId = p.id;
 			e.alive = p.alive;
+			e.crouched = p.crouched;
 			e.health = Math.max(0, p.health);
 			e.kills = p.kills;
 			e.deaths = p.deaths;

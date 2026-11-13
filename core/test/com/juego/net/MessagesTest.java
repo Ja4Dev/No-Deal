@@ -25,7 +25,9 @@ class MessagesTest {
 		m.slot = 1;
 		m.magazine = 5;
 		m.reserve = -1;
+		m.crouched = true;
 		Messages.PlayerState r = Messages.PlayerState.read(roundTrip(m));
+		assertTrue(r.crouched);
 		assertEquals(5, r.magazine);
 		assertEquals(-1, r.reserve, "infinite reserve survives the trip");
 		assertEquals(m.sequence, r.sequence);
@@ -115,6 +117,7 @@ class MessagesTest {
 			Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
 			e.playerId = id;
 			e.alive = id % 2 == 0;
+			e.crouched = id % 3 == 0; // every combination of alive and crouched
 			e.health = 100 - id;
 			e.kills = 1000 + id;
 			e.deaths = id;
@@ -134,6 +137,7 @@ class MessagesTest {
 			Messages.Snapshot.Entry a = m.players.get(i), b = r.players.get(i);
 			assertEquals(a.playerId, b.playerId);
 			assertEquals(a.alive, b.alive);
+			assertEquals(a.crouched, b.crouched);
 			assertEquals(a.health, b.health);
 			assertEquals(a.kills, b.kills);
 			assertEquals(a.deaths, b.deaths);

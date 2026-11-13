@@ -47,6 +47,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private static final float ZOOM_FOV = 30f;
 	/** Aiming down sights steadies the gun: inaccuracy is multiplied by this. */
 	private static final float ZOOM_SPREAD = 0.6f;
+	/** Crouching makes shots a quarter tighter, as in CS. */
+	private static final float CROUCH_SPREAD = 0.75f;
 	/** How fast the first-person gun settles after a shot, per second. */
 	private static final float GUN_KICK_RECOVERY = 16f;
 	/** Steps per second at full running speed, for the gun's bob. */
@@ -151,7 +153,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		gun = playerComponent.selectedGun();
 		if (gun != null) {
 			spreadDegrees = inaccuracy(gun.def);
-			float scale = zoomed ? ZOOM_SPREAD : 1;
+			float scale = accuracyScale();
 			moveSpreadDegrees = recoil.movementInaccuracy(gun.def, speedFraction(), !playerComponent.onGround) * scale;
 			fireSpreadDegrees = recoil.firingInaccuracy(gun.def) * scale;
 		}
@@ -182,8 +184,15 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	}
 
 	private float inaccuracy(GunDefinition def) {
-		float spread = recoil.inaccuracy(def, speedFraction(), !playerComponent.onGround);
-		return zoomed ? spread * ZOOM_SPREAD : spread;
+		return recoil.inaccuracy(def, speedFraction(), !playerComponent.onGround) * accuracyScale();
+	}
+
+	/** Aiming down sights and crouching (on the ground) both tighten the cone. */
+	private float accuracyScale() {
+		float scale = zoomed ? ZOOM_SPREAD : 1;
+		if (playerComponent.crouched && playerComponent.onGround)
+			scale *= CROUCH_SPREAD;
+		return scale;
 	}
 
 	/** The first-person gun bobs with your steps and kicks back on each shot. */

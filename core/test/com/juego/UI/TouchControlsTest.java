@@ -246,6 +246,22 @@ class TouchControlsTest {
 	}
 
 	@Test
+	void crouchIsASwitch() {
+		float[] crouch = at(Button.CROUCH);
+		fingers.touch(0, crouch[0], crouch[1]);
+		frame();
+		fingers.lift(0);
+		frame();
+		assertTrue(controls.isPressed(Action.CROUCH), "still crouching after lifting the finger");
+		assertTrue(controls.isCrouchOn());
+		fingers.touch(0, crouch[0], crouch[1]);
+		frame();
+		fingers.lift(0);
+		frame();
+		assertFalse(controls.isPressed(Action.CROUCH), "a second tap stands up");
+	}
+
+	@Test
 	void onlyOneJoystickAtATime() {
 		fingers.touch(0, 400, H - 300).touch(1, 600, H - 250);
 		frame();

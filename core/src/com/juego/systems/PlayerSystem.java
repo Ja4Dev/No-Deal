@@ -46,6 +46,8 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 	 * can show it, see CrosshairSettings.followRecoil).
 	 */
 	public static final float VIEW_RECOIL = 0.5f;
+	/** How fast the view goes down when crouching (and back up), per second. */
+	private static final float CROUCH_RATE = 12f;
 	/** Degrees the view turns for a drag across the whole screen height, at touch sensitivity 1. */
 	private static final float TOUCH_DEGREES = 160f;
 
@@ -120,7 +122,12 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 			return;
 		wishDirection.setZero();
 		playerComponent.moving = false;
-		if (playerComponent.controlsPlayer() && !playerComponent.isDead()) {
+		boolean playing = playerComponent.controlsPlayer() && !playerComponent.isDead();
+		playerComponent.crouched = playing && Controls.isPressed(Action.CROUCH);
+		// The view goes down and up quickly but not instantly, like CS.
+		float crouchTarget = playerComponent.crouched ? 1 : 0;
+		playerComponent.crouchAmount += (crouchTarget - playerComponent.crouchAmount) * Math.min(1, delta * CROUCH_RATE);
+		if (playing) {
 			look();
 			readMovementKeys();
 			if (Controls.isJustPressed(Action.JUMP))
@@ -172,8 +179,11 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 			wishDirection.mulAdd(forward, touch.moveY()).mulAdd(right, touch.moveX());
 		wishDirection.nor(); // diagonals aren't faster
 		playerComponent.moving = !wishDirection.isZero();
-		playerComponent.running = !Controls.isPressed(Action.WALK) && (stick == 0 || stick >= TouchControls.RUN_THRESHOLD);
-		wishSpeed = playerComponent.running ? PlayerMovement.RUN_SPEED : PlayerMovement.WALK_SPEED;
+		// Crouching is the slowest, and silent like walking.
+		playerComponent.running = !playerComponent.crouched && !Controls.isPressed(Action.WALK)
+				&& (stick == 0 || stick >= TouchControls.RUN_THRESHOLD);
+		wishSpeed = playerComponent.crouched ? PlayerMovement.CROUCH_SPEED
+				: playerComponent.running ? PlayerMovement.RUN_SPEED : PlayerMovement.WALK_SPEED;
 	}
 
 	/** Physics step: turns the keys into a velocity and tells the character controller how far to move. */
@@ -219,7 +229,8 @@ public class PlayerSystem extends EntitySystem implements EntityListener, Bullet
 			translation.set(stepTo);
 		bodyRotation.setFromAxis(Vector3.Y, playerComponent.yaw);
 		modelComponent.instance.transform.set(translation, bodyRotation);
-		camera.position.set(translation).add(0, CharacterShape.EYE_OFFSET, 0);
+		camera.position.set(translation).add(0,
+				CharacterShape.EYE_OFFSET - CharacterShape.CROUCH_DROP * playerComponent.crouchAmount, 0);
 		updateCameraDirection();
 	}
 

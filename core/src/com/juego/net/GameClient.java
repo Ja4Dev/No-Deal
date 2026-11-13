@@ -34,6 +34,7 @@ public class GameClient implements Disposable {
 		public String name;
 		public boolean alive = true;
 		public int health = 100, kills, deaths, assists, slot;
+		public boolean crouched;
 		private final Array<float[]> samples = new Array<>(); // {timeMs, x, y, z, yaw, pitch}
 
 		PlayerInfo(int id, String name) {
@@ -120,6 +121,7 @@ public class GameClient implements Disposable {
 	private String failureReason = "";
 	private long connectStartMs, nextStateMs;
 	private int localId, teleportId, sequence;
+	private boolean crouched;
 	private String mapName = "";
 	private String localName = "";
 	private int fragLimit;
@@ -243,6 +245,7 @@ public class GameClient implements Disposable {
 				if (p == null)
 					continue; // its PLAYER_JOINED hasn't arrived yet
 				p.alive = entry.alive;
+				p.crouched = entry.crouched;
 				p.health = entry.health;
 				p.kills = entry.kills;
 				p.deaths = entry.deaths;
@@ -377,6 +380,11 @@ public class GameClient implements Disposable {
 		NetLog.info("Client", reason);
 	}
 
+	/** Whether the local player is crouching, sent with the next states. */
+	public void setCrouched(boolean crouched) {
+		this.crouched = crouched;
+	}
+
 	/** Sends the local player's state, at most {@link Protocol#STATE_INTERVAL_MS} apart. */
 	public void sendState(Vector3 position, float yaw, float pitch, int slot) {
 		sendState(position, yaw, pitch, slot, 0, 0);
@@ -397,6 +405,7 @@ public class GameClient implements Disposable {
 		state.slot = slot;
 		state.magazine = magazine;
 		state.reserve = reserve;
+		state.crouched = crouched;
 		connection.sendUnreliable(state);
 	}
 

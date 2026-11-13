@@ -18,6 +18,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
+import com.juego.utils.CharacterShape;
 
 /**
  * The players' character: a low-poly soldier (boots, knee pads, tactical vest
@@ -176,10 +177,14 @@ public final class SoldierModel {
 		/** Distance covered by one step (half a walk cycle), as for the footsteps. */
 		private static final float STRIDE = 4.2f;
 		private static final float LEG_SWING = 32f, BOB = 0.1f, MAX_AIM_PITCH = 60f;
+		/** From the hip to the sole: the model is 6 tall, centered, so the feet are 3 below the center. */
+		private static final float LEG_LENGTH = HIP_Y + 3f;
+		/** How far each leg turns (one forward, one back) when kneeling. */
+		private static final float KNEEL_ANGLE = 60f;
 
 		private final ModelInstance instance;
 		private final Node legL, legR, body, head, aim;
-		private float phase, amount;
+		private float phase, amount, crouch;
 		private final Quaternion rotation = new Quaternion();
 
 		public Pose(ModelInstance instance) {
@@ -192,17 +197,30 @@ public final class SoldierModel {
 		}
 
 		/**
-		 * @param speed horizontal speed, units per second (running is 12)
-		 * @param pitch where they look, degrees (positive is down)
+		 * @param speed    horizontal speed, units per second (running is 12)
+		 * @param pitch    where they look, degrees (positive is down)
+		 * @param crouched crouching: the body goes down by {@link CharacterShape#CROUCH_DROP}, like the
+		 *                 hitbox, kneeling (one leg forward, one back)
 		 */
-		public void update(float speed, float pitch, float delta) {
+		public void update(float speed, float pitch, boolean crouched, float delta) {
 			float target = MathUtils.clamp(speed / 12f, 0, 1);
 			amount += (target - amount) * Math.min(1, delta * 8); // ease in and out of walking
+			crouch += ((crouched ? 1 : 0) - crouch) * Math.min(1, delta * 12);
 			phase = (phase + speed * delta / STRIDE * MathUtils.PI) % MathUtils.PI2;
-			float swing = MathUtils.sin(phase) * LEG_SWING * amount;
-			legL.rotation.set(rotation.setEulerAngles(0, swing, 0));
-			legR.rotation.set(rotation.setEulerAngles(0, -swing, 0));
-			float bob = -Math.abs(MathUtils.cos(phase)) * BOB * amount;
+			float swing = MathUtils.sin(phase) * LEG_SWING * amount * (1 - crouch * 0.7f);
+			float drop = CharacterShape.CROUCH_DROP * crouch;
+			// The legs have no knees: kneeling, they open and get shorter so the feet stay on the floor.
+			float kneel = KNEEL_ANGLE * crouch;
+			float hipHeight = LEG_LENGTH - drop;
+			// (a little shorter still: turned, the corners of the boots reach lower than the leg's end)
+			float legScale = Math.min(1, hipHeight * (1 - 0.18f * crouch) / (LEG_LENGTH * MathUtils.cosDeg(kneel)));
+			legL.translation.set(HIP_X, HIP_Y - drop, 0);
+			legR.translation.set(-HIP_X, HIP_Y - drop, 0);
+			legL.rotation.set(rotation.setEulerAngles(0, swing - kneel, 0));
+			legR.rotation.set(rotation.setEulerAngles(0, -swing + kneel, 0));
+			legL.scale.set(1, legScale, 1);
+			legR.scale.set(1, legScale, 1);
+			float bob = -Math.abs(MathUtils.cos(phase)) * BOB * amount - drop;
 			body.translation.set(0, bob, 0);
 			head.translation.set(0, NECK_Y + bob, 0);
 			aim.translation.set(0, SHOULDER_Y + bob, 0);

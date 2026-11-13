@@ -264,7 +264,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			animation.speed += (speed - animation.speed) * Math.min(1, delta * 10);
 			animation.last.set(position);
 			animation.known = true;
-			animation.pose.update(animation.speed, yaw[1], delta);
+			animation.pose.update(animation.speed, yaw[1], info.crouched, delta);
 		}
 	}
 
@@ -297,6 +297,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			return;
 		gameWorld.playerSystem().getPosition(position);
 		Gun gun = playerComponent.selectedGun();
+		client.setCrouched(playerComponent.crouched);
 		client.sendState(position, playerComponent.yaw, playerComponent.pitch, playerComponent.selectedSlot,
 				gun == null ? 0 : gun.getMagazine(), gun == null ? 0 : gun.getReserve());
 	}
