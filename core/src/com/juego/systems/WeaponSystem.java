@@ -33,6 +33,7 @@ import com.juego.utils.SpatialAudio;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 import com.juego.utils.PlayerMovement;
+import com.juego.utils.Video;
 
 /**
  * The local player's guns: hitscan shooting with spray recoil (see
@@ -45,7 +46,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 
 	private static final String RELOAD_SOUND = "sounds/Reload.mp3";
 	private static final long RELOAD_DELAY_MS = 2000;
-	private static final float DEFAULT_FOV = 67f;
+	/** Aiming down sights: the view narrows to this (vertical) field of view, whatever the normal one. */
 	private static final float ZOOM_FOV = 30f;
 	/** Aiming down sights steadies the gun: inaccuracy is multiplied by this. */
 	private static final float ZOOM_SPREAD = 0.6f;
@@ -153,6 +154,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 
 	@Override
 	public void update(float deltaTime) {
+		if (!zoomed)
+			camera.fieldOfView = Video.verticalFov(); // changed in the settings mid-match
 		if (player == null)
 			return;
 		syncViewModel(); // the selected gun can also change on respawn, a drop or a pickup
@@ -252,14 +255,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			return;
 		if (Controls.isJustPressed(Action.RELOAD))
 			reload(gun);
-		if (Controls.isJustPressed(Action.SWITCH_GUN)) {
-			playerComponent.switchGun();
+		if (changeWeapon())
 			return;
-		}
-		if (Controls.isJustPressed(Action.KNIFE)) {
-			playerComponent.toggleKnife();
-			return;
-		}
 		if (gun.def.isMelee()) {
 			handleMelee(gun);
 			return;
@@ -273,6 +270,24 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		}
 		if (Controls.isJustPressed(Action.AIM) && gun.def.hasSight)
 			toggleZoom();
+	}
+
+	/** Numbers, the wheel and Q. @return true if the weapon in hand changed */
+	private boolean changeWeapon() {
+		PlayerComponent p = playerComponent;
+		if (Controls.isJustPressed(Action.PRIMARY))
+			return p.select(GunDefinition.Slot.PRIMARY.ordinal());
+		if (Controls.isJustPressed(Action.SECONDARY))
+			return p.select(GunDefinition.Slot.SECONDARY.ordinal());
+		if (Controls.isJustPressed(Action.KNIFE))
+			return p.select(GunDefinition.Slot.MELEE.ordinal());
+		if (Controls.isJustPressed(Action.LAST_WEAPON))
+			return p.lastWeapon();
+		if (Controls.isJustPressed(Action.NEXT_WEAPON))
+			return p.switchGun();
+		if (Controls.isJustPressed(Action.PREVIOUS_WEAPON))
+			return p.previousGun();
+		return false;
 	}
 
 	private void syncViewModel() {
@@ -296,7 +311,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 
 	private void toggleZoom() {
 		zoomed = !zoomed;
-		camera.fieldOfView = zoomed ? ZOOM_FOV : DEFAULT_FOV;
+		camera.fieldOfView = zoomed ? ZOOM_FOV : Video.verticalFov();
 	}
 
 	/**

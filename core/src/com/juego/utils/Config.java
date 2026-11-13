@@ -14,7 +14,14 @@ import com.juego.net.Protocol;
 public final class Config {
 	private static final String PREFERENCES = "NoDeal";
 
-	public static boolean fullscreen = false;
+	/** Video (see {@link Video}): window, fullscreen or borderless, and the resolution (0: the mode's default). */
+	public static Video.Mode videoMode = Video.Mode.WINDOWED;
+	public static int screenWidth, screenHeight;
+	/** Field of view, degrees across a 4:3 screen (see Video.verticalFov). */
+	public static int fov = Video.DEFAULT_FOV;
+	public static Video.Shadows shadows = Video.Shadows.MEDIUM;
+	/** Antialiasing samples (0, 2, 4, 8); the desktop launcher reads it when the game starts. */
+	public static int msaa;
 	public static String playerName = "";
 	/** The language the player chose in Opciones; null until then (the system's is used, see Text). */
 	public static Text.Language language;
@@ -47,7 +54,15 @@ public final class Config {
 		// First, so every text below (and the default name) is in the right language.
 		language = Text.Language.parse(prefs.getString("language", ""));
 		Text.setLanguage(language != null ? language : Text.system());
-		fullscreen = prefs.getBoolean("fullscreen", fullscreen);
+		videoMode = parse(Video.Mode.class, prefs.getString("videoMode", ""),
+				prefs.getBoolean("fullscreen", false) ? Video.Mode.FULLSCREEN : Video.Mode.WINDOWED);
+		screenWidth = Math.max(0, prefs.getInteger("screenWidth", 0));
+		screenHeight = Math.max(0, prefs.getInteger("screenHeight", 0));
+		fov = Math.max(Video.MIN_FOV, Math.min(Video.MAX_FOV, prefs.getInteger("fov", fov)));
+		// Phones start without shadows: they cost more there.
+		shadows = parse(Video.Shadows.class, prefs.getString("shadows", ""),
+				Platform.touch ? Video.Shadows.OFF : Video.Shadows.MEDIUM);
+		msaa = prefs.getInteger("msaa", 0);
 		playerName = Messages.sanitizeName(prefs.getString("playerName", playerName));
 		fxVolume = clamp(prefs.getFloat("fxVolume", fxVolume), 0, 100);
 		musicVolume = clamp(prefs.getFloat("musicVolume", musicVolume), 0, 100);
@@ -88,7 +103,13 @@ public final class Config {
 
 	public static void save() {
 		Preferences prefs = Gdx.app.getPreferences(PREFERENCES);
-		prefs.putBoolean("fullscreen", fullscreen);
+		prefs.putString("videoMode", videoMode.name());
+		prefs.remove("fullscreen"); // replaced by videoMode
+		prefs.putInteger("screenWidth", screenWidth);
+		prefs.putInteger("screenHeight", screenHeight);
+		prefs.putInteger("fov", fov);
+		prefs.putString("shadows", shadows.name());
+		prefs.putInteger("msaa", msaa);
 		prefs.putString("playerName", playerName);
 		if (language != null)
 			prefs.putString("language", language.id);
@@ -107,6 +128,15 @@ public final class Config {
 		prefs.putBoolean("showSpeed", showSpeed);
 		prefs.putInteger("fpsMax", fpsMax);
 		prefs.flush();
+	}
+
+	/** The constant of an enum by its name, or {@code fallback} if there is none. */
+	private static <E extends Enum<E>> E parse(Class<E> type, String name, E fallback) {
+		try {
+			return name.isEmpty() ? fallback : Enum.valueOf(type, name);
+		} catch (IllegalArgumentException e) {
+			return fallback;
+		}
 	}
 
 	private static float clamp(float value, float min, float max) {

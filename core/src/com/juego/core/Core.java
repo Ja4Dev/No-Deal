@@ -15,8 +15,10 @@ import com.juego.net.GameServer;
 import com.juego.screens.menues.MainMenuScreen;
 import com.juego.screens.menues.MenuScreen;
 import com.juego.utils.Config;
+import com.juego.utils.Controls;
 import com.juego.utils.MusicPlayer;
 import com.juego.utils.Platform;
+import com.juego.utils.Video;
 
 public class Core extends ApplicationAdapter {
 	public static int VIRTUAL_WIDTH = 1280;
@@ -47,8 +49,7 @@ public class Core extends ApplicationAdapter {
 		Bullet.init();
 		Platform.detect();
 		Config.load();
-		if (Config.fullscreen && Platform.desktop)
-			Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
+		Video.apply(); // window, fullscreen or borderless, at the chosen resolution
 		Assets.init();
 		Gdx.input.setCatchKey(Input.Keys.BACK, true);
 		musicPlayer = new MusicPlayer();
@@ -57,6 +58,7 @@ public class Core extends ApplicationAdapter {
 
 	@Override
 	public void render() {
+		Controls.newFrame();
 		// The hosted server runs on the game thread: Bullet's JNI wrappers are not
 		// thread-safe, and the server and the match each have a Bullet world.
 		if (hostedServer != null)

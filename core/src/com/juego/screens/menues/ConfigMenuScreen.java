@@ -1,9 +1,7 @@
 package com.juego.screens.menues;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
@@ -19,7 +17,7 @@ import com.juego.utils.Config;
 import com.juego.utils.Platform;
 import com.juego.utils.Text;
 
-/** Sound, mouse and video settings. Saved when leaving the screen. */
+/** Language, sound and mouse settings, and the way to the video, controls and crosshair ones. Saved when leaving. */
 public class ConfigMenuScreen extends MenuScreen {
 
 	/** Opened from the main menu. */
@@ -47,7 +45,7 @@ public class ConfigMenuScreen extends MenuScreen {
 		final Label musicValue = new Label("", Assets.skin);
 		final Label effectsValue = new Label("", Assets.skin);
 		final Label sensitivityValue = new Label("", Assets.skin);
-		final CheckBox fullscreen = new CheckBox(Text.get("options.fullscreen"), Assets.skin);
+		TextButton video = new TextButton(Text.get("options.video"), Assets.skin);
 		TextButton controls = new TextButton(Text.get("options.controls"), Assets.skin);
 		TextButton crosshair = new TextButton(Text.get("options.crosshair"), Assets.skin);
 		TextButton back = new TextButton(Text.get("back"), Assets.skin);
@@ -55,7 +53,6 @@ public class ConfigMenuScreen extends MenuScreen {
 		music.setValue(Config.musicVolume);
 		effects.setValue(Config.fxVolume);
 		sensitivity.setValue(touch ? Config.touchSensitivity : Config.sensitivity);
-		fullscreen.setChecked(Config.fullscreen);
 		musicValue.setText((int) Config.musicVolume);
 		effectsValue.setText((int) Config.fxVolume);
 		sensitivityValue.setText(String.format("%.1f", sensitivity.getValue()));
@@ -90,13 +87,9 @@ public class ConfigMenuScreen extends MenuScreen {
 		row(table, Text.get("options.effects"), effects, effectsValue);
 		section(table, Text.get(touch ? "options.touch" : "options.mouse"));
 		row(table, Text.get("options.sensitivity"), sensitivity, sensitivityValue);
-		if (Platform.desktop) {
-			section(table, Text.get("options.video"));
-			table.add(fullscreen).colspan(3).padBottom(24).row();
-		} else {
-			table.add().height(24).colspan(3).row();
-		}
+		table.add().height(24).colspan(3).row();
 		Table screens = new Table();
+		screens.add(video).width(192).height(48).padRight(16);
 		if (!touch) // key bindings: the touch controls are fixed
 			screens.add(controls).width(192).height(48).padRight(16);
 		screens.add(crosshair).width(192).height(48);
@@ -128,14 +121,10 @@ public class ConfigMenuScreen extends MenuScreen {
 				sensitivityValue.setText(String.format("%.1f", sensitivity.getValue()));
 			}
 		});
-		fullscreen.addListener(new ChangeListener() {
+		video.addListener(new ClickListener() {
 			@Override
-			public void changed(ChangeEvent event, Actor actor) {
-				Config.fullscreen = fullscreen.isChecked();
-				if (Config.fullscreen)
-					Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
-				else
-					Gdx.graphics.setWindowedMode(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
+			public void clicked(InputEvent event, float x, float y) {
+				flow.open(new VideoMenuScreen(game, flow));
 			}
 		});
 		controls.addListener(new ClickListener() {

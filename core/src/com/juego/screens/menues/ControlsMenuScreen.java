@@ -21,8 +21,9 @@ import com.juego.utils.Controls.Binding;
 import com.juego.utils.Text;
 
 /**
- * Rebinds controls: click an action, then press the key or mouse button to
- * use for it (Escape cancels). Taking a binding another action had swaps them.
+ * Rebinds controls: click an action, then press the key or mouse button, or
+ * turn the wheel, to use for it (Escape cancels). Taking a binding another
+ * action had swaps them.
  */
 public class ControlsMenuScreen extends MenuScreen {
 	private final EnumMap<Action, TextButton> buttons = new EnumMap<>(Action.class);
@@ -52,7 +53,7 @@ public class ControlsMenuScreen extends MenuScreen {
 				grid.add().width(40);
 				addCell(grid, actions[i + half]);
 			}
-			grid.row().padBottom(8);
+			grid.row().padBottom(4);
 		}
 
 		hint = new Label(Text.get("controls.hint"), Assets.skin);
@@ -62,7 +63,7 @@ public class ControlsMenuScreen extends MenuScreen {
 
 		Table table = new Table();
 		table.setFillParent(true);
-		table.top().padTop(160);
+		table.top().padTop(150);
 		table.add(grid).colspan(2).padBottom(20).row();
 		table.add(hint).colspan(2).padBottom(24).row();
 		table.add(defaults).width(192).height(48).padRight(16);
@@ -105,6 +106,15 @@ public class ControlsMenuScreen extends MenuScreen {
 				finishCapture(event);
 				return true;
 			}
+
+			@Override
+			public boolean scrolled(InputEvent event, float x, float y, float amountX, float amountY) {
+				if (waiting == null || amountY == 0)
+					return false;
+				Controls.set(waiting, Binding.wheel(amountY > 0 ? 1 : -1));
+				finishCapture(event);
+				return true;
+			}
 		});
 		refresh();
 	}
@@ -113,7 +123,7 @@ public class ControlsMenuScreen extends MenuScreen {
 		TextButton button = new TextButton("", Assets.skin);
 		buttons.put(action, button);
 		grid.add(new Label(action.label(), Assets.skin)).right().padRight(12);
-		grid.add(button).width(170).height(36);
+		grid.add(button).width(170).height(32);
 		button.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
