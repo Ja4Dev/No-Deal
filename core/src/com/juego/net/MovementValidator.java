@@ -15,8 +15,8 @@ import com.juego.utils.PlayerMovement;
  * {@link #MAX_CLOCK_AHEAD_MS}.
  */
 public class MovementValidator {
-	/** Top speed (running is 12, a little more with air strafing) plus margin. */
-	public static final float MAX_HORIZONTAL_SPEED = PlayerMovement.MAX_AIR_SPEED * 1.12f;
+	/** Top speed (bunnyhopping can reach PlayerMovement.MAX_SPEED) plus margin. */
+	public static final float MAX_HORIZONTAL_SPEED = PlayerMovement.MAX_SPEED * 1.12f;
 	/** Jumping (19) and falling (up to Bullet's default fall speed of 55) plus margin. */
 	public static final float MAX_VERTICAL_SPEED = 60f;
 	public static final float SLACK = 0.5f;

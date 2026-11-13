@@ -17,6 +17,7 @@ import com.juego.match.Match;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
 import com.juego.net.Protocol;
+import com.juego.utils.MovementSettings;
 import com.juego.utils.Text;
 
 /**
@@ -27,7 +28,8 @@ import com.juego.utils.Text;
  *
  * <pre>
  * java -jar NoDeal-server.jar [--port 25559] [--max-players 4] [--time-limit 10] [--frag-limit 20]
- *                             [--bots 0] [--bot-difficulty medio] [--lang es|en] [--nogui]
+ *                             [--bots 0] [--bot-difficulty medio] [--gravity 800] [--airaccelerate 10]
+ *                             [--autobunnyhop] [--lang es|en] [--nogui]
  * </pre>
  *
  * Terminal commands: {@code status}, {@code help}, {@code quit}, and the
@@ -68,6 +70,17 @@ public class DedicatedServer {
 								Text.get("ds.unknownDifficulty", name, BotDifficulty.choices()));
 					break;
 				}
+				case "--gravity":
+				case "--airaccelerate": {
+					String variable = args[i].equals("--gravity") ? MovementSettings.GRAVITY : MovementSettings.AIR_ACCELERATE;
+					String error = config.movement.set(variable, args[++i]);
+					if (error != null)
+						throw new IllegalArgumentException(error);
+					break;
+				}
+				case "--autobunnyhop":
+					config.movement.autoBunnyhop = true;
+					break;
 				case "--nogui":
 					noGui = true;
 					continue;

@@ -217,6 +217,28 @@ class ServerIntegrationTest {
 
 	/** Regression: moved hitboxes must be found by ray tests (their broadphase AABB has to follow them). */
 	@Test
+	void movementVariablesReachEveryone() throws IOException {
+		GameClient a = connect("A");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		assertEquals(800, a.getMovement().gravity, "the defaults come with the welcome");
+
+		assertEquals("sv_gravity = 800", server.command("sv_gravity"));
+		assertEquals("sv_gravity ahora es 400", server.command("sv_gravity 400"));
+		assertEquals("sv_airaccelerate ahora es 100", server.command("SV_AIRACCELERATE 100"));
+		assertTrue(server.command("sv_gravity 1").startsWith("sv_gravity tiene que estar entre"));
+		pumpUntil("A told", 2000, () -> a.getMovement().gravity == 400 && a.getMovement().airAccelerate == 100);
+		pumpFor(100);
+		long told = eventsA.stream().filter(e -> e.type == GameClient.Event.Type.MOVEMENT).count();
+		assertEquals(2, told, "one feed message per change, none for the values it joined with");
+
+		// Whoever joins later gets the current values, not the defaults.
+		GameClient b = connect("B");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED);
+		pumpUntil("B has them", 2000, () -> b.getMovement().gravity == 400 && b.getMovement().airAccelerate == 100);
+		assertTrue(eventsB.stream().noneMatch(e -> e.type == GameClient.Event.Type.MOVEMENT));
+	}
+
+	@Test
 	void crouchingLowersTheHead() throws IOException {
 		GameClient a = connect("A");
 		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);

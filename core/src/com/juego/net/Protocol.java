@@ -14,7 +14,7 @@ package com.juego.net;
 public final class Protocol {
 	public static final short MAGIC = 0x4E44; // "ND"
 	/** Bumped on any incompatible change; checked in HELLO. */
-	public static final int VERSION = 7;
+	public static final int VERSION = 8;
 	public static final int DEFAULT_PORT = 25559;
 	public static final int MAX_PLAYERS = 4;
 	/** Keeps datagrams under the typical internet MTU to avoid IP fragmentation. */
@@ -78,6 +78,8 @@ public final class Protocol {
 	public static final byte RENAME = 21;
 	/** Someone changed their name. Reliable. */
 	public static final byte PLAYER_RENAMED = 22;
+	/** Server to clients: gravity and air acceleration (sv_gravity, sv_airaccelerate...), on joining and on changes. */
+	public static final byte MOVEMENT = 23;
 	/** A player can change their name at most this often. */
 	public static final long RENAME_COOLDOWN_MS = 2000;
 	/** Doing more than this damage makes an assist if someone else finishes the victim off (as in CS). */

@@ -14,6 +14,15 @@ class MessagesTest {
 	}
 
 	@Test
+	void movementRoundTrip() {
+		Messages.Movement m = new Messages.Movement();
+		m.settings.gravity = 400;
+		m.settings.airAccelerate = 100;
+		m.settings.autoBunnyhop = true;
+		assertEquals(m.settings, Messages.Movement.read(roundTrip(m)).settings);
+	}
+
+	@Test
 	void playerStateRoundTrip() {
 		Messages.PlayerState m = new Messages.PlayerState();
 		m.sequence = 123456;

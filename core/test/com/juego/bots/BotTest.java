@@ -24,6 +24,7 @@ import com.juego.guns.Armory;
 import com.juego.guns.GunDefinition;
 import com.juego.net.MapCollision;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.MovementSettings;
 
 /** Bots on the real Bank level: navigation, chasing and shooting, without a server. */
 class BotTest {
@@ -116,7 +117,7 @@ class BotTest {
 			for (int step = 0; step < seconds / BotWorld.STEP && range.shots < maxShots; step++) {
 				range.now = (long) (step * BotWorld.STEP * 1000);
 				bot.think(range.now, BotWorld.STEP, targets, true, range);
-				bot.move();
+				bot.move(MovementSettings.DEFAULT_AIR_ACCELERATE);
 				world.step();
 				bot.afterStep();
 			}
