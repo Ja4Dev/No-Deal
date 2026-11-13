@@ -134,7 +134,7 @@ public class ServerHost extends ApplicationAdapter {
 		view.onEvent(EventType.INFO, "Servidor iniciado en el puerto UDP " + server.getPort() + " ("
 				+ config.maxPlayers + " jugadores, " + config.timeLimitMinutes + " min"
 				+ (config.fragLimit > 0 ? " o " + config.fragLimit + " bajas" : "") + ")"
-				+ (server.getBotCount() > 0 ? ", con " + server.getBotCount() + " bots (" + config.botDifficulty.label + ")" : ""));
+				+ (server.getBotCount() > 0 ? ", con " + server.getBotCount() + " bots (" + config.botDifficulty.label() + ")" : ""));
 		for (String ip : addresses)
 			view.onEvent(EventType.INFO, "En tu red se unen con " + ip + ":" + server.getPort());
 		if (addresses.size == 0)

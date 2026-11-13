@@ -18,6 +18,7 @@ import com.juego.utils.Config;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 import com.juego.utils.Controls.Binding;
+import com.juego.utils.Text;
 
 /**
  * Rebinds controls: click an action, then press the key or mouse button to
@@ -36,7 +37,7 @@ public class ControlsMenuScreen extends MenuScreen {
 		super(game);
 		Image background = new Image(loadTexture("controlsMenu/background.png"));
 		background.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
-		Image title = new Image(loadTexture("controlsMenu/title.png"));
+		Image title = new Image(loadTexture(Text.image("controlsMenu/title.png")));
 		title.setSize(title.getWidth() * 0.85f, title.getHeight() * 0.85f);
 		title.setPosition(Core.VIRTUAL_WIDTH / 2 - title.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.14f);
 		stage.addActor(background);
@@ -54,10 +55,10 @@ public class ControlsMenuScreen extends MenuScreen {
 			grid.row().padBottom(8);
 		}
 
-		hint = new Label("Hace clic en una accion y despues presiona la tecla o boton que quieras usar.", Assets.skin);
+		hint = new Label(Text.get("controls.hint"), Assets.skin);
 		hint.setColor(Color.LIGHT_GRAY);
-		TextButton defaults = new TextButton("Restaurar", Assets.skin);
-		TextButton back = new TextButton("Volver", Assets.skin);
+		TextButton defaults = new TextButton(Text.get("defaults"), Assets.skin);
+		TextButton back = new TextButton(Text.get("back"), Assets.skin);
 
 		Table table = new Table();
 		table.setFillParent(true);
@@ -111,7 +112,7 @@ public class ControlsMenuScreen extends MenuScreen {
 	private void addCell(Table grid, final Action action) {
 		TextButton button = new TextButton("", Assets.skin);
 		buttons.put(action, button);
-		grid.add(new Label(action.label, Assets.skin)).right().padRight(12);
+		grid.add(new Label(action.label(), Assets.skin)).right().padRight(12);
 		grid.add(button).width(170).height(36);
 		button.addListener(new ClickListener() {
 			@Override
@@ -138,7 +139,7 @@ public class ControlsMenuScreen extends MenuScreen {
 	private void refresh() {
 		for (Action action : Action.values()) {
 			TextButton button = buttons.get(action);
-			button.setText(action == waiting ? "Presiona..." : Controls.get(action).displayName());
+			button.setText(action == waiting ? Text.get("controls.waiting") : Controls.get(action).displayName());
 		}
 	}
 

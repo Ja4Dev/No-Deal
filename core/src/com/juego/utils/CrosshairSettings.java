@@ -14,18 +14,16 @@ import com.badlogic.gdx.math.MathUtils;
 public class CrosshairSettings {
 	public enum Style {
 		/** Four lines. */
-		CROSS("Clasica"),
+		CROSS,
 		/** Four lines and a dot in the middle. */
-		CROSS_DOT("Clasica con punto"),
+		CROSS_DOT,
 		/** Just a dot. */
-		DOT("Solo punto"),
+		DOT,
 		/** No top line. */
-		T("Forma de T");
+		T;
 
-		public final String label;
-
-		Style(String label) {
-			this.label = label;
+		public String label() {
+			return Text.get("crosshair.style." + name());
 		}
 
 		public boolean hasLines() {
@@ -37,7 +35,13 @@ public class CrosshairSettings {
 		}
 	}
 
-	public static final String[] COLOR_NAMES = { "Verde", "Amarillo", "Cian", "Blanco", "Rojo", "Magenta" };
+	/** "Verde", "Amarillo"... in the current language, in the order of the colors. */
+	public static String[] colorNames() {
+		String[] names = new String[COLORS.length];
+		for (int i = 0; i < names.length; i++)
+			names[i] = Text.get("crosshair.color." + i);
+		return names;
+	}
 	private static final Color[] COLORS = { new Color(0.2f, 1f, 0.2f, 1), new Color(1f, 0.92f, 0.2f, 1),
 			new Color(0.2f, 0.95f, 1f, 1), new Color(1f, 1f, 1f, 1), new Color(1f, 0.25f, 0.25f, 1),
 			new Color(1f, 0.3f, 1f, 1) };
@@ -53,7 +57,7 @@ public class CrosshairSettings {
 	public int thickness = 2;
 	/** Distance from the center to where each line starts. */
 	public int gap = 4;
-	/** Index into {@link #COLOR_NAMES}. */
+	/** Index into {@link #colorNames()}. */
 	public int color = 0;
 	public float opacity = 0.9f;
 	public boolean outline = true;

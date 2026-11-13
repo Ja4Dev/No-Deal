@@ -21,6 +21,7 @@ import com.juego.core.GameWorld;
 import com.juego.screens.menues.ConfigMenuScreen;
 import com.juego.screens.menues.MenuScreen;
 import com.juego.screens.menues.SettingsFlow;
+import com.juego.utils.Text;
 
 /**
  * The in-game pause menu. Its "Opciones" button opens the same settings
@@ -120,12 +121,12 @@ public class PauseMenu extends Menu {
 
 	private void setWidgets() {
 		backgroundImage = new Image(loadTexture("pauseMenu/background.png"));
-		titleImage = new Image(loadTexture("pauseMenu/title.png"));
-		resumeButton = new TextButton("Reanudar", Assets.skin);
-		scoreButton = new TextButton("Puntuacion", Assets.skin);
-		settingsButton = new TextButton("Opciones", Assets.skin);
-		nameButton = new TextButton("Cambiar nombre", Assets.skin);
-		menuButton = new TextButton("Menu Principal", Assets.skin);
+		titleImage = new Image(loadTexture(Text.image("pauseMenu/title.png")));
+		resumeButton = new TextButton(Text.get("pause.resume"), Assets.skin);
+		scoreButton = new TextButton(Text.get("pause.scoreboard"), Assets.skin);
+		settingsButton = new TextButton(Text.get("pause.options"), Assets.skin);
+		nameButton = new TextButton(Text.get("pause.rename"), Assets.skin);
+		menuButton = new TextButton(Text.get("pause.mainMenu"), Assets.skin);
 	}
 
 	/** Gives the keyboard and mouse back to the pause menu (after the console closes). */
@@ -140,7 +141,7 @@ public class PauseMenu extends Menu {
 			if (c == '\r' || c == '\n')
 				acceptName();
 		});
-		TextButton accept = new TextButton("Aceptar", Assets.skin), cancel = new TextButton("Cancelar", Assets.skin);
+		TextButton accept = new TextButton(Text.get("accept"), Assets.skin), cancel = new TextButton(Text.get("cancel"), Assets.skin);
 		accept.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
@@ -156,7 +157,7 @@ public class PauseMenu extends Menu {
 		namePanel = new Table();
 		namePanel.setBackground(Assets.skin.newDrawable("white", new Color(0.05f, 0.08f, 0.05f, 0.95f)));
 		namePanel.pad(18);
-		namePanel.add(new Label("Nuevo nombre", Assets.skin)).colspan(2).padBottom(8).row();
+		namePanel.add(new Label(Text.get("pause.newName"), Assets.skin)).colspan(2).padBottom(8).row();
 		namePanel.add(nameField).colspan(2).width(280).height(36).padBottom(12).row();
 		namePanel.add(accept).width(134).height(44).padRight(12);
 		namePanel.add(cancel).width(134).height(44);

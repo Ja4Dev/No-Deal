@@ -151,6 +151,7 @@ class MessagesTest {
 
 	@Test
 	void namesAreSanitized() {
+		com.juego.utils.Text.setLanguage(com.juego.utils.Text.Language.ES);
 		assertEquals("Jugador", Messages.sanitizeName("   "));
 		assertEquals("Jugador", Messages.sanitizeName(null));
 		assertEquals("abc", Messages.sanitizeName(" a\u0000b\nc "));

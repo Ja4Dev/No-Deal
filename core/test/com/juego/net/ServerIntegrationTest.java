@@ -25,6 +25,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.guns.Armory;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.Text;
 
 /**
  * End to end over real UDP sockets on localhost: a real GameServer (with the
@@ -45,6 +46,7 @@ class ServerIntegrationTest {
 	@BeforeAll
 	static void initBullet() throws IOException {
 		Bullet.init();
+		Text.setLanguage(Text.Language.ES); // the replies checked here are the Spanish ones
 		Files.writeString(tmp.resolve("Test.json"), "{model: maps/Bank.g3dj, spawnPoints: [[" + SPAWN_A.x + ","
 				+ SPAWN_A.y + "," + SPAWN_A.z + "],[" + SPAWN_B.x + "," + SPAWN_B.y + "," + SPAWN_B.z + "]]}");
 	}

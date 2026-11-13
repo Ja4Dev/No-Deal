@@ -32,6 +32,7 @@ import com.juego.net.Protocol;
 import com.juego.screens.GameScreen;
 import com.juego.utils.Config;
 import com.juego.utils.Platform;
+import com.juego.utils.Text;
 
 /**
  * Starts a match. "Un jugador" runs a private server with bots inside the
@@ -98,11 +99,11 @@ public class MultiplayerScreen extends MenuScreen {
 		difficultyBox = new SelectBox<>(Assets.skin);
 		Array<String> difficulties = new Array<>();
 		for (BotDifficulty d : BotDifficulty.values())
-			difficulties.add(d.label);
+			difficulties.add(d.label());
 		difficultyBox.setItems(difficulties);
 		difficultyBox.setSelectedIndex(Config.botDifficulty.ordinal());
-		startButton = new TextButton(singleplayer ? "Jugar" : hosting ? "Crear" : "Conectar", Assets.skin);
-		backButton = new TextButton("Volver", Assets.skin);
+		startButton = new TextButton(Text.get(singleplayer ? "mp.play" : hosting ? "mp.create" : "mp.connect"), Assets.skin);
+		backButton = new TextButton(Text.get("back"), Assets.skin);
 		statusLabel = new Label("", Assets.skin);
 		statusLabel.setWrap(true);
 
@@ -112,7 +113,7 @@ public class MultiplayerScreen extends MenuScreen {
 			deviceList = new List<>(Assets.skin);
 			deviceScroll = new ScrollPane(deviceList, Assets.skin);
 			deviceScroll.setFadeScrollBars(false);
-			scanButton = new TextButton("Buscar", Assets.skin);
+			scanButton = new TextButton(Text.get("mp.search"), Assets.skin);
 		} else {
 			networkBox = null;
 			deviceList = null;
@@ -179,29 +180,29 @@ public class MultiplayerScreen extends MenuScreen {
 		boolean singleplayer = kind == GameSession.Kind.SINGLEPLAYER, hosting = kind == GameSession.Kind.HOST;
 		boolean joining = kind == GameSession.Kind.JOIN, bluetooth = overBluetooth();
 		table.clearChildren();
-		Label title = new Label(singleplayer ? "Un jugador" : hosting ? "Crear partida" : "Unirse a partida",
+		Label title = new Label(Text.get(singleplayer ? "menu.singleplayer" : hosting ? "menu.host" : "menu.join"),
 				Assets.skin);
 		title.setFontScale(2f);
 		table.add(title).colspan(3).padBottom(16).row();
-		row(table, "Nombre", nameField, null);
+		row(table, Text.get("mp.name"), nameField, null);
 		if (networkBox != null)
-			row(table, "Conexion", networkBox, null);
+			row(table, Text.get("mp.connection"), networkBox, null);
 		if (joining && bluetooth) {
-			table.add(new Label("Telefono", Assets.skin)).right().top().padRight(12);
+			table.add(new Label(Text.get("mp.phone"), Assets.skin)).right().top().padRight(12);
 			table.add(deviceScroll).width(280).height(130).padBottom(10);
 			table.add(scanButton).width(90).height(36).padLeft(10).top();
 			table.row();
 		} else {
 			if (joining)
-				row(table, "IP del servidor", hostField, null);
+				row(table, Text.get("mp.serverIp"), hostField, null);
 			if (!singleplayer)
-				row(table, "Puerto UDP", portField, null);
+				row(table, Text.get("mp.port"), portField, null);
 		}
 		if (!joining) {
-			row(table, "Bots", botsSlider, botsValue);
-			row(table, "Dificultad", difficultyBox, null);
-			row(table, "Duracion", timeSlider, timeValue);
-			row(table, "Bajas para ganar", fragSlider, fragValue);
+			row(table, Text.get("mp.bots"), botsSlider, botsValue);
+			row(table, Text.get("mp.difficulty"), difficultyBox, null);
+			row(table, Text.get("mp.duration"), timeSlider, timeValue);
+			row(table, Text.get("mp.fragLimit"), fragSlider, fragValue);
 		}
 		table.add().height(10).row();
 		table.add(startButton).colspan(3).width(256).height(56).padBottom(10).row();
@@ -209,19 +210,14 @@ public class MultiplayerScreen extends MenuScreen {
 		table.add(statusLabel).colspan(3).width(560).row();
 		String hintText;
 		if (singleplayer)
-			hintText = "Deathmatch contra bots. Durante la partida, la consola ("
-					+ (Platform.touch ? "boton >_ arriba a la derecha" : "tecla a la izquierda del 1")
-					+ ") agrega o saca bots y cambia la dificultad.";
+			hintText = Text.get("mp.hint.singleplayer",
+					Text.get(Platform.touch ? "mp.consoleWhere.touch" : "mp.consoleWhere.key"));
 		else if (hosting && bluetooth)
-			hintText = "Deathmatch hasta " + Protocol.MAX_PLAYERS + " personas, mas los bots. Los demas eligen \""
-					+ game.bluetooth.localName() + "\" en Unirse a partida, con Conexion: Bluetooth"
-					+ " (por Wi-Fi tambien se pueden unir con tu IP).";
+			hintText = Text.get("mp.hint.hostBluetooth", Protocol.MAX_PLAYERS, game.bluetooth.localName());
 		else if (hosting)
-			hintText = "Deathmatch hasta " + Protocol.MAX_PLAYERS
-					+ " personas, mas los bots. Los demas se unen con tu IP (se muestra al empezar).";
+			hintText = Text.get("mp.hint.host", Protocol.MAX_PLAYERS);
 		else if (bluetooth)
-			hintText = "Elegi el telefono de quien creo la partida. Si no aparece, que toque Crear otra vez:"
-					+ " su telefono queda visible unos minutos.";
+			hintText = Text.get("mp.hint.joinBluetooth");
 		else
 			hintText = null;
 		if (hintText != null) {
@@ -243,9 +239,9 @@ public class MultiplayerScreen extends MenuScreen {
 	}
 
 	private void showLimits() {
-		timeValue.setText((int) timeSlider.getValue() + " min");
+		timeValue.setText(Text.get("mp.minutes", (int) timeSlider.getValue()));
 		int frags = (int) fragSlider.getValue();
-		fragValue.setText(frags == 0 ? "Sin limite" : Integer.toString(frags));
+		fragValue.setText(frags == 0 ? Text.get("mp.noLimit") : Integer.toString(frags));
 	}
 
 	private void showBots() {
@@ -272,7 +268,7 @@ public class MultiplayerScreen extends MenuScreen {
 		if (busy)
 			return;
 		busy = true;
-		showStatus("Preparando Bluetooth...");
+		showStatus(Text.get("mp.preparingBluetooth"));
 		game.bluetooth.prepare(false, new Bluetooth.Callback<Void>() {
 			@Override
 			public void ready(Void result) {
@@ -283,14 +279,14 @@ public class MultiplayerScreen extends MenuScreen {
 				devices.clear();
 				deviceList.clearItems();
 				scanning = true;
-				showStatus("Buscando telefonos cerca...");
+				showStatus(Text.get("mp.scanning"));
 				game.bluetooth.startScan(device -> {
 					if (disposed || devices.contains(device, false))
 						return;
 					devices.add(device);
 					Array<String> items = new Array<>();
 					for (Bluetooth.Device d : devices)
-						items.add(d.name + (d.paired ? " (vinculado)" : ""));
+						items.add(d.name + (d.paired ? Text.get("mp.paired") : ""));
 					int selected = deviceList.getSelectedIndex();
 					deviceList.setItems(items);
 					deviceList.setSelectedIndex(Math.max(0, selected));
@@ -317,14 +313,14 @@ public class MultiplayerScreen extends MenuScreen {
 	private void joinOverBluetooth(final String name) {
 		int index = deviceList.getSelectedIndex();
 		if (index < 0 || index >= devices.size) {
-			showError("Elegi el telefono de quien creo la partida (toca Buscar si no aparece).");
+			showError(Text.get("mp.choosePhone"));
 			return;
 		}
 		final Bluetooth.Device device = devices.get(index);
 		stopScan();
 		busy = true;
 		startButton.setDisabled(true);
-		showStatus("Conectando por Bluetooth con " + device.name + "...");
+		showStatus(Text.get("mp.connectingBluetooth", device.name));
 		game.bluetooth.connect(device, new Bluetooth.Callback<Bluetooth.Joined>() {
 			@Override
 			public void ready(Bluetooth.Joined joined) {
@@ -337,7 +333,7 @@ public class MultiplayerScreen extends MenuScreen {
 				client = new GameClient(clock);
 				client.connect(joined.transport, joined.host, name);
 				Config.playerName = name;
-				showStatus("Entrando a la partida de " + device.name + "...");
+				showStatus(Text.get("mp.enteringMatch", device.name));
 			}
 
 			@Override
@@ -355,7 +351,7 @@ public class MultiplayerScreen extends MenuScreen {
 	private void hostOverBluetooth() {
 		busy = true;
 		startButton.setDisabled(true);
-		showStatus("Preparando Bluetooth...");
+		showStatus(Text.get("mp.preparingBluetooth"));
 		game.bluetooth.prepare(true, new Bluetooth.Callback<Void>() {
 			@Override
 			public void ready(Void result) {
@@ -365,7 +361,7 @@ public class MultiplayerScreen extends MenuScreen {
 				try {
 					bluetoothHost = game.bluetooth.host();
 				} catch (IOException e) {
-					showError("No se pudo abrir el Bluetooth: " + e.getMessage());
+					showError(Text.get("mp.bluetoothFailed", e.getMessage()));
 					startButton.setDisabled(false);
 					return;
 				}
@@ -407,7 +403,7 @@ public class MultiplayerScreen extends MenuScreen {
 				if (port < 1 || port > 65535)
 					throw new NumberFormatException();
 			} catch (NumberFormatException e) {
-				showError("El puerto tiene que ser un numero entre 1 y 65535");
+				showError(Text.get("mp.badPort"));
 				cleanUp();
 				return;
 			}
@@ -446,11 +442,11 @@ public class MultiplayerScreen extends MenuScreen {
 				Config.timeLimitMinutes = (int) timeSlider.getValue();
 				Config.fragLimit = (int) fragSlider.getValue();
 			}
-			showStatus(kind == GameSession.Kind.JOIN ? "Conectando a " + host + ":" + port + "..."
-					: bots > 0 ? "Preparando la partida y los bots..." : "Creando partida...");
+			showStatus(kind == GameSession.Kind.JOIN ? Text.get("mp.connectingTo", host, port)
+					: Text.get(bots > 0 ? "mp.preparingBots" : "mp.creating"));
 			startButton.setDisabled(true);
 		} catch (BindException e) {
-			showError("No se pudo abrir el puerto " + port + ": ya esta en uso");
+			showError(Text.get("mp.portInUse", port));
 			cleanUp();
 		} catch (IOException | IllegalArgumentException e) {
 			showError(e.getMessage() != null ? e.getMessage() : e.toString());

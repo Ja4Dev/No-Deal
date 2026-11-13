@@ -26,6 +26,7 @@ import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
 import com.juego.utils.Controls;
 import com.juego.utils.Platform;
+import com.juego.utils.Text;
 
 /**
  * Bridges the online match ({@link GameClient}) and the ECS world: sends the
@@ -114,15 +115,15 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			return;
 		greeted = true;
 		if (gameWorld.isSingleplayer()) {
-			String console = Platform.touch ? "boton " + Controls.promptName(Controls.Action.CONSOLE)
-					: "tecla " + Controls.promptName(Controls.Action.CONSOLE);
-			hud().addFeedMessage("Escribi en la consola (" + console + ") 'bot agregar' o 'bot dificultad'");
+			String console = Text.get(Platform.touch ? "feed.consoleButton" : "feed.consoleKey",
+					Controls.promptName(Controls.Action.CONSOLE));
+			hud().addFeedMessage(Text.get("feed.consoleHint", console));
 		} else if (gameWorld.isHosting()) {
 			Array<String> ips = NetUtils.lanAddresses();
-			hud().addFeedMessage(ips.isEmpty() ? "Partida creada (puerto " + gameWorld.getHostedPort() + ")"
-					: "Partida creada: " + ips.first() + ":" + gameWorld.getHostedPort());
+			hud().addFeedMessage(ips.isEmpty() ? Text.get("feed.hosted", gameWorld.getHostedPort())
+					: Text.get("feed.hostedAt", ips.first() + ":" + gameWorld.getHostedPort()));
 		} else {
-			hud().addFeedMessage("Conectado a la partida");
+			hud().addFeedMessage(Text.get("feed.connected"));
 		}
 	}
 
@@ -150,15 +151,15 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 		boolean me = event.playerId == client.getLocalId();
 		switch (event.type) {
 		case JOINED:
-			feed(name(event.playerId) + " se unió");
+			feed(Text.get("feed.joined", name(event.playerId)));
 			break;
 		case LEFT:
-			feed(name(event.playerId) + " salió");
+			feed(Text.get("feed.left", name(event.playerId)));
 			break;
 		case KILL: {
 			String victim = name(event.playerId);
-			String line = event.killerId == Protocol.WORLD ? victim + " se cayó del mapa"
-					: name(event.killerId) + " [" + event.gun + (event.headshot ? ", a la cabeza" : "") + "] " + victim;
+			String line = event.killerId == Protocol.WORLD ? Text.get("feed.fell", victim)
+					: name(event.killerId) + " [" + event.gun + (event.headshot ? Text.get("feed.headshot") : "") + "] " + victim;
 			feed(line);
 			if (me) {
 				playerComponent.killedByServer();
@@ -179,16 +180,16 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 				gameWorld.playerSystem().teleport(event.position);
 			break;
 		case MATCH_END: {
-			String message = event.playerId == Protocol.WORLD ? "Fin de la partida"
-					: event.playerId == client.getLocalId() ? "¡Ganaste la partida!"
-							: "Ganó " + name(event.playerId);
+			String message = event.playerId == Protocol.WORLD ? Text.get("center.matchOver")
+					: event.playerId == client.getLocalId() ? Text.get("center.youWon")
+							: Text.get("center.winner", name(event.playerId));
 			feed(message);
 			if (hud() != null)
 				hud().setCenterMessage(message);
 			break;
 		}
 		case MATCH_START:
-			feed("Nueva partida");
+			feed(Text.get("feed.newMatch"));
 			if (hud() != null && !playerComponent.isDead())
 				hud().setCenterMessage(null);
 			break;
@@ -209,8 +210,8 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			playerComponent.hurt(event.detail, event.position);
 			break;
 		case RENAMED:
-			feed(me ? "Ahora te llamás " + client.getPlayer(event.playerId).name
-					: event.gun + " ahora se llama " + name(event.playerId));
+			feed(me ? Text.get("feed.renamedMe", client.getPlayer(event.playerId).name)
+					: Text.get("feed.renamed", event.gun, name(event.playerId)));
 			break;
 		case HIT:
 			gameWorld.weaponSystem().showHit(event.position, event.from, event.headshot, me);
@@ -222,7 +223,7 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 
 	private String name(int id) {
 		if (id == client.getLocalId())
-			return "Vos";
+			return Text.get("you");
 		String name = names.get(id);
 		return name != null ? name : "#" + id;
 	}

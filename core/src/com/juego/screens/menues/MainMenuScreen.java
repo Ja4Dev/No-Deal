@@ -19,6 +19,7 @@ import com.juego.core.Core;
 import com.juego.core.GameSession;
 import com.juego.utils.MusicPlayer;
 import com.juego.utils.Platform;
+import com.juego.utils.Text;
 
 public class MainMenuScreen extends MenuScreen {
 	Image backgroundImage, titleImage;
@@ -141,22 +142,22 @@ public class MainMenuScreen extends MenuScreen {
 	private void setWidgets() {
 		backgroundImage = new Image(loadTexture("mainMenu/background.png"));
 		titleImage = new Image(loadTexture("mainMenu/title.png"));
-		playButton = new TextButton("Un jugador", Assets.skin);
-		hostButton = new TextButton("Crear partida", Assets.skin);
-		joinButton = new TextButton("Unirse a partida", Assets.skin);
+		playButton = new TextButton(Text.get("menu.singleplayer"), Assets.skin);
+		hostButton = new TextButton(Text.get("menu.host"), Assets.skin);
+		joinButton = new TextButton(Text.get("menu.join"), Assets.skin);
 		messageLabel = new Label(message == null ? "" : message, Assets.skin);
-		configButton = new TextButton("Opciones", Assets.skin);
-		creditsButton = new TextButton("Creditos", Assets.skin);
-		quitButton = new TextButton("Salir", Assets.skin);
-		musicPlayer = new Label("Musica", Assets.skin);
+		configButton = new TextButton(Text.get("menu.options"), Assets.skin);
+		creditsButton = new TextButton(Text.get("menu.credits"), Assets.skin);
+		quitButton = new TextButton(Text.get("menu.quit"), Assets.skin);
+		musicPlayer = new Label(Text.get("menu.music"), Assets.skin);
 		musicPrev = new TextButton("<<", Assets.skin);
-		musicPause = new TextButton("Pausa", Assets.skin);
+		musicPause = new TextButton(Text.get("menu.musicPause"), Assets.skin);
 		musicNext = new TextButton(">>", Assets.skin);
 	}
 
 	@Override
 	public void render(float delta) {
-	musicPlayer.setText("Musica: " + game.musicPlayer.getCurrentTitle());
+	musicPlayer.setText(Text.get("menu.musicNow", game.musicPlayer.getCurrentTitle()));
 	stage.act(delta);
 	stage.draw();
 	}

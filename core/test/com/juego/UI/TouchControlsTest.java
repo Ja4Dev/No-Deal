@@ -84,7 +84,7 @@ class TouchControlsTest {
 	@Test
 	void everyButtonHasAnAction() {
 		for (Button button : Button.values())
-			assertEquals(button.label, TouchControls.label(button.action));
+			assertEquals(button.label(), TouchControls.label(button.action));
 		assertEquals(null, TouchControls.label(Action.FORWARD)); // the joystick, no button
 	}
 

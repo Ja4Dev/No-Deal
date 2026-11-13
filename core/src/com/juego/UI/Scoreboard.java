@@ -11,6 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
+import com.juego.utils.Text;
 
 /** Score table shown while holding the scoreboard key, from the pause menu, and between matches. */
 public class Scoreboard extends Menu {
@@ -70,10 +71,10 @@ public class Scoreboard extends Menu {
 		table.clearChildren();
 		table.add(label(title, Color.WHITE, 1.6f)).colspan(5).padBottom(14).row();
 		table.add(label("#", HEADER, 1.2f)).width(40);
-		table.add(label("Jugador", HEADER, 1.2f)).width(260).left();
-		table.add(label("Bajas", HEADER, 1.2f)).width(90);
-		table.add(label("Muertes", HEADER, 1.2f)).width(90);
-		table.add(label("Asist.", HEADER, 1.2f)).width(90);
+		table.add(label(Text.get("score.player"), HEADER, 1.2f)).width(260).left();
+		table.add(label(Text.get("score.kills"), HEADER, 1.2f)).width(90);
+		table.add(label(Text.get("score.deaths"), HEADER, 1.2f)).width(90);
+		table.add(label(Text.get("score.assists"), HEADER, 1.2f)).width(90);
 		table.row().padBottom(6);
 		for (int i = 0; i < rows.size; i++) {
 			Row row = rows.get(i);
@@ -93,7 +94,7 @@ public class Scoreboard extends Menu {
 		renamesTag.clearChildren();
 		renamesTag.setVisible(renames.size > 0);
 		if (renames.size > 0) {
-			renamesTag.add(label("Cambios de nombre", HEADER, 1f)).right().row();
+			renamesTag.add(label(Text.get("score.renames"), HEADER, 1f)).right().row();
 			for (String rename : renames)
 				renamesTag.add(label(rename.replace(" -> ", "  >  "), RENAMED, 1.05f)).right().row();
 			renamesTag.pack();

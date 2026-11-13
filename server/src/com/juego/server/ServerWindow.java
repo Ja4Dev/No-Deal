@@ -135,7 +135,7 @@ public class ServerWindow implements ServerHost.View {
 		fragsField = spinner(config.fragLimit, 0, 999, 4);
 		botsField = spinner(config.bots, 0, GameServer.MAX_BOTS, 3);
 		for (BotDifficulty d : BotDifficulty.values())
-			difficultyField.addItem(d.label);
+			difficultyField.addItem(d.label());
 		difficultyField.setSelectedIndex(config.botDifficulty.ordinal());
 		difficultyField.setFont(MONO);
 		difficultyField.setBackground(FIELD);
@@ -429,7 +429,7 @@ public class ServerWindow implements ServerHost.View {
 		case "ayuda":
 		case "help":
 			append(EventType.INFO, "Comandos: iniciar, detener, estado, ip, limpiar, salir");
-			for (String help : GameServer.COMMANDS_HELP.split("\n"))
+			for (String help : GameServer.commandsHelp().split("\n"))
 				if (!help.startsWith("estado"))
 					append(EventType.INFO, help);
 			break;

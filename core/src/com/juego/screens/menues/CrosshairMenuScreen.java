@@ -25,6 +25,7 @@ import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.utils.Config;
 import com.juego.utils.CrosshairSettings;
+import com.juego.utils.Text;
 
 /**
  * Crosshair settings with a live preview, drawn over a light and a dark
@@ -59,11 +60,11 @@ public class CrosshairMenuScreen extends MenuScreen {
 
 		Array<String> styles = new Array<>();
 		for (CrosshairSettings.Style s : CrosshairSettings.Style.values())
-			styles.add(s.label);
+			styles.add(s.label());
 		style = new SelectBox<>(Assets.skin);
 		style.setItems(styles);
 		color = new SelectBox<>(Assets.skin);
-		color.setItems(CrosshairSettings.COLOR_NAMES);
+		color.setItems(CrosshairSettings.colorNames());
 		size = new Slider(CrosshairSettings.MIN_SIZE, CrosshairSettings.MAX_SIZE, 1, false, Assets.skin);
 		thickness = new Slider(CrosshairSettings.MIN_THICKNESS, CrosshairSettings.MAX_THICKNESS, 1, false, Assets.skin);
 		gap = new Slider(CrosshairSettings.MIN_GAP, CrosshairSettings.MAX_GAP, 1, false, Assets.skin);
@@ -72,26 +73,26 @@ public class CrosshairMenuScreen extends MenuScreen {
 		thicknessValue = new Label("", Assets.skin);
 		gapValue = new Label("", Assets.skin);
 		opacityValue = new Label("", Assets.skin);
-		outline = new CheckBox(" Borde negro", Assets.skin);
-		dynamicMove = new CheckBox(" Se abre al moverte y saltar", Assets.skin);
-		dynamicFire = new CheckBox(" Se abre al disparar seguido", Assets.skin);
-		followRecoil = new CheckBox(" Sigue el retroceso (marca donde va la bala)", Assets.skin);
-		TextButton defaults = new TextButton("Restaurar", Assets.skin);
-		TextButton back = new TextButton("Volver", Assets.skin);
+		outline = new CheckBox(Text.get("crosshair.outline"), Assets.skin);
+		dynamicMove = new CheckBox(Text.get("crosshair.dynamicMove"), Assets.skin);
+		dynamicFire = new CheckBox(Text.get("crosshair.dynamicFire"), Assets.skin);
+		followRecoil = new CheckBox(Text.get("crosshair.followRecoil"), Assets.skin);
+		TextButton defaults = new TextButton(Text.get("defaults"), Assets.skin);
+		TextButton back = new TextButton(Text.get("back"), Assets.skin);
 
-		Label title = new Label("Mira", Assets.skin);
+		Label title = new Label(Text.get("crosshair.title"), Assets.skin);
 		title.setFontScale(2f);
 		Table table = new Table();
 		table.setPosition(100, 70);
 		table.setSize(600, 560);
 		table.top().left();
 		table.add(title).colspan(3).left().padBottom(24).row();
-		row(table, "Estilo", style, null);
-		row(table, "Color", color, null);
-		row(table, "Largo", size, sizeValue);
-		row(table, "Grosor", thickness, thicknessValue);
-		row(table, "Separacion", gap, gapValue);
-		row(table, "Opacidad", opacity, opacityValue);
+		row(table, Text.get("crosshair.style"), style, null);
+		row(table, Text.get("crosshair.color"), color, null);
+		row(table, Text.get("crosshair.size"), size, sizeValue);
+		row(table, Text.get("crosshair.thickness"), thickness, thicknessValue);
+		row(table, Text.get("crosshair.gap"), gap, gapValue);
+		row(table, Text.get("crosshair.opacity"), opacity, opacityValue);
 		table.add(outline).colspan(3).left().padTop(8).row();
 		table.add(dynamicMove).colspan(3).left().padTop(8).row();
 		table.add(dynamicFire).colspan(3).left().padTop(8).row();
@@ -102,7 +103,7 @@ public class CrosshairMenuScreen extends MenuScreen {
 		table.add(buttons).colspan(3).left().row();
 		stage.addActor(table);
 
-		Label preview = new Label("Vista previa", Assets.skin);
+		Label preview = new Label(Text.get("crosshair.preview"), Assets.skin);
 		preview.setPosition(PREVIEW_X, PREVIEW_Y + PREVIEW_H + 10);
 		stage.addActor(preview);
 

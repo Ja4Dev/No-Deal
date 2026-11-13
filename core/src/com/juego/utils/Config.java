@@ -15,7 +15,9 @@ public final class Config {
 	private static final String PREFERENCES = "NoDeal";
 
 	public static boolean fullscreen = false;
-	public static String playerName = "Jugador";
+	public static String playerName = "";
+	/** The language the player chose in Opciones; null until then (the system's is used, see Text). */
+	public static Text.Language language;
 	public static float fxVolume = 100;
 	public static float musicVolume = 50;
 	/** Same scale as CS: degrees per mouse count = sensitivity * 0.022. */
@@ -37,6 +39,9 @@ public final class Config {
 
 	public static void load() {
 		Preferences prefs = Gdx.app.getPreferences(PREFERENCES);
+		// First, so every text below (and the default name) is in the right language.
+		language = Text.Language.parse(prefs.getString("language", ""));
+		Text.setLanguage(language != null ? language : Text.system());
 		fullscreen = prefs.getBoolean("fullscreen", fullscreen);
 		playerName = Messages.sanitizeName(prefs.getString("playerName", playerName));
 		fxVolume = clamp(prefs.getFloat("fxVolume", fxVolume), 0, 100);
@@ -59,6 +64,8 @@ public final class Config {
 		Preferences prefs = Gdx.app.getPreferences(PREFERENCES);
 		prefs.putBoolean("fullscreen", fullscreen);
 		prefs.putString("playerName", playerName);
+		if (language != null)
+			prefs.putString("language", language.id);
 		prefs.putFloat("fxVolume", fxVolume);
 		prefs.putFloat("musicVolume", musicVolume);
 		prefs.putFloat("sensitivity", sensitivity);

@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
+import com.juego.utils.Text;
 
 /**
  * Payloads of every message, with their binary encoding. Each message knows
@@ -58,7 +59,7 @@ public final class Messages {
 		String clean = name == null ? "" : name.replaceAll("[\\p{Cntrl}]", "").trim();
 		if (clean.length() > Protocol.MAX_NAME_LENGTH)
 			clean = clean.substring(0, Protocol.MAX_NAME_LENGTH);
-		return clean.isEmpty() ? "Jugador" : clean;
+		return clean.isEmpty() ? Text.get("player.default") : clean;
 	}
 
 	// ---- client -> server ----

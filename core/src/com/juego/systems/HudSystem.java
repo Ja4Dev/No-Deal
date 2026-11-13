@@ -29,6 +29,7 @@ import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
 import com.juego.utils.CrosshairSettings;
 import com.juego.utils.Platform;
+import com.juego.utils.Text;
 
 /**
  * The local player's 2D overlay: HUD (with the match clock), pause menu and
@@ -122,7 +123,7 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 
 		boolean intermission = gameWorld.getMatchPhase() == Match.Phase.INTERMISSION;
 		long remaining = gameWorld.getMatchRemainingMs();
-		hud.setClock(intermission ? "Fin" : Match.formatClock(remaining));
+		hud.setClock(intermission ? Text.get("hud.end") : Match.formatClock(remaining));
 		showDamage();
 		// The view climbs only part of the spray; following the recoil, the crosshair climbs the rest.
 		float recoilLeft = 1 - PlayerSystem.VIEW_RECOIL;
@@ -148,9 +149,9 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		if (playerComponent.scoreboard || intermission) {
 			rows.clear();
 			gameWorld.getScoreRows(rows);
-			String footer = scoreboardOverPause ? (Platform.touch ? "Toca para volver" : "Clic para volver")
-					: intermission ? "Nueva partida en " + (remaining + 999) / 1000 + " s"
-							: "Quedan " + Match.formatClock(remaining);
+			String footer = scoreboardOverPause ? Text.get(Platform.touch ? "hud.tapBack" : "hud.clickBack")
+					: intermission ? Text.get("hud.nextMatchIn", (remaining + 999) / 1000)
+							: Text.get("hud.timeLeft", Match.formatClock(remaining));
 			scoreboard.update(gameWorld.getScoreboardTitle(), rows, footer, gameWorld.session.client.getRenames());
 			scoreboard.draw();
 		}
@@ -166,18 +167,18 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 	private String runCommand(String line) {
 		String lower = line.trim().toLowerCase();
 		if (lower.equals("ayuda") || lower.equals("help") || lower.equals("?"))
-			return "Comandos:\nnombre <nuevo>  cambia tu nombre\n" + GameServer.COMMANDS_HELP + "\nlimpiar  borra la consola";
+			return Text.get("console.help", GameServer.commandsHelp());
 		if (lower.startsWith("nombre") || lower.startsWith("name")) {
 			String name = line.trim().replaceFirst("(?i)^(nombre|name)\\s*", "");
 			if (name.isEmpty())
-				return "Uso: nombre <nuevo nombre> (hasta " + Protocol.MAX_NAME_LENGTH + " letras)";
-			return "Ahora te llamas " + gameWorld.network.rename(name) + ".";
+				return Text.get("console.renameUsage", Protocol.MAX_NAME_LENGTH);
+			return Text.get("console.renamed", gameWorld.network.rename(name));
 		}
 		GameServer server = gameWorld.hostedServer();
 		if (server == null)
-			return "Los comandos los usa quien creo la partida (o la consola del servidor dedicado).";
+			return Text.get("console.notHost");
 		String reply = server.command(line);
-		return reply != null ? reply : "No conozco '" + line + "'. Escribi 'ayuda'.";
+		return reply != null ? reply : Text.get("console.unknown", line);
 	}
 
 	/** Who killed us, with their stats, and the countdown to respawning. */

@@ -232,7 +232,7 @@ public class DedicatedServer {
 		case "help":
 		case "ayuda":
 			System.out.println("Commands: status (list players), quit (notify players and stop)");
-			System.out.println(GameServer.COMMANDS_HELP);
+			System.out.println(GameServer.commandsHelp());
 			break;
 		default:
 			String reply = server == null ? null : server.command(line);

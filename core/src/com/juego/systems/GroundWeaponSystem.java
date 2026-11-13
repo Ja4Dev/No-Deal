@@ -28,6 +28,7 @@ import com.juego.guns.GunDefinition;
 import com.juego.net.GameClient;
 import com.juego.utils.Controls;
 import com.juego.utils.Controls.Action;
+import com.juego.utils.Text;
 
 /**
  * Guns on the ground: dropping with the {@link Action#DROP} key (G by
@@ -127,8 +128,8 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 		String key = Controls.promptName(Action.DROP);
 		Gun current = playerComponent.guns[weapon.def.slot.ordinal()];
 		if (current == null)
-			return "[" + key + "] Agarrar " + weapon.def.name;
-		return "[" + key + "] Cambiar " + current.def.name + " por " + weapon.def.name;
+			return Text.get("prompt.pickUp", key, weapon.def.name);
+		return Text.get("prompt.swap", key, current.def.name, weapon.def.name);
 	}
 
 	/** Takes a gun from the ground; the gun in that slot, if any, is thrown in its place. */
