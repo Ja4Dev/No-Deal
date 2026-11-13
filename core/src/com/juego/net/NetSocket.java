@@ -1,6 +1,5 @@
 package com.juego.net;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -19,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * That keeps the game single-threaded (Bullet's JNI wrappers are not
  * thread-safe) while never stalling a frame waiting for the network.
  */
-public class NetSocket implements Closeable {
+public class NetSocket implements Transport {
 	private static final int MAX_QUEUED = 4096;
 
 	public static class Datagram {
@@ -93,6 +92,7 @@ public class NetSocket implements Closeable {
 	}
 
 	/** Next received datagram, or null if there is none. Never blocks. */
+	@Override
 	public Datagram poll() {
 		Datagram d = inbox.poll();
 		if (d != null)
@@ -100,6 +100,12 @@ public class NetSocket implements Closeable {
 		return d;
 	}
 
+	@Override
+	public boolean reaches(InetSocketAddress address) {
+		return !address.isUnresolved(); // an IP address, not a Bluetooth device
+	}
+
+	@Override
 	public void send(InetSocketAddress to, byte[] data) {
 		try {
 			socket.send(new DatagramPacket(data, data.length, to));

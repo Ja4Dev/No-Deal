@@ -25,6 +25,12 @@ public final class Protocol {
 
 	public static final long CONNECT_TIMEOUT_MS = 5000;
 	public static final long TIMEOUT_MS = 5000;
+	/**
+	 * How long a player who just joined may stay silent: the game freezes
+	 * while it loads the level, which on a slow phone takes longer than
+	 * {@link #TIMEOUT_MS}. It ends with the player's first state.
+	 */
+	public static final long LOADING_TIMEOUT_MS = 30000;
 	public static final long RESEND_MS = 100;
 	public static final long STATE_INTERVAL_MS = 1000 / 30;
 	public static final long SNAPSHOT_INTERVAL_MS = 1000 / 20;

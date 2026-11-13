@@ -112,6 +112,8 @@ public class GameServer implements Disposable {
 		long lastRenameMs = Long.MIN_VALUE / 2;
 		/** Null for bots. */
 		final Connection connection;
+		/** Sent its first state: done loading the level, so the normal timeout applies. */
+		boolean loaded;
 		/** Null for people. */
 		Bot bot;
 		final MovementValidator validator = new MovementValidator();
@@ -144,7 +146,10 @@ public class GameServer implements Disposable {
 	private final Config config;
 	private final Armory armory;
 	private final LongSupplier clock;
-	private final NetSocket socket;
+	/** UDP: the port players join on over Wi-Fi, and the local player in singleplayer or when hosting. */
+	private final NetSocket udp;
+	/** Every way packets arrive: UDP, plus Bluetooth when hosting over it ({@link #addTransport}). */
+	private final MultiTransport socket;
 	private final MapCollision map;
 	private final Array<Vector3> spawnPoints = new Array<>();
 
@@ -195,7 +200,8 @@ public class GameServer implements Disposable {
 		mapObject.setCollisionShape(map.shape);
 		mapObject.setUserValue(Protocol.WORLD);
 		world.addCollisionObject(mapObject);
-		socket = new NetSocket(config.port, config.localOnly);
+		udp = new NetSocket(config.port, config.localOnly);
+		socket = new MultiTransport(udp);
 		match = new Match(new Match.Settings(config.timeLimitMinutes * 60_000L, config.fragLimit, config.intermissionMs));
 		match.start(clock.getAsLong());
 		weapons = new GroundWeapons(this::castLevel, new GroundWeapons.Listener() {
@@ -221,7 +227,7 @@ public class GameServer implements Disposable {
 		botDifficulty = config.botDifficulty;
 		for (int i = 0; i < Math.min(config.bots, MAX_BOTS); i++)
 			addBot(botDifficulty);
-		NetLog.info(TAG, "Listening on UDP port " + socket.getLocalPort() + " (map " + config.map + ", max "
+		NetLog.info(TAG, "Listening on UDP port " + udp.getLocalPort() + " (map " + config.map + ", max "
 				+ config.maxPlayers + " players, " + config.timeLimitMinutes + " min"
 				+ (config.fragLimit > 0 ? " or " + config.fragLimit + " kills" : "") + ")");
 	}
@@ -238,7 +244,15 @@ public class GameServer implements Disposable {
 	}
 
 	public int getPort() {
-		return socket.getLocalPort();
+		return udp.getLocalPort();
+	}
+
+	/**
+	 * Lets players join another way too, such as phones connecting over
+	 * Bluetooth. Closed with the server.
+	 */
+	public void addTransport(Transport transport) {
+		socket.add(transport);
 	}
 
 	/** People connected (bots not counted). */
@@ -305,7 +319,7 @@ public class GameServer implements Disposable {
 			handleDatagram(datagram, now);
 
 		for (ServerPlayer p : byId.values().toArray()) {
-			if (!p.isBot() && p.connection.isTimedOut(Protocol.TIMEOUT_MS)) {
+			if (!p.isBot() && p.connection.isTimedOut(p.loaded ? Protocol.TIMEOUT_MS : Protocol.LOADING_TIMEOUT_MS)) {
 				event(EventType.LEAVE, p.name + " se desconectó (sin respuesta)");
 				removePlayer(p);
 			} else if (!p.alive && now >= p.respawnAtMs) {
@@ -351,6 +365,7 @@ public class GameServer implements Disposable {
 			}
 			switch (message.type) {
 			case Protocol.PLAYER_STATE:
+				player.loaded = true;
 				handleState(player, Messages.PlayerState.read(message.payload), now);
 				break;
 			case Protocol.FIRE:

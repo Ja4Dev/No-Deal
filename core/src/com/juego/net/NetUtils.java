@@ -31,8 +31,13 @@ public final class NetUtils {
 		return result;
 	}
 
-	/** "192.168.1.20:51234", without the leading slash of InetSocketAddress.toString(). */
+	/**
+	 * "192.168.1.20:51234", without the leading slash of
+	 * InetSocketAddress.toString(); a Bluetooth link shows the device name.
+	 */
 	public static String format(InetSocketAddress address) {
+		if (address.isUnresolved() && address.getHostString().contains(": "))
+			return address.getHostString(); // "Bluetooth: Pixel 6"
 		return (address.getAddress() != null ? address.getAddress().getHostAddress() : address.getHostString())
 				+ ":" + address.getPort();
 	}

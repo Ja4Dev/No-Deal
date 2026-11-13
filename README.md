@@ -25,7 +25,11 @@ The same game runs on Android 8.0+ and on iPhone/iPad, with on-screen controls:
 - Android's back button pauses the match, or goes back in the menus. Leaving the app mid-match opens the pause menu.
 - The touch sensitivity is in Opciones → Pantalla tactil.
 
-Multiplayer works between phones and PCs on the same Wi-Fi, or on a phone's hotspot: whoever creates the match shares the IP shown on screen. To try the touch controls on the PC, run `./gradlew desktop:run -Ptouch`; the mouse works as a finger.
+Multiplayer works between phones and PCs on the same Wi-Fi, or on a phone's hotspot: whoever creates the match shares the IP shown on screen.
+
+**Bluetooth** (Android phones with Bluetooth; the option doesn't appear elsewhere): in *Crear partida* choose *Conexion: Bluetooth*. The game asks for the "nearby devices" permission, to turn Bluetooth on and to make the phone visible for 5 minutes. The others choose *Bluetooth* in *Unirse a partida* and pick that phone from the list. The phones don't need to be paired. Wi-Fi players can still join the same match by IP.
+
+How it works: the match runs exactly as over UDP. `GameServer` and `GameClient` talk through a `Transport`, which is a UDP socket (`NetSocket`) or stream links (`LinkTransport`: each packet sent as its length and its bytes, with a reader and a writer thread per link). On Android the links are insecure Bluetooth Classic RFCOMM sockets (`AndroidBluetooth`). The host's server listens on UDP and Bluetooth at once (`MultiTransport`). To try the touch controls on the PC, run `./gradlew desktop:run -Ptouch`; the mouse works as a finger.
 
 The `core` module is compiled as **Java 8** because iOS (RoboVM) only runs Java 8 bytecode, so no newer language features or APIs can be used there. Desktop, server and Android code can use Java 17.
 
