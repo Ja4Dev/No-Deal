@@ -45,14 +45,14 @@ namespace NoDeal.Launcher
             Font = new Font("Segoe UI", 9.75F);
             DoubleBuffered = true;
 
-            playButton = Theme.MakeButton("JUGAR", true);
+            playButton = Theme.MakeButton(L.T("JUGAR", "PLAY"), true);
             playButton.AutoSize = false;
             playButton.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
             playButton.Bounds = new Rectangle((Width96 - 280) / 2, 200, 280, 62);
             playButton.Enabled = false;
             playButton.Click += (sender, e) => Launch(GameMode.Client);
 
-            serverButton = Theme.MakeButton("Servidor dedicado", false);
+            serverButton = Theme.MakeButton(L.T("Servidor dedicado", "Dedicated server"), false);
             serverButton.AutoSize = false;
             serverButton.Font = new Font("Segoe UI", 11F);
             serverButton.Bounds = new Rectangle((Width96 - 280) / 2, 276, 280, 40);
@@ -67,7 +67,7 @@ namespace NoDeal.Launcher
                 TextAlign = ContentAlignment.MiddleLeft,
                 BackColor = Color.Transparent,
                 ForeColor = Theme.Dim,
-                Text = "Buscando Java...",
+                Text = L.T("Buscando Java...", "Looking for Java..."),
             };
 
             var logsLink = new LinkLabel
@@ -142,7 +142,8 @@ namespace NoDeal.Launcher
             else
             {
                 statusLabel.ForeColor = Theme.Yellow;
-                statusLabel.Text = "Falta Java " + JavaFinder.RequiredMajor + " o más nuevo: tocá Jugar para ver cómo instalarlo";
+                statusLabel.Text = L.T("Falta Java " + JavaFinder.RequiredMajor + " o más nuevo: tocá Jugar para ver cómo instalarlo",
+                        "Java " + JavaFinder.RequiredMajor + " or newer is missing: press Play to see how to install it");
             }
         }
 
@@ -161,7 +162,8 @@ namespace NoDeal.Launcher
             hiddenForGame = false;
             playButton.Enabled = serverButton.Enabled = false;
             statusLabel.ForeColor = Theme.Green;
-            statusLabel.Text = mode == GameMode.Client ? "Abriendo No Deal..." : "Abriendo el servidor...";
+            statusLabel.Text = mode == GameMode.Client ? L.T("Abriendo No Deal...", "Opening No Deal...")
+                    : L.T("Abriendo el servidor...", "Opening the server...");
             UseWaitCursor = true;
             watchTimer.Start();
         }

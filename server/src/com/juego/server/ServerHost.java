@@ -12,6 +12,7 @@ import com.juego.guns.Armory;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
 import com.juego.net.NetUtils;
+import com.juego.utils.Text;
 
 /**
  * Runs a {@link GameServer} on the libGDX (headless) thread and lets another
@@ -124,22 +125,19 @@ public class ServerHost extends ApplicationAdapter {
 		try {
 			server = new GameServer(config, new InternalFileHandleResolver(), armory, System::currentTimeMillis);
 		} catch (IOException e) {
-			view.onEvent(EventType.WARNING,
-					"No se pudo abrir el puerto " + config.port + ": " + e.getMessage() + ". Probá con otro puerto.");
+			view.onEvent(EventType.WARNING, Text.get("ds.portFailed", config.port, e.getMessage()));
 			publishStatus();
 			return;
 		}
 		server.setListener(view::onEvent);
 		addresses = NetUtils.lanAddresses();
-		view.onEvent(EventType.INFO, "Servidor iniciado en el puerto UDP " + server.getPort() + " ("
-				+ config.maxPlayers + " jugadores, " + config.timeLimitMinutes + " min"
-				+ (config.fragLimit > 0 ? " o " + config.fragLimit + " bajas" : "") + ")"
-				+ (server.getBotCount() > 0 ? ", con " + server.getBotCount() + " bots (" + config.botDifficulty.label() + ")" : ""));
+		view.onEvent(EventType.INFO, Text.get("ds.started", server.getPort(), config.maxPlayers, config.timeLimitMinutes,
+				config.fragLimit > 0 ? Text.get("ds.startedFrags", config.fragLimit) : "",
+				server.getBotCount() > 0 ? Text.get("ds.startedBots", server.getBotCount(), config.botDifficulty.label()) : ""));
 		for (String ip : addresses)
-			view.onEvent(EventType.INFO, "En tu red se unen con " + ip + ":" + server.getPort());
+			view.onEvent(EventType.INFO, Text.get("ds.lanAddress", ip + ":" + server.getPort()));
 		if (addresses.size == 0)
-			view.onEvent(EventType.WARNING, "No se encontró ninguna red local: solo se puede jugar en esta PC "
-					+ "(127.0.0.1:" + server.getPort() + ")");
+			view.onEvent(EventType.WARNING, Text.get("ds.noLan", "127.0.0.1:" + server.getPort()));
 		publishStatus();
 	}
 
@@ -148,7 +146,7 @@ public class ServerHost extends ApplicationAdapter {
 			return;
 		server.dispose(); // tells every player the server closed
 		server = null;
-		view.onEvent(EventType.INFO, "Servidor detenido");
+		view.onEvent(EventType.INFO, Text.get("ds.stopped"));
 		publishStatus();
 	}
 

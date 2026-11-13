@@ -17,6 +17,7 @@ import com.juego.match.Match;
 import com.juego.net.GameServer;
 import com.juego.net.GameServer.EventType;
 import com.juego.net.Protocol;
+import com.juego.utils.Text;
 
 /**
  * Dedicated server: the same {@link GameServer} the game uses when hosting,
@@ -26,7 +27,7 @@ import com.juego.net.Protocol;
  *
  * <pre>
  * java -jar NoDeal-server.jar [--port 25559] [--max-players 4] [--time-limit 10] [--frag-limit 20]
- *                             [--bots 0] [--bot-difficulty medio] [--nogui]
+ *                             [--bots 0] [--bot-difficulty medio] [--lang es|en] [--nogui]
  * </pre>
  *
  * Terminal commands: {@code status}, {@code help}, {@code quit}, and the
@@ -37,6 +38,7 @@ public class DedicatedServer {
 	static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss");
 
 	public static void main(String[] args) {
+		Text.setLanguage(language(args));
 		GameServer.Config config = new GameServer.Config();
 		boolean noGui = false;
 		boolean optionsGiven = false;
@@ -63,18 +65,21 @@ public class DedicatedServer {
 					config.botDifficulty = BotDifficulty.parse(name);
 					if (config.botDifficulty == null)
 						throw new IllegalArgumentException(
-								"Unknown bot difficulty " + name + " (" + BotDifficulty.choices() + ")");
+								Text.get("ds.unknownDifficulty", name, BotDifficulty.choices()));
 					break;
 				}
 				case "--nogui":
 					noGui = true;
+					continue;
+				case "--lang":
+					i++; // already read by language()
 					continue;
 				case "--help":
 				case "-h":
 					printUsage();
 					return;
 				default:
-					throw new IllegalArgumentException("Unknown option " + args[i]);
+					throw new IllegalArgumentException(Text.get("ds.unknownOption", args[i]));
 				}
 				optionsGiven = true;
 			}
@@ -97,28 +102,51 @@ public class DedicatedServer {
 	/** Null if the settings are valid, otherwise what is wrong with them. */
 	static String validate(GameServer.Config config) {
 		if (config.port < 1 || config.port > 65535)
-			return "--port must be between 1 and 65535";
+			return Text.get("ds.badPort");
 		if (config.maxPlayers < 1 || config.maxPlayers > 32)
-			return "--max-players must be between 1 and 32";
+			return Text.get("ds.badPlayers");
 		if (config.timeLimitMinutes < 1 || config.timeLimitMinutes > 120)
-			return "--time-limit must be between 1 and 120 minutes";
+			return Text.get("ds.badTime");
 		if (config.fragLimit < 0 || config.fragLimit > 999)
-			return "--frag-limit must be between 0 (none) and 999";
+			return Text.get("ds.badFrags");
 		if (config.bots < 0 || config.bots > GameServer.MAX_BOTS)
-			return "--bots must be between 0 and " + GameServer.MAX_BOTS;
+			return Text.get("ds.badBots", GameServer.MAX_BOTS);
 		return null;
 	}
 
 	private static void printUsage() {
-		System.out.println("No Deal dedicated server (protocol v" + Protocol.VERSION + ")");
-		System.out.println("Usage: java -jar NoDeal-server.jar [--port " + Protocol.DEFAULT_PORT + "] [--max-players "
-				+ Protocol.MAX_PLAYERS + "] [--time-limit " + Protocol.DEFAULT_TIME_LIMIT_MINUTES + "] [--frag-limit "
-				+ Protocol.DEFAULT_FRAG_LIMIT + "] [--bots 0] [--bot-difficulty medio] [--nogui]");
-		System.out.println("  --time-limit  match length in minutes");
-		System.out.println("  --frag-limit  kills that win the match early (0 = play the full time)");
-		System.out.println("  --bots        bots in the match (0 to " + GameServer.MAX_BOTS + "), besides the players");
-		System.out.println("  --bot-difficulty  " + BotDifficulty.choices());
-		System.out.println("  --nogui       run in the terminal instead of opening the server window");
+		System.out.println(Text.get("ds.title.usage", Protocol.VERSION));
+		System.out.println(Text.get("ds.usage", Protocol.DEFAULT_PORT, Protocol.MAX_PLAYERS,
+				Protocol.DEFAULT_TIME_LIMIT_MINUTES, Protocol.DEFAULT_FRAG_LIMIT, GameServer.MAX_BOTS, BotDifficulty.choices()));
+	}
+
+	/**
+	 * The language of the messages: --lang if given; otherwise the one chosen in
+	 * the game on this computer (libGDX keeps it in ~/.prefs/NoDeal), so the
+	 * game, its launcher and the server agree; otherwise the system's.
+	 */
+	static Text.Language language(String[] args) {
+		for (int i = 0; i + 1 < args.length; i++) {
+			if (args[i].equals("--lang")) {
+				Text.Language chosen = Text.Language.parse(args[i + 1]);
+				if (chosen != null)
+					return chosen;
+				System.err.println(Text.get("ds.unknownLanguage", args[i + 1]));
+			}
+		}
+		java.io.File prefs = new java.io.File(System.getProperty("user.home"), ".prefs/NoDeal");
+		if (prefs.isFile()) {
+			java.util.Properties saved = new java.util.Properties();
+			try (java.io.InputStream in = new java.io.FileInputStream(prefs)) {
+				saved.loadFromXML(in);
+				Text.Language chosen = Text.Language.parse(saved.getProperty("language", ""));
+				if (chosen != null)
+					return chosen;
+			} catch (IOException | RuntimeException e) {
+				// unreadable: use the system's
+			}
+		}
+		return Text.system();
 	}
 
 	/**
@@ -190,7 +218,7 @@ public class DedicatedServer {
 			if (host.server() == null)
 				host.quit(); // the port was taken: nothing else to do in the terminal
 			else
-				System.out.println("Type 'help' for commands.");
+				System.out.println(Text.get("ds.terminalHelp"));
 		});
 		startConsole(host);
 	}
@@ -219,30 +247,32 @@ public class DedicatedServer {
 			break;
 		case "status":
 		case "players":
+		case "estado":
+		case "jugadores":
 			if (server != null)
-				System.out.print(server.getPlayerCount() + "/" + server.getMaxPlayers() + " jugadores y "
-						+ server.getBotCount() + " bots en el puerto " + server.getPort() + ", " + server.describeMatch()
-						+ "\n" + server.describePlayers());
+				System.out.print(Text.get("ds.terminalStatus", server.getPlayerCount(), server.getMaxPlayers(),
+						server.getBotCount(), server.getPort(), server.describeMatch()) + "\n" + server.describePlayers());
 			break;
 		case "quit":
 		case "exit":
 		case "stop":
+		case "salir":
 			host.quit();
 			break;
 		case "help":
 		case "ayuda":
-			System.out.println("Commands: status (list players), quit (notify players and stop)");
+			System.out.println(Text.get("ds.terminalCommands"));
 			System.out.println(GameServer.commandsHelp());
 			break;
 		default:
 			String reply = server == null ? null : server.command(line);
-			System.out.println(reply != null ? reply : "Unknown command '" + line + "'. Type 'help'.");
+			System.out.println(reply != null ? reply : Text.get("ds.terminalUnknown", line));
 		}
 	}
 
 	/** "Jugando, quedan 7:42" / "Entre partidas, la proxima en 0:08". */
 	static String describeMatch(ServerHost.Status status) {
 		String clock = Match.formatClock(status.matchRemainingMs);
-		return status.matchPlaying ? "Jugando, quedan " + clock : "Entre partidas, la proxima en " + clock;
+		return Text.get(status.matchPlaying ? "ds.playing" : "ds.between", clock);
 	}
 }

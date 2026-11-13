@@ -42,7 +42,7 @@ The same game runs on Android 8.0+ and on iPhone/iPad, with on-screen controls:
 - The touch sensitivity is in Opciones → Pantalla tactil.
 
 ### Languages
-The game is in Spanish and English (Opciones → Idioma; the first time it follows the system's language). Every text is in `Text` (`core/.../utils/Text.java`), both languages side by side: `Text.get("menu.options")`, with `{0}`, `{1}`... for values. `TextTest` checks that both languages have the same blanks. The images with words in them (menu titles, the credits) have an English copy named `*_en.png`. The dedicated server window and the Windows launcher are still only in Spanish.
+The game is in Spanish and English (Opciones → Idioma; the first time it follows the system's language). Every text is in `Text` (`core/.../utils/Text.java`), both languages side by side: `Text.get("menu.options")`, with `{0}`, `{1}`... for values. `TextTest` checks that both languages have the same blanks. The images with words in them (menu titles, the credits) have an English copy named `*_en.png`. The dedicated server (window and terminal) and the Windows launcher speak both languages too: `--lang es|en` chooses one; otherwise they use the language chosen in the game on that computer (libGDX keeps it in `~/.prefs/NoDeal`), so the three agree, or else the system's.
 
 Multiplayer works between phones and PCs on the same Wi-Fi, or on a phone's hotspot: whoever creates the match shares the IP shown on screen.
 
