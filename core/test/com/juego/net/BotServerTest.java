@@ -22,6 +22,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.bots.BotDifficulty;
 import com.juego.guns.Armory;
+import com.juego.utils.Text;
 
 /**
  * Bots in a real server, seen by a real client over UDP. The match runs on a
@@ -38,6 +39,7 @@ class BotServerTest {
 	@BeforeAll
 	static void initBullet() {
 		Bullet.init();
+		Text.setLanguage(Text.Language.ES); // the replies checked here are the Spanish ones
 	}
 
 	@BeforeEach

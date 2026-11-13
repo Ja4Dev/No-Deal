@@ -24,6 +24,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.android.AndroidEventListener;
 import com.juego.net.Bluetooth;
 import com.juego.net.LinkTransport;
+import com.juego.utils.Text;
 
 /**
  * Bluetooth multiplayer on Android with Bluetooth Classic RFCOMM sockets: the
@@ -76,7 +77,7 @@ public class AndroidBluetooth implements Bluetooth, AndroidEventListener {
 		} catch (SecurityException e) {
 			// no permission yet
 		}
-		return "este telefono";
+		return Text.get("bt.thisPhone");
 	}
 
 	// ---- Getting ready: permissions, Bluetooth on, visible ----
@@ -119,11 +120,7 @@ public class AndroidBluetooth implements Bluetooth, AndroidEventListener {
 			return;
 		for (int result : results) {
 			if (result != PackageManager.PERMISSION_GRANTED) {
-				fail(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-						? "Para jugar por Bluetooth hace falta el permiso de dispositivos cercanos."
-								+ " Podes darlo en Ajustes > Apps > No Deal > Permisos."
-						: "Para buscar telefonos por Bluetooth, Android pide el permiso de ubicacion."
-								+ " Podes darlo en Ajustes > Apps > No Deal > Permisos.");
+				fail(Text.get(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? "bt.needNearby" : "bt.needLocation"));
 				return;
 			}
 		}
@@ -137,7 +134,7 @@ public class AndroidBluetooth implements Bluetooth, AndroidEventListener {
 			else
 				activity.startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), REQUEST_ENABLE);
 		} catch (SecurityException e) {
-			fail("Android no dejo usar el Bluetooth: " + e.getMessage());
+			fail(Text.get("bt.denied", e.getMessage()));
 		}
 	}
 
@@ -151,7 +148,7 @@ public class AndroidBluetooth implements Bluetooth, AndroidEventListener {
 			visible.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, VISIBLE_SECONDS);
 			activity.startActivityForResult(visible, REQUEST_VISIBLE);
 		} catch (SecurityException e) {
-			fail("Android no dejo usar el Bluetooth: " + e.getMessage());
+			fail(Text.get("bt.denied", e.getMessage()));
 		}
 	}
 
@@ -163,7 +160,7 @@ public class AndroidBluetooth implements Bluetooth, AndroidEventListener {
 			if (resultCode == Activity.RESULT_OK)
 				askToBeVisible();
 			else
-				fail("Para jugar por Bluetooth hay que prenderlo.");
+				fail(Text.get("bt.turnOn"));
 		} else if (requestCode == REQUEST_VISIBLE) {
 			// Not visible is fine for phones already paired with this one; the others won't find it.
 			succeed();
@@ -325,8 +322,7 @@ public class AndroidBluetooth implements Bluetooth, AndroidEventListener {
 				Gdx.app.postRunnable(() -> done.ready(joined));
 			} catch (IOException | SecurityException | IllegalArgumentException e) {
 				closeQuietly(socket);
-				String reason = "No se pudo conectar con " + device.name + ". Fijate que haya creado la partida"
-						+ " con Conexion: Bluetooth y que siga en el juego.";
+				String reason = Text.get("bt.connectFailed", device.name);
 				Gdx.app.postRunnable(() -> done.failed(reason));
 			}
 		}, "Bluetooth-connect");

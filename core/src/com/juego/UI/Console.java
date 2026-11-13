@@ -13,6 +13,7 @@ import com.badlogic.gdx.utils.Array;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.utils.Platform;
+import com.juego.utils.Text;
 
 /**
  * The in-game console: a line to type commands at the top of the screen and
@@ -56,7 +57,7 @@ public class Console extends Menu {
 		panel.setBackground(background);
 		panel.pad(10);
 		// Phones have no Esc key (and iPhones no back button): the console closes with a button.
-		TextButton close = new TextButton("Cerrar", Assets.skin);
+		TextButton close = new TextButton(Text.get("close"), Assets.skin);
 		close.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {
@@ -68,7 +69,7 @@ public class Console extends Menu {
 		panel.add(close).width(110).height(32).padTop(6).padLeft(8);
 		panel.setBounds(0, Core.VIRTUAL_HEIGHT - 320, Core.VIRTUAL_WIDTH, 320);
 		stage.addActor(panel);
-		print("Consola. Escribi 'ayuda' para ver los comandos; " + (Platform.touch ? "Cerrar" : "Esc") + " para cerrar.");
+		print(Text.get("console.welcome", Platform.touch ? Text.get("close") : "Esc"));
 	}
 
 	public boolean isOpen() {

@@ -31,6 +31,7 @@ import com.juego.systems.RenderSystem;
 import com.juego.systems.WeaponSystem;
 import com.juego.utils.Controls;
 import com.juego.utils.Platform;
+import com.juego.utils.Text;
 
 /**
  * One match as this computer sees it: the ECS engine, its systems, the
@@ -216,8 +217,8 @@ public class GameWorld {
 
 	public String getScoreboardTitle() {
 		int fragLimit = session.client.getFragLimit();
-		String mode = session.isSingleplayer() ? "Un jugador contra bots" : "Deathmatch";
-		return fragLimit > 0 ? mode + ": gana el primero en llegar a " + fragLimit + " bajas" : mode;
+		String mode = Text.get(session.isSingleplayer() ? "match.singleplayer" : "match.deathmatch");
+		return fragLimit > 0 ? Text.get("match.fragLimit", mode, fragLimit) : mode;
 	}
 
 	public void getScoreRows(Array<Scoreboard.Row> out) {

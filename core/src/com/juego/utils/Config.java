@@ -5,6 +5,7 @@ import com.badlogic.gdx.Preferences;
 import com.juego.bots.BotDifficulty;
 import com.juego.net.GameServer;
 import com.juego.net.Messages;
+import com.juego.net.Protocol;
 
 /**
  * Player settings. Saved with libGDX Preferences (on desktop, an XML file in
@@ -14,7 +15,9 @@ public final class Config {
 	private static final String PREFERENCES = "NoDeal";
 
 	public static boolean fullscreen = false;
-	public static String playerName = "Jugador";
+	public static String playerName = "";
+	/** The language the player chose in Opciones; null until then (the system's is used, see Text). */
+	public static Text.Language language;
 	public static float fxVolume = 100;
 	public static float musicVolume = 50;
 	/** Same scale as CS: degrees per mouse count = sensitivity * 0.022. */
@@ -27,12 +30,18 @@ public final class Config {
 	/** Bots chosen last time for "Un jugador" and for "Crear partida", and their difficulty. */
 	public static int singleplayerBots = 5, hostBots = 0;
 	public static BotDifficulty botDifficulty = BotDifficulty.MEDIO;
+	/** Match rules chosen last time for "Un jugador" and "Crear partida": minutes, and kills to win (0 = none). */
+	public static int timeLimitMinutes = Protocol.DEFAULT_TIME_LIMIT_MINUTES, fragLimit = Protocol.DEFAULT_FRAG_LIMIT;
+	public static final int MAX_TIME_LIMIT_MINUTES = 30, MAX_FRAG_LIMIT = 50;
 
 	private Config() {
 	}
 
 	public static void load() {
 		Preferences prefs = Gdx.app.getPreferences(PREFERENCES);
+		// First, so every text below (and the default name) is in the right language.
+		language = Text.Language.parse(prefs.getString("language", ""));
+		Text.setLanguage(language != null ? language : Text.system());
 		fullscreen = prefs.getBoolean("fullscreen", fullscreen);
 		playerName = Messages.sanitizeName(prefs.getString("playerName", playerName));
 		fxVolume = clamp(prefs.getFloat("fxVolume", fxVolume), 0, 100);
@@ -45,6 +54,8 @@ public final class Config {
 		BotDifficulty difficulty = BotDifficulty.parse(prefs.getString("botDifficulty", ""));
 		if (difficulty != null)
 			botDifficulty = difficulty;
+		timeLimitMinutes = Math.max(1, Math.min(MAX_TIME_LIMIT_MINUTES, prefs.getInteger("timeLimit", timeLimitMinutes)));
+		fragLimit = Math.max(0, Math.min(MAX_FRAG_LIMIT, prefs.getInteger("fragLimit", fragLimit)));
 		crosshair.load(prefs);
 		Controls.deserialize(prefs.getString("controls", ""));
 	}
@@ -53,6 +64,8 @@ public final class Config {
 		Preferences prefs = Gdx.app.getPreferences(PREFERENCES);
 		prefs.putBoolean("fullscreen", fullscreen);
 		prefs.putString("playerName", playerName);
+		if (language != null)
+			prefs.putString("language", language.id);
 		prefs.putFloat("fxVolume", fxVolume);
 		prefs.putFloat("musicVolume", musicVolume);
 		prefs.putFloat("sensitivity", sensitivity);
@@ -60,6 +73,8 @@ public final class Config {
 		prefs.putInteger("singleplayerBots", singleplayerBots);
 		prefs.putInteger("hostBots", hostBots);
 		prefs.putString("botDifficulty", botDifficulty.id());
+		prefs.putInteger("timeLimit", timeLimitMinutes);
+		prefs.putInteger("fragLimit", fragLimit);
 		crosshair.save(prefs);
 		prefs.putString("controls", Controls.serialize());
 		prefs.flush();

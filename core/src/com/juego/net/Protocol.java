@@ -14,7 +14,7 @@ package com.juego.net;
 public final class Protocol {
 	public static final short MAGIC = 0x4E44; // "ND"
 	/** Bumped on any incompatible change; checked in HELLO. */
-	public static final int VERSION = 6;
+	public static final int VERSION = 7;
 	public static final int DEFAULT_PORT = 25559;
 	public static final int MAX_PLAYERS = 4;
 	/** Keeps datagrams under the typical internet MTU to avoid IP fragmentation. */
@@ -80,7 +80,7 @@ public final class Protocol {
 	public static final byte PLAYER_RENAMED = 22;
 	/** A player can change their name at most this often. */
 	public static final long RENAME_COOLDOWN_MS = 2000;
-	/** Damage that makes an assist if someone else finishes the victim off (as in CS). */
+	/** Doing more than this damage makes an assist if someone else finishes the victim off (as in CS). */
 	public static final int ASSIST_DAMAGE = 40;
 	/** Headshots do this many times the damage, as in CS: one is lethal with any gun up to ~85 units. */
 	public static final int HEADSHOT_MULTIPLIER = 4;

@@ -30,6 +30,7 @@ import com.juego.guns.GroundWeapons;
 import com.juego.guns.GunDefinition;
 import com.juego.match.Match;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.Text;
 
 /**
  * Authoritative deathmatch server. The same class runs inside the host's game
@@ -114,6 +115,8 @@ public class GameServer implements Disposable {
 		final Connection connection;
 		/** Sent its first state: done loading the level, so the normal timeout applies. */
 		boolean loaded;
+		/** Crouching: the hitbox and the head are lower. */
+		boolean crouched;
 		/** Null for people. */
 		Bot bot;
 		final MovementValidator validator = new MovementValidator();
@@ -276,17 +279,16 @@ public class GameServer implements Disposable {
 	/** E.g. "jugando, quedan 7:42", for the consoles. */
 	public String describeMatch() {
 		long remaining = match.remainingMs(clock.getAsLong());
-		return match.isPlaying() ? "jugando, quedan " + Match.formatClock(remaining)
-				: "entre partidas, la proxima en " + Match.formatClock(remaining);
+		return Text.get(match.isPlaying() ? "server.playing" : "server.between", Match.formatClock(remaining));
 	}
 
 	/** One line per player, for the dedicated server console. */
 	public String describePlayers() {
 		StringBuilder sb = new StringBuilder();
 		for (PlayerInfo p : getPlayers())
-			sb.append(String.format("  #%d %-16s %s  bajas %d / muertes %d / asistencias %d  %s%n", p.id, p.name,
-					p.alive ? p.health + " hp" : "muerto", p.kills, p.deaths, p.assists, p.address));
-		return sb.length() == 0 ? "  (nadie)\n" : sb.toString();
+			sb.append(String.format(Text.get("server.playerLine"), p.id, p.name,
+					p.alive ? p.health + " hp" : Text.get("server.dead"), p.kills, p.deaths, p.assists, p.address));
+		return sb.length() == 0 ? Text.get("server.nobody") : sb.toString();
 	}
 
 	/** The players right now, sorted by id. */
@@ -294,7 +296,7 @@ public class GameServer implements Disposable {
 		Array<PlayerInfo> result = new Array<>(byId.size);
 		for (ServerPlayer p : byId.values())
 			result.add(new PlayerInfo(p.id, p.name,
-					p.isBot() ? "bot (" + p.bot.getDifficulty().label + ")" : NetUtils.format(p.connection.address),
+					p.isBot() ? "bot (" + p.bot.getDifficulty().label() + ")" : NetUtils.format(p.connection.address),
 					p.kills, p.deaths, p.assists, p.health, p.alive, p.isBot()));
 		result.sort((a, b) -> Integer.compare(a.id, b.id));
 		return result;
@@ -320,7 +322,7 @@ public class GameServer implements Disposable {
 
 		for (ServerPlayer p : byId.values().toArray()) {
 			if (!p.isBot() && p.connection.isTimedOut(p.loaded ? Protocol.TIMEOUT_MS : Protocol.LOADING_TIMEOUT_MS)) {
-				event(EventType.LEAVE, p.name + " se desconectó (sin respuesta)");
+				event(EventType.LEAVE, Text.get("server.timedOut", p.name));
 				removePlayer(p);
 			} else if (!p.alive && now >= p.respawnAtMs) {
 				respawn(p, now);
@@ -381,7 +383,7 @@ public class GameServer implements Disposable {
 				handleRename(player, Messages.Rename.read(message.payload), now);
 				break;
 			case Protocol.DISCONNECT:
-				event(EventType.LEAVE, player.name + " salió de la partida");
+				event(EventType.LEAVE, Text.get("server.left", player.name));
 				removePlayer(player);
 				return;
 			default:
@@ -393,15 +395,15 @@ public class GameServer implements Disposable {
 	private ServerPlayer handleHello(Connection connection, Messages.Hello hello, long now) {
 		String reason = null;
 		if (hello.version != Protocol.VERSION)
-			reason = "Version incompatible (servidor v" + Protocol.VERSION + ", cliente v" + hello.version + ")";
+			reason = Text.get("server.badVersion", Protocol.VERSION, hello.version);
 		else if (getPlayerCount() >= config.maxPlayers)
-			reason = "Servidor lleno (" + config.maxPlayers + " jugadores)";
+			reason = Text.get("server.full", config.maxPlayers);
 		if (reason != null) {
 			Messages.Reject reject = new Messages.Reject();
 			reject.reason = reason;
 			connection.sendReliable(reject);
 			closing.add(connection);
-			event(EventType.WARNING, "Rechazado " + NetUtils.format(connection.address) + ": " + reason);
+			event(EventType.WARNING, Text.get("server.rejected", NetUtils.format(connection.address), reason));
 			return null;
 		}
 		if (byId.size >= Protocol.MAX_MATCH_PLAYERS)
@@ -440,8 +442,7 @@ public class GameServer implements Disposable {
 		for (GroundWeapons.Weapon w : weapons.all())
 			connection.sendReliable(weaponSpawn(w, false)); // already lying there: no throw animation
 		broadcastReliable(joined(player), player);
-		event(EventType.JOIN,
-				player.name + " entró a la partida (#" + id + ", " + NetUtils.format(connection.address) + ")");
+		event(EventType.JOIN, Text.get("server.joined", player.name, id, NetUtils.format(connection.address)));
 		return player;
 	}
 
@@ -457,7 +458,7 @@ public class GameServer implements Disposable {
 		renamed.playerId = p.id;
 		renamed.name = name;
 		broadcastReliable(renamed, null);
-		event(EventType.INFO, old + " ahora se llama " + name);
+		event(EventType.INFO, Text.get("server.renamed", old, name));
 	}
 
 	private void handleState(ServerPlayer p, Messages.PlayerState state, long now) {
@@ -465,6 +466,7 @@ public class GameServer implements Disposable {
 			return; // dead, sent before the last teleport, or older than one we already have
 		p.lastSequence = state.sequence;
 		p.yaw = state.yaw;
+		p.crouched = state.crouched;
 		p.pitch = state.pitch;
 		if (state.slot >= 0 && state.slot < p.guns.length) {
 			p.slot = state.slot;
@@ -528,7 +530,7 @@ public class GameServer implements Disposable {
 			ServerPlayer victim = byId.get(hitId);
 			if (victim == null || !victim.alive)
 				return; // hit the level
-			boolean headshot = end.y >= victim.position.y + CharacterShape.HEAD_OFFSET;
+			boolean headshot = end.y >= victim.position.y + CharacterShape.headOffset(victim.crouched);
 			// The farther the bullet flew, the less it hurts (see GunDefinition.rangeModifier).
 			int damage = gun.damageAt(origin.dst(end)) * (headshot ? Protocol.HEADSHOT_MULTIPLIER : 1);
 			victim.damageFrom.getAndIncrement(shooter.id, 0, Math.min(damage, Math.max(0, victim.health)));
@@ -601,7 +603,7 @@ public class GameServer implements Disposable {
 		p.bot = new Bot(id, name, difficulty, botWorld, nav, p.position, random);
 		respawnBot(p);
 		broadcastReliable(joined(p), p);
-		event(EventType.JOIN, name + " entró a la partida (bot " + difficulty.label + ")");
+		event(EventType.JOIN, Text.get("server.botJoined", name, difficulty.label()));
 		return name;
 	}
 
@@ -644,7 +646,7 @@ public class GameServer implements Disposable {
 		if (bot == null)
 			return null;
 		removePlayer(bot);
-		event(EventType.LEAVE, bot.name + " salió de la partida (bot)");
+		event(EventType.LEAVE, Text.get("server.botLeft", bot.name));
 		return bot.name;
 	}
 
@@ -654,7 +656,7 @@ public class GameServer implements Disposable {
 		for (ServerPlayer p : byId.values())
 			if (p.isBot())
 				p.bot.setDifficulty(difficulty);
-		event(EventType.INFO, "Dificultad de los bots: " + difficulty.label);
+		event(EventType.INFO, Text.get("server.botDifficulty", difficulty.label()));
 	}
 
 	private final Array<ServerPlayer> botsThisStep = new Array<>();
@@ -714,20 +716,17 @@ public class GameServer implements Disposable {
 			Bot.Target t = targets.get(i++);
 			t.id = p.id;
 			t.alive = p.alive;
+			t.crouched = p.crouched;
 			t.position.set(p.position);
 		}
 	}
 
 	// ---- console commands ----
 
-	/** The help for {@link #command}, one command per line. */
-	public static final String COMMANDS_HELP = "bot agregar [cantidad] [dificultad]  agrega bots\n"
-			+ "bot quitar [nombre | cantidad | todos]  saca bots\n"
-			+ "bot dificultad <dificultad>  cambia la dificultad de todos los bots\n"
-			+ "bot lista  muestra los bots\n"
-			+ "  dificultades: " + BotDifficulty.choices() + "\n"
-			+ "  (tambien bot_add, bot_kick y bot_difficulty, como en CS)\n"
-			+ "estado  jugadores y tiempo de la partida";
+	/** The help for {@link #command}, one command per line (both languages' commands work). */
+	public static String commandsHelp() {
+		return Text.get("server.commandsHelp", BotDifficulty.choices());
+	}
 
 	/**
 	 * Runs a match command typed in the dedicated server's console, the server
@@ -745,9 +744,10 @@ public class GameServer implements Disposable {
 		else if (lower.equals("bots"))
 			lower = "bot lista";
 		String[] words = lower.split(" ");
-		if (words[0].equals("estado") || words[0].equals("status") || words[0].equals("jugadores")) {
-			return getPlayerCount() + "/" + config.maxPlayers + " jugadores y " + getBotCount() + " bots, "
-					+ describeMatch() + "\n" + describePlayers().replaceAll("\\s+$", "");
+		if (words[0].equals("estado") || words[0].equals("status") || words[0].equals("jugadores")
+				|| words[0].equals("players")) {
+			return Text.get("server.status", getPlayerCount(), config.maxPlayers, getBotCount(), describeMatch())
+					+ "\n" + describePlayers().replaceAll("\\s+$", "");
 		}
 		if (!words[0].equals("bot"))
 			return null;
@@ -767,21 +767,21 @@ public class GameServer implements Disposable {
 		case "difficulty": {
 			BotDifficulty d = BotDifficulty.parse(rest);
 			if (d == null)
-				return rest.isEmpty() ? "Dificultad de los bots: " + botDifficulty.label + ". Opciones: "
-						+ BotDifficulty.choices() : "No conozco la dificultad '" + rest + "'. Opciones: " + BotDifficulty.choices();
+				return rest.isEmpty() ? Text.get("server.difficultyNow", botDifficulty.label(), BotDifficulty.choices())
+						: Text.get("server.unknownDifficulty", rest, BotDifficulty.choices());
 			setBotDifficulty(d);
-			return "Ahora todos los bots juegan en " + d.label + ".";
+			return Text.get("server.allBotsNow", d.label());
 		}
 		case "lista":
 		case "list": {
-			StringBuilder sb = new StringBuilder(getBotCount() + " bots (los nuevos entran en " + botDifficulty.label + ")");
+			StringBuilder sb = new StringBuilder(Text.get("server.botList", getBotCount(), botDifficulty.label()));
 			for (PlayerInfo p : getPlayers())
 				if (p.bot)
-					sb.append(String.format("%n  %-12s %s  bajas %d / muertes %d", p.name, p.address, p.kills, p.deaths));
+					sb.append(String.format(Text.get("server.botLine"), p.name, p.address, p.kills, p.deaths));
 			return sb.toString();
 		}
 		default:
-			return "No conozco 'bot " + action + "'. Comandos:\n" + COMMANDS_HELP;
+			return Text.get("server.unknownBotCommand", action, commandsHelp());
 		}
 	}
 
@@ -799,7 +799,7 @@ public class GameServer implements Disposable {
 		if (difficultyText.length() > 0) {
 			difficulty = BotDifficulty.parse(difficultyText.toString());
 			if (difficulty == null)
-				return "No conozco la dificultad '" + difficultyText + "'. Opciones: " + BotDifficulty.choices();
+				return Text.get("server.unknownDifficulty", difficultyText, BotDifficulty.choices());
 		}
 		Array<String> added = new Array<>();
 		for (int i = 0; i < count; i++) {
@@ -808,18 +808,17 @@ public class GameServer implements Disposable {
 				break;
 			added.add(name);
 		}
-		String full = "No entran mas bots (maximo " + MAX_BOTS + ", y " + Protocol.MAX_MATCH_PLAYERS
-				+ " en total).";
+		String full = Text.get("server.noMoreBots", MAX_BOTS, Protocol.MAX_MATCH_PLAYERS);
 		if (added.size == 0)
 			return full;
-		return (added.size == 1 ? "Entro " : "Entraron ") + added.toString(", ") + " (" + difficulty.label + ")."
+		return Text.get(added.size == 1 ? "server.botAdded" : "server.botsAdded", added.toString(", "), difficulty.label())
 				+ (added.size < count ? " " + full : "");
 	}
 
 	/** "bot quitar", "bot quitar 2", "bot quitar todos", "bot quitar Pedro". */
 	private String removeBotsCommand(String args, String original) {
 		if (getBotCount() == 0)
-			return "No hay bots.";
+			return Text.get("server.noBots");
 		int count = 1;
 		String name = null;
 		if (args.equals("todos") || args.equals("all"))
@@ -836,8 +835,8 @@ public class GameServer implements Disposable {
 			removed.add(gone);
 		}
 		if (removed.size == 0)
-			return "No hay ningun bot llamado '" + name + "'. Escribi 'bot lista' para verlos.";
-		return "Salio " + removed.toString(", ") + ".";
+			return Text.get("server.noBotNamed", name);
+		return Text.get("server.botsRemoved", removed.toString(", "));
 	}
 
 	/** Tells everyone a player was hit, for the blood and the hit sound. */
@@ -972,9 +971,9 @@ public class GameServer implements Disposable {
 			end.winnerId = winner == null ? Protocol.WORLD : winner.id;
 			end.reason = match.getEndReason().ordinal();
 			broadcastReliable(end, null);
-			event(EventType.MATCH, "Fin de la partida ("
-					+ (match.getEndReason() == Match.EndReason.FRAG_LIMIT ? "límite de bajas" : "tiempo") + "). "
-					+ (winner == null ? "Nadie hizo bajas." : "Ganó " + winner.name + " con " + winner.kills + " bajas."));
+			event(EventType.MATCH, Text.get("server.matchOver",
+					Text.get(match.getEndReason() == Match.EndReason.FRAG_LIMIT ? "server.byFragLimit" : "server.byTime"),
+					winner == null ? Text.get("server.noKills") : Text.get("server.winner", winner.name, winner.kills)));
 			break;
 		}
 		case RESTARTED:
@@ -993,7 +992,7 @@ public class GameServer implements Disposable {
 				teleport(p, p.position, Protocol.RESPAWN, true, now);
 			}
 			weapons.reset(now);
-			event(EventType.MATCH, "Empieza una nueva partida");
+			event(EventType.MATCH, Text.get("server.newMatch"));
 			break;
 		default:
 			break;
@@ -1023,10 +1022,10 @@ public class GameServer implements Disposable {
 			victim.bot.die();
 		if (killer != null && killer != victim)
 			killer.kills++;
-		// Whoever else did enough damage to this life gets an assist.
+		// Whoever else did more than ASSIST_DAMAGE to this life gets an assist.
 		for (com.badlogic.gdx.utils.IntIntMap.Entry e : victim.damageFrom) {
 			ServerPlayer helper = byId.get(e.key);
-			if (helper != null && helper != killer && helper != victim && e.value >= Protocol.ASSIST_DAMAGE)
+			if (helper != null && helper != killer && helper != victim && e.value > Protocol.ASSIST_DAMAGE)
 				helper.assists++;
 		}
 		victim.damageFrom.clear();
@@ -1040,10 +1039,10 @@ public class GameServer implements Disposable {
 		if (killer != null)
 			dropOnDeath(victim, now); // falling out of the map takes the gun with you
 		if (killer == null)
-			event(EventType.KILL, victim.name + " se cayó del mapa");
+			event(EventType.KILL, Text.get("server.fell", victim.name));
 		else
 			event(EventType.KILL,
-					killer.name + " mató a " + victim.name + " con " + gun + (headshot ? " (headshot)" : ""));
+					Text.get("server.kill", killer.name, victim.name, gun, headshot ? Text.get("server.headshot") : ""));
 	}
 
 	private void respawn(ServerPlayer p, long now) {
@@ -1094,7 +1093,9 @@ public class GameServer implements Disposable {
 
 	private void setPosition(ServerPlayer p, Vector3 position) {
 		p.position.set(position);
-		p.hitbox.setWorldTransform(tmpTransform.setToTranslation(position));
+		// Crouching, the hitbox goes down with the head (its feet end up in the floor, out of reach).
+		p.hitbox.setWorldTransform(tmpTransform.setToTranslation(position.x,
+				position.y - (p.crouched ? CharacterShape.CROUCH_DROP : 0), position.z));
 		// The server never steps a simulation, which is what normally refreshes the
 		// broadphase: without this, ray tests would still see the hitbox where it was.
 		if (p.hitboxInWorld)
@@ -1154,6 +1155,7 @@ public class GameServer implements Disposable {
 			Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
 			e.playerId = p.id;
 			e.alive = p.alive;
+			e.crouched = p.crouched;
 			e.health = Math.max(0, p.health);
 			e.kills = p.kills;
 			e.deaths = p.deaths;

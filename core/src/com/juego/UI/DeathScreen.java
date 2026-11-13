@@ -8,6 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
+import com.juego.utils.Text;
 
 /**
  * What you see while dead, over the spectator view: who killed you, with what,
@@ -59,15 +60,16 @@ public class DeathScreen extends Menu {
 	 */
 	public void update(String killer, boolean fell, String gun, boolean headshot, int kills, int deaths, int assists,
 			long respawnMs) {
-		countdown.setText(respawnMs > 0 ? "Reviviendo en " + (respawnMs + 999) / 1000 + "s" : "Reviviendo...");
+		countdown.setText(respawnMs > 0 ? Text.get("death.respawnIn", (respawnMs + 999) / 1000)
+				: Text.get("death.respawning"));
 		if (killer != null) {
-			title.setText("Te eliminó");
+			title.setText(Text.get("death.killedBy"));
 			name.setText(killer);
-			weapon.setText(gun.isEmpty() ? "" : gun + (headshot ? "  -  a la cabeza" : ""));
-			stats.setText("Bajas " + kills + "      Muertes " + deaths + "      Asistencias " + assists);
+			weapon.setText(gun.isEmpty() ? "" : gun + (headshot ? Text.get("death.headshot") : ""));
+			stats.setText(Text.get("death.stats", kills, deaths, assists));
 		} else {
 			title.setText("");
-			name.setText(fell ? "Te caíste del mapa" : "Moriste");
+			name.setText(Text.get(fell ? "death.fell" : "death.died"));
 			weapon.setText("");
 			stats.setText("");
 		}

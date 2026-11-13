@@ -14,6 +14,7 @@ import com.juego.UI.Menu;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.screens.GameScreen;
+import com.juego.utils.Text;
 
 public class CreditsScreen extends MenuScreen {
 	
@@ -55,9 +56,9 @@ public class CreditsScreen extends MenuScreen {
 
 	private void setWidgets() {
 		backgroundImage = new Image(loadTexture("creditsMenu/background.png"));
-		titleImage = new Image(loadTexture("creditsMenu/title.png"));
-		creditsImage = new Image(loadTexture("creditsMenu/credits.png"));
-		backButton = new TextButton("Volver", Assets.skin);			
+		titleImage = new Image(loadTexture(Text.image("creditsMenu/title.png")));
+		creditsImage = new Image(loadTexture(Text.image("creditsMenu/credits.png")));
+		backButton = new TextButton(Text.get("back"), Assets.skin);			
 		
 	}
 

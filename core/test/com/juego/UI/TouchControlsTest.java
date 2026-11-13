@@ -84,7 +84,7 @@ class TouchControlsTest {
 	@Test
 	void everyButtonHasAnAction() {
 		for (Button button : Button.values())
-			assertEquals(button.label, TouchControls.label(button.action));
+			assertEquals(button.label(), TouchControls.label(button.action));
 		assertEquals(null, TouchControls.label(Action.FORWARD)); // the joystick, no button
 	}
 
@@ -243,6 +243,22 @@ class TouchControlsTest {
 		controls.disable(fingers); // the tap was on the menu
 		frame();
 		assertFalse(controls.isPressed(Action.FIRE));
+	}
+
+	@Test
+	void crouchIsASwitch() {
+		float[] crouch = at(Button.CROUCH);
+		fingers.touch(0, crouch[0], crouch[1]);
+		frame();
+		fingers.lift(0);
+		frame();
+		assertTrue(controls.isPressed(Action.CROUCH), "still crouching after lifting the finger");
+		assertTrue(controls.isCrouchOn());
+		fingers.touch(0, crouch[0], crouch[1]);
+		frame();
+		fingers.lift(0);
+		frame();
+		assertFalse(controls.isPressed(Action.CROUCH), "a second tap stands up");
 	}
 
 	@Test

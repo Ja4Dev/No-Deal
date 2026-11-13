@@ -12,6 +12,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.IntMap;
 import com.juego.match.Match;
+import com.juego.utils.Text;
 
 /**
  * Client side of a multiplayer match. Holds a model of the match (who is
@@ -34,6 +35,7 @@ public class GameClient implements Disposable {
 		public String name;
 		public boolean alive = true;
 		public int health = 100, kills, deaths, assists, slot;
+		public boolean crouched;
 		private final Array<float[]> samples = new Array<>(); // {timeMs, x, y, z, yaw, pitch}
 
 		PlayerInfo(int id, String name) {
@@ -120,6 +122,7 @@ public class GameClient implements Disposable {
 	private String failureReason = "";
 	private long connectStartMs, nextStateMs;
 	private int localId, teleportId, sequence;
+	private boolean crouched;
 	private String mapName = "";
 	private String localName = "";
 	private int fragLimit;
@@ -146,7 +149,7 @@ public class GameClient implements Disposable {
 	public void connect(String host, int port, String name) throws IOException {
 		InetSocketAddress address = new InetSocketAddress(host, port);
 		if (address.isUnresolved())
-			throw new IOException("No se encontro el host '" + host + "'");
+			throw new IOException(Text.get("net.unknownHost", host));
 		connect(new NetSocket(0), address, name);
 	}
 
@@ -181,9 +184,9 @@ public class GameClient implements Disposable {
 		}
 		long now = clock.getAsLong();
 		if (status == Status.CONNECTING && now - connectStartMs > Protocol.CONNECT_TIMEOUT_MS) {
-			fail(Status.DISCONNECTED, "No se pudo conectar: el servidor no responde");
+			fail(Status.DISCONNECTED, Text.get("net.noResponse"));
 		} else if (status == Status.CONNECTED && connection.isTimedOut(Protocol.TIMEOUT_MS)) {
-			fail(Status.DISCONNECTED, "Se perdio la conexion con el servidor");
+			fail(Status.DISCONNECTED, Text.get("net.lost"));
 		}
 		if (connection != null)
 			flush();
@@ -243,6 +246,7 @@ public class GameClient implements Disposable {
 				if (p == null)
 					continue; // its PLAYER_JOINED hasn't arrived yet
 				p.alive = entry.alive;
+				p.crouched = entry.crouched;
 				p.health = entry.health;
 				p.kills = entry.kills;
 				p.deaths = entry.deaths;
@@ -364,7 +368,7 @@ public class GameClient implements Disposable {
 			break;
 		}
 		case Protocol.DISCONNECT:
-			fail(Status.DISCONNECTED, "El servidor cerro la partida");
+			fail(Status.DISCONNECTED, Text.get("net.serverClosed"));
 			break;
 		default:
 			break;
@@ -375,6 +379,11 @@ public class GameClient implements Disposable {
 		status = newStatus;
 		failureReason = reason;
 		NetLog.info("Client", reason);
+	}
+
+	/** Whether the local player is crouching, sent with the next states. */
+	public void setCrouched(boolean crouched) {
+		this.crouched = crouched;
 	}
 
 	/** Sends the local player's state, at most {@link Protocol#STATE_INTERVAL_MS} apart. */
@@ -397,6 +406,7 @@ public class GameClient implements Disposable {
 		state.slot = slot;
 		state.magazine = magazine;
 		state.reserve = reserve;
+		state.crouched = crouched;
 		connection.sendUnreliable(state);
 	}
 

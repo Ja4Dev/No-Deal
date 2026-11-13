@@ -25,6 +25,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.guns.Armory;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.Text;
 
 /**
  * End to end over real UDP sockets on localhost: a real GameServer (with the
@@ -45,6 +46,7 @@ class ServerIntegrationTest {
 	@BeforeAll
 	static void initBullet() throws IOException {
 		Bullet.init();
+		Text.setLanguage(Text.Language.ES); // the replies checked here are the Spanish ones
 		Files.writeString(tmp.resolve("Test.json"), "{model: maps/Bank.g3dj, spawnPoints: [[" + SPAWN_A.x + ","
 				+ SPAWN_A.y + "," + SPAWN_A.z + "],[" + SPAWN_B.x + "," + SPAWN_B.y + "," + SPAWN_B.z + "]]}");
 	}
@@ -214,6 +216,29 @@ class ServerIntegrationTest {
 	}
 
 	/** Regression: moved hitboxes must be found by ray tests (their broadphase AABB has to follow them). */
+	@Test
+	void crouchingLowersTheHead() throws IOException {
+		GameClient a = connect("A");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("B");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED);
+		b.setCrouched(true);
+		b.sendState(SPAWN_B, 0, 0, 0);
+		pumpUntil("A sees B crouching", 2000,
+				() -> a.getPlayer(b.getLocalId()) != null && a.getPlayer(b.getLocalId()).crouched);
+
+		// Where a standing B's head would be: the bullet goes over the crouching B.
+		a.sendFire(0, SPAWN_A, new Vector3(SPAWN_B).add(0, 2.5f, 0).sub(SPAWN_A));
+		pumpFor(400);
+		assertEquals(100, a.getPlayer(b.getLocalId()).health, "the shot passes over a crouching head");
+
+		// The crouching head, lower down: a headshot.
+		sleep(200);
+		a.sendFire(0, SPAWN_A, new Vector3(SPAWN_B).add(0, 2.5f - CharacterShape.CROUCH_DROP, 0).sub(SPAWN_A));
+		pumpUntil("kill", 2000, () -> find(eventsB, GameClient.Event.Type.KILL) != null);
+		assertTrue(find(eventsB, GameClient.Event.Type.KILL).headshot);
+	}
+
 	@Test
 	void shotsHitPlayersWhereTheyMovedTo() throws IOException {
 		GameClient a = connect("A");

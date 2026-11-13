@@ -16,6 +16,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.BufferUtils;
 import com.badlogic.gdx.utils.Disposable;
 import com.juego.utils.Controls.Action;
+import com.juego.utils.Text;
 
 /**
  * On-screen controls for phones and tablets, the usual mobile shooter layout:
@@ -87,26 +88,35 @@ public class TouchControls implements Disposable {
 	 * the right edge, negative y from the top.
 	 */
 	public enum Button {
-		FIRE(Action.FIRE, "FUEGO", -215, 235, 80),
-		AIM(Action.AIM, "MIRA", -360, 330, 50),
-		JUMP(Action.JUMP, "SALTO", -85, 360, 50),
-		SWITCH_GUN(Action.SWITCH_GUN, "ARMA", -215, 440, 44),
-		RELOAD(Action.RELOAD, "RECARGA", -90, 495, 44),
-		DROP(Action.DROP, "AGARRAR", -360, 475, 44),
-		PAUSE(Action.PAUSE, "II", -60, -60, 36),
-		SCOREBOARD(Action.SCOREBOARD, "PTS", -150, -60, 36),
-		CONSOLE(Action.CONSOLE, ">_", -240, -60, 36);
+		FIRE(Action.FIRE, -215, 235, 80),
+		AIM(Action.AIM, -360, 330, 50),
+		JUMP(Action.JUMP, -85, 360, 50),
+		/** Toggles: holding a finger down to stay crouched would take a thumb away from the rest. */
+		CROUCH(Action.CROUCH, -85, 150, 44),
+		SWITCH_GUN(Action.SWITCH_GUN, -215, 440, 44),
+		RELOAD(Action.RELOAD, -90, 495, 44),
+		DROP(Action.DROP, -360, 475, 44),
+		PAUSE(Action.PAUSE, -60, -60, 36),
+		SCOREBOARD(Action.SCOREBOARD, -150, -60, 36),
+		CONSOLE(Action.CONSOLE, -240, -60, 36);
 
 		public final Action action;
-		public final String label;
 		final float x, y, radius;
 
-		Button(Action action, String label, float x, float y, float radius) {
+		Button(Action action, float x, float y, float radius) {
 			this.action = action;
-			this.label = label;
 			this.x = x;
 			this.y = y;
 			this.radius = radius;
+		}
+
+		/** What the button says, in the current language ("II" and ">_" are symbols). */
+		public String label() {
+			if (this == PAUSE)
+				return "II";
+			if (this == CONSOLE)
+				return ">_";
+			return Text.get("touch." + name());
 		}
 
 		static Button forAction(Action action) {
@@ -134,6 +144,7 @@ public class TouchControls implements Disposable {
 	private final EnumSet<Action> pressed = EnumSet.noneOf(Action.class);
 	private final EnumSet<Action> justPressed = EnumSet.noneOf(Action.class);
 	private int stickPointer = -1;
+	private boolean crouchOn;
 	private float stickOriginX, stickOriginY, stickX, stickY;
 	private float lookX, lookY;
 	private int width = 1, height = 1;
@@ -156,7 +167,7 @@ public class TouchControls implements Disposable {
 	/** The on-screen label of the button for an action ("AGARRAR"), or null if it has none. */
 	public static String label(Action action) {
 		Button button = Button.forAction(action);
-		return button == null ? null : button.label;
+		return button == null ? null : button.label();
 	}
 
 	/** Reads the fingers. Call once per frame, before the game asks for actions. */
@@ -184,6 +195,17 @@ public class TouchControls implements Disposable {
 			if (roles[p] == Role.BUTTON)
 				pressed.add(pointerButtons[p].action);
 		pressMissedTaps();
+		// Crouch is a switch: "pressed" while it is on, whatever the fingers do.
+		if (justPressed.contains(Action.CROUCH))
+			crouchOn = !crouchOn;
+		pressed.remove(Action.CROUCH);
+		if (crouchOn)
+			pressed.add(Action.CROUCH);
+	}
+
+	/** Whether the crouch switch is on. */
+	public boolean isCrouchOn() {
+		return crouchOn;
 	}
 
 	/**
@@ -495,11 +517,11 @@ public class TouchControls implements Disposable {
 			// As big as fits in the circle, but the same size on every small button.
 			float scale = unit * (button.radius >= 70 ? 1.9f : button.radius >= 50 ? 1.5f : 1.3f);
 			font.getData().setScale(scale);
-			layout.setText(font, button.label);
+			layout.setText(font, button.label());
 			float maxWidth = button.radius * unit * 1.7f;
 			if (layout.width > maxWidth) {
 				font.getData().setScale(scale * maxWidth / layout.width);
-				layout.setText(font, button.label);
+				layout.setText(font, button.label());
 			}
 			font.setColor(1, 1, 1, pressed.contains(button.action) ? 1f : 0.85f);
 			font.draw(batch, layout, centerX(button) - layout.width / 2, centerY(button) + layout.height / 2);

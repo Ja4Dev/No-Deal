@@ -33,7 +33,7 @@ public class Bot {
 	/** Another player, as the bot sees it. */
 	public static final class Target {
 		public int id;
-		public boolean alive;
+		public boolean alive, crouched;
 		/** Capsule center. */
 		public final Vector3 position = new Vector3();
 	}
@@ -273,7 +273,8 @@ public class Bot {
 
 	private void fight(Target target, long nowMs, float dt, Host host) {
 		float distance = target.position.dst(position);
-		aimPoint.set(target.position).add(0, aimAtHead ? HEAD_AIM : CHEST_AIM, 0);
+		aimPoint.set(target.position).add(0, (aimAtHead ? HEAD_AIM : CHEST_AIM)
+				- (target.crouched ? CharacterShape.CROUCH_DROP : 0), 0);
 		float idealYaw = yawTo(aimPoint), idealPitch = pitchTo(aimPoint);
 
 		// Aim error: a target that moves around every few hundred ms, smaller the longer we track.

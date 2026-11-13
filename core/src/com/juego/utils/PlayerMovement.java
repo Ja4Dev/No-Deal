@@ -15,6 +15,8 @@ public final class PlayerMovement {
 	public static final float RUN_SPEED = 12f;
 	/** Holding the walk key: half speed, quiet and accurate. */
 	public static final float WALK_SPEED = 6f;
+	/** Crouching: slower than walking, and silent too. */
+	public static final float CROUCH_SPEED = 4f;
 	/** Upwards speed of a jump: with {@link #GRAVITY} it reaches ~3.8 units (like CS) in under 0.4 s. */
 	public static final float JUMP_SPEED = 19f;
 	public static final float GRAVITY = 48f;

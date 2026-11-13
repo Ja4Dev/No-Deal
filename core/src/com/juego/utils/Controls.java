@@ -14,28 +14,32 @@ import com.juego.UI.TouchControls;
 public final class Controls {
 
 	public enum Action {
-		FORWARD("Adelante", Binding.key(Input.Keys.W)),
-		BACKWARD("Atras", Binding.key(Input.Keys.S)),
-		LEFT("Izquierda", Binding.key(Input.Keys.A)),
-		RIGHT("Derecha", Binding.key(Input.Keys.D)),
-		JUMP("Saltar", Binding.key(Input.Keys.SPACE)),
-		WALK("Caminar", Binding.key(Input.Keys.SHIFT_LEFT)),
-		FIRE("Disparar", Binding.mouse(Input.Buttons.LEFT)),
-		AIM("Apuntar", Binding.mouse(Input.Buttons.RIGHT)),
-		RELOAD("Recargar", Binding.key(Input.Keys.R)),
-		SWITCH_GUN("Cambiar arma", Binding.key(Input.Keys.Q)),
-		DROP("Soltar / agarrar arma", Binding.key(Input.Keys.G)),
-		SCOREBOARD("Puntuacion", Binding.key(Input.Keys.TAB)),
-		PAUSE("Pausa", Binding.key(Input.Keys.ESCAPE)),
+		FORWARD(Binding.key(Input.Keys.W)),
+		BACKWARD(Binding.key(Input.Keys.S)),
+		LEFT(Binding.key(Input.Keys.A)),
+		RIGHT(Binding.key(Input.Keys.D)),
+		JUMP(Binding.key(Input.Keys.SPACE)),
+		WALK(Binding.key(Input.Keys.SHIFT_LEFT)),
+		/** Held: slower than walking, lower, and a little more accurate. */
+		CROUCH(Binding.key(Input.Keys.CONTROL_LEFT)),
+		FIRE(Binding.mouse(Input.Buttons.LEFT)),
+		AIM(Binding.mouse(Input.Buttons.RIGHT)),
+		RELOAD(Binding.key(Input.Keys.R)),
+		SWITCH_GUN(Binding.key(Input.Keys.Q)),
+		DROP(Binding.key(Input.Keys.G)),
+		SCOREBOARD(Binding.key(Input.Keys.TAB)),
+		PAUSE(Binding.key(Input.Keys.ESCAPE)),
 		/** Opens the console, for commands like "bot agregar" (only whoever runs the server). */
-		CONSOLE("Consola", Binding.key(Input.Keys.GRAVE));
+		CONSOLE(Binding.key(Input.Keys.GRAVE));
 
-		/** Shown in the controls menu (the menu font has no accents). */
-		public final String label;
 		public final Binding defaultBinding;
 
-		Action(String label, Binding defaultBinding) {
-			this.label = label;
+		/** Shown in the controls menu (the menu font has no accents). */
+		public String label() {
+			return Text.get("action." + name());
+		}
+
+		Action(Binding defaultBinding) {
 			this.defaultBinding = defaultBinding;
 		}
 	}
@@ -82,19 +86,19 @@ public final class Controls {
 		public String displayName() {
 			if (!mouse) {
 				if (code == Input.Keys.GRAVE)
-					return "Izq. del 1"; // ` on US keyboards, º on Spanish ones
+					return Text.get("key.grave"); // ` on US keyboards, º on Spanish ones
 				String name = Input.Keys.toString(code);
-				return name != null ? name : "Tecla " + code;
+				return name != null ? name : Text.get("key.other", code);
 			}
 			switch (code) {
 			case Input.Buttons.LEFT:
-				return "Clic izquierdo";
+				return Text.get("mouse.left");
 			case Input.Buttons.RIGHT:
-				return "Clic derecho";
+				return Text.get("mouse.right");
 			case Input.Buttons.MIDDLE:
-				return "Clic medio";
+				return Text.get("mouse.middle");
 			default:
-				return "Boton " + (code + 1);
+				return Text.get("mouse.other", code + 1);
 			}
 		}
 
@@ -207,6 +211,6 @@ public final class Controls {
 	/** How to tell the player to use an action: its key ("G"), or on a touch screen the button's label ("AGARRAR"). */
 	public static String promptName(Action action) {
 		String label = Platform.touch ? TouchControls.label(action) : null;
-		return label != null ? label : get(action).displayName();
+		return label != null ? label.replace('\n', '/') : get(action).displayName(); // "SOLTAR/AGARRAR"
 	}
 }

@@ -23,6 +23,16 @@ public final class CharacterShape {
 	 * the top of the head, like CS (eyes at about 89% of the player's height).
 	 */
 	public static final float EYE_OFFSET = 2.2f;
+	/**
+	 * How much lower a crouching player's eyes and head are (the capsule for
+	 * moving stays the same; the hitbox moves down by this much).
+	 */
+	public static final float CROUCH_DROP = 1.8f;
+
+	/** Height above the capsule center from which hits are headshots. */
+	public static float headOffset(boolean crouched) {
+		return HEAD_OFFSET - (crouched ? CROUCH_DROP : 0);
+	}
 
 	private CharacterShape() {
 	}

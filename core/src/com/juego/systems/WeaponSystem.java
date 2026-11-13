@@ -47,6 +47,8 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private static final float ZOOM_FOV = 30f;
 	/** Aiming down sights steadies the gun: inaccuracy is multiplied by this. */
 	private static final float ZOOM_SPREAD = 0.6f;
+	/** Crouching makes shots a quarter tighter, as in CS. */
+	private static final float CROUCH_SPREAD = 0.75f;
 	/** How fast the first-person gun settles after a shot, per second. */
 	private static final float GUN_KICK_RECOVERY = 16f;
 	/** Steps per second at full running speed, for the gun's bob. */
@@ -74,7 +76,7 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 	private boolean zoomed;
 	private final Recoil recoil = new Recoil();
 	/** Radius of the inaccuracy cone right now, in degrees (for the dynamic crosshair). */
-	private float spreadDegrees;
+	private float spreadDegrees, moveSpreadDegrees, fireSpreadDegrees;
 	private float gunKick, bobPhase, bobAmount;
 	private final Random random = new Random();
 
@@ -149,9 +151,13 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 			handleInput();
 		syncViewModel();
 		gun = playerComponent.selectedGun();
-		if (gun != null)
+		if (gun != null) {
 			spreadDegrees = inaccuracy(gun.def);
-		// The view climbs with the spray pattern, so the crosshair shows where the next bullet goes.
+			float scale = accuracyScale();
+			moveSpreadDegrees = recoil.movementInaccuracy(gun.def, speedFraction(), !playerComponent.onGround) * scale;
+			fireSpreadDegrees = recoil.firingInaccuracy(gun.def) * scale;
+		}
+		// The spray pattern: the view climbs part of it (PlayerSystem.VIEW_RECOIL), the bullets all of it.
 		playerComponent.recoilUp = recoil.up();
 		playerComponent.recoilRight = recoil.right();
 		gameWorld.playerSystem().updateCameraDirection();
@@ -163,10 +169,30 @@ public class WeaponSystem extends EntitySystem implements EntityListener, Dispos
 		return spreadDegrees;
 	}
 
+	/** The part of {@link #spreadDegrees} from moving and jumping, for the dynamic crosshair. */
+	public float moveSpreadDegrees() {
+		return moveSpreadDegrees;
+	}
+
+	/** The part of {@link #spreadDegrees} from spraying, for the dynamic crosshair. */
+	public float fireSpreadDegrees() {
+		return fireSpreadDegrees;
+	}
+
+	private float speedFraction() {
+		return playerComponent.velocity.len() / PlayerMovement.RUN_SPEED;
+	}
+
 	private float inaccuracy(GunDefinition def) {
-		float speedFraction = playerComponent.velocity.len() / PlayerMovement.RUN_SPEED;
-		float spread = recoil.inaccuracy(def, speedFraction, !playerComponent.onGround);
-		return zoomed ? spread * ZOOM_SPREAD : spread;
+		return recoil.inaccuracy(def, speedFraction(), !playerComponent.onGround) * accuracyScale();
+	}
+
+	/** Aiming down sights and crouching (on the ground) both tighten the cone. */
+	private float accuracyScale() {
+		float scale = zoomed ? ZOOM_SPREAD : 1;
+		if (playerComponent.crouched && playerComponent.onGround)
+			scale *= CROUCH_SPREAD;
+		return scale;
 	}
 
 	/** The first-person gun bobs with your steps and kicks back on each shot. */

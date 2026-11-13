@@ -6,15 +6,18 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Array;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.utils.Config;
 import com.juego.utils.Platform;
+import com.juego.utils.Text;
 
 /** Sound, mouse and video settings. Saved when leaving the screen. */
 public class ConfigMenuScreen extends MenuScreen {
@@ -28,7 +31,7 @@ public class ConfigMenuScreen extends MenuScreen {
 		super(game);
 		Image background = new Image(loadTexture("configMenu/background.png"));
 		background.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
-		Image title = new Image(loadTexture("configMenu/title.png"));
+		Image title = new Image(loadTexture(Text.image("configMenu/title.png")));
 		title.setSize(title.getWidth() * 0.85f, title.getHeight() * 0.85f);
 		title.setPosition(Core.VIRTUAL_WIDTH / 2 - title.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.14f);
 		stage.addActor(background);
@@ -44,10 +47,10 @@ public class ConfigMenuScreen extends MenuScreen {
 		final Label musicValue = new Label("", Assets.skin);
 		final Label effectsValue = new Label("", Assets.skin);
 		final Label sensitivityValue = new Label("", Assets.skin);
-		final CheckBox fullscreen = new CheckBox(" Pantalla Completa", Assets.skin);
-		TextButton controls = new TextButton("Controles", Assets.skin);
-		TextButton crosshair = new TextButton("Mira", Assets.skin);
-		TextButton back = new TextButton("Volver", Assets.skin);
+		final CheckBox fullscreen = new CheckBox(Text.get("options.fullscreen"), Assets.skin);
+		TextButton controls = new TextButton(Text.get("options.controls"), Assets.skin);
+		TextButton crosshair = new TextButton(Text.get("options.crosshair"), Assets.skin);
+		TextButton back = new TextButton(Text.get("back"), Assets.skin);
 
 		music.setValue(Config.musicVolume);
 		effects.setValue(Config.fxVolume);
@@ -60,13 +63,35 @@ public class ConfigMenuScreen extends MenuScreen {
 		Table table = new Table();
 		table.setFillParent(true);
 		table.top().padTop(150);
-		section(table, "Sonido");
-		row(table, "Musica", music, musicValue);
-		row(table, "Efectos", effects, effectsValue);
-		section(table, touch ? "Pantalla tactil" : "Mouse");
-		row(table, "Sensibilidad", sensitivity, sensitivityValue);
+		// The language first: someone who can't read the other one has to find it.
+		final SelectBox<String> language = new SelectBox<>(Assets.skin);
+		Array<String> languages = new Array<>();
+		for (Text.Language l : Text.Language.values())
+			languages.add(l.label);
+		language.setItems(languages);
+		language.setSelectedIndex(Text.language().ordinal());
+		table.add(new Label(Text.get("options.language"), Assets.skin)).right().padRight(14);
+		table.add(language).width(260).height(32);
+		table.add().width(50);
+		table.row().padBottom(6);
+		language.addListener(new ChangeListener() {
+			@Override
+			public void changed(ChangeEvent event, Actor actor) {
+				Text.Language chosen = Text.Language.values()[language.getSelectedIndex()];
+				if (chosen == Text.language())
+					return;
+				Config.language = chosen;
+				Text.setLanguage(chosen);
+				flow.open(new ConfigMenuScreen(game, flow)); // this page again, in the new language
+			}
+		});
+		section(table, Text.get("options.sound"));
+		row(table, Text.get("options.music"), music, musicValue);
+		row(table, Text.get("options.effects"), effects, effectsValue);
+		section(table, Text.get(touch ? "options.touch" : "options.mouse"));
+		row(table, Text.get("options.sensitivity"), sensitivity, sensitivityValue);
 		if (Platform.desktop) {
-			section(table, "Video");
+			section(table, Text.get("options.video"));
 			table.add(fullscreen).colspan(3).padBottom(24).row();
 		} else {
 			table.add().height(24).colspan(3).row();

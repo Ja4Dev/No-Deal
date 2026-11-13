@@ -6,25 +6,24 @@ import com.badlogic.gdx.math.MathUtils;
 
 /**
  * How the player wants the crosshair, like CS's crosshair settings: shape,
- * size, thickness, gap, color, opacity, a black outline, and whether it opens
- * up while moving and shooting (dynamic). Lengths are in screen pixels at
- * 1080p and scale with the window height.
+ * size, thickness, gap, color, opacity, a black outline, whether it opens
+ * up while moving and while shooting (dynamic, each on its own), and whether
+ * it follows the recoil to where the next bullet goes. Lengths are in screen
+ * pixels at 1080p and scale with the window height.
  */
 public class CrosshairSettings {
 	public enum Style {
 		/** Four lines. */
-		CROSS("Clasica"),
+		CROSS,
 		/** Four lines and a dot in the middle. */
-		CROSS_DOT("Clasica con punto"),
+		CROSS_DOT,
 		/** Just a dot. */
-		DOT("Solo punto"),
+		DOT,
 		/** No top line. */
-		T("Forma de T");
+		T;
 
-		public final String label;
-
-		Style(String label) {
-			this.label = label;
+		public String label() {
+			return Text.get("crosshair.style." + name());
 		}
 
 		public boolean hasLines() {
@@ -36,7 +35,13 @@ public class CrosshairSettings {
 		}
 	}
 
-	public static final String[] COLOR_NAMES = { "Verde", "Amarillo", "Cian", "Blanco", "Rojo", "Magenta" };
+	/** "Verde", "Amarillo"... in the current language, in the order of the colors. */
+	public static String[] colorNames() {
+		String[] names = new String[COLORS.length];
+		for (int i = 0; i < names.length; i++)
+			names[i] = Text.get("crosshair.color." + i);
+		return names;
+	}
 	private static final Color[] COLORS = { new Color(0.2f, 1f, 0.2f, 1), new Color(1f, 0.92f, 0.2f, 1),
 			new Color(0.2f, 0.95f, 1f, 1), new Color(1f, 1f, 1f, 1), new Color(1f, 0.25f, 0.25f, 1),
 			new Color(1f, 0.3f, 1f, 1) };
@@ -52,12 +57,20 @@ public class CrosshairSettings {
 	public int thickness = 2;
 	/** Distance from the center to where each line starts. */
 	public int gap = 4;
-	/** Index into {@link #COLOR_NAMES}. */
+	/** Index into {@link #colorNames()}. */
 	public int color = 0;
 	public float opacity = 0.9f;
 	public boolean outline = true;
-	/** Opens up with the gun's inaccuracy (moving, jumping, spraying), so it shows how accurate a shot would be. */
-	public boolean dynamic = true;
+	/** Opens up with the inaccuracy of moving and jumping. */
+	public boolean dynamicMove = true;
+	/** Opens up with the inaccuracy of spraying (the shots in a row). */
+	public boolean dynamicFire = true;
+	/**
+	 * The view only climbs part of the recoil (as in CS): with this on, the
+	 * crosshair climbs the rest, so it stays where the next bullet goes; off,
+	 * it stays in the middle and the spray has to be pulled down by feel.
+	 */
+	public boolean followRecoil = true;
 
 	public Color color(Color out) {
 		return out.set(COLORS[MathUtils.clamp(color, 0, COLORS.length - 1)]).mul(1, 1, 1, opacity);
@@ -75,7 +88,9 @@ public class CrosshairSettings {
 		color = other.color;
 		opacity = other.opacity;
 		outline = other.outline;
-		dynamic = other.dynamic;
+		dynamicMove = other.dynamicMove;
+		dynamicFire = other.dynamicFire;
+		followRecoil = other.followRecoil;
 	}
 
 	public void load(Preferences prefs) {
@@ -91,7 +106,11 @@ public class CrosshairSettings {
 		color = MathUtils.clamp(prefs.getInteger("crosshair.color", d.color), 0, COLORS.length - 1);
 		opacity = MathUtils.clamp(prefs.getFloat("crosshair.opacity", d.opacity), MIN_OPACITY, 1f);
 		outline = prefs.getBoolean("crosshair.outline", d.outline);
-		dynamic = prefs.getBoolean("crosshair.dynamic", d.dynamic);
+		// Before there were two switches there was one, "crosshair.dynamic": it decides both if present.
+		boolean oldDynamic = prefs.getBoolean("crosshair.dynamic", true);
+		dynamicMove = prefs.getBoolean("crosshair.dynamicMove", oldDynamic && d.dynamicMove);
+		dynamicFire = prefs.getBoolean("crosshair.dynamicFire", oldDynamic && d.dynamicFire);
+		followRecoil = prefs.getBoolean("crosshair.followRecoil", d.followRecoil);
 	}
 
 	public void save(Preferences prefs) {
@@ -102,6 +121,9 @@ public class CrosshairSettings {
 		prefs.putInteger("crosshair.color", color);
 		prefs.putFloat("crosshair.opacity", opacity);
 		prefs.putBoolean("crosshair.outline", outline);
-		prefs.putBoolean("crosshair.dynamic", dynamic);
+		prefs.remove("crosshair.dynamic");
+		prefs.putBoolean("crosshair.dynamicMove", dynamicMove);
+		prefs.putBoolean("crosshair.dynamicFire", dynamicFire);
+		prefs.putBoolean("crosshair.followRecoil", followRecoil);
 	}
 }

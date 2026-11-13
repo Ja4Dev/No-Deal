@@ -1,6 +1,7 @@
 package com.juego.bots;
 
 import java.text.Normalizer;
+import com.juego.utils.Text;
 
 /**
  * How well a bot plays. Every level is a set of human-like limits: how long it
@@ -8,11 +9,11 @@ import java.text.Normalizer;
  * the spray, whether it stops to shoot or strafes, and how far it sees.
  */
 public enum BotDifficulty {
-	// label, reaction ms, turn deg/s, aim error deg, spray control, headshot chance, burst, fov deg, sight range, moves while shooting
-	FACIL("Facil", 750, 140, 7f, 0.0f, 0.05f, 3, 100, 45, Combat.RUN_AND_GUN),
-	MEDIO("Medio", 480, 260, 4f, 0.45f, 0.2f, 7, 120, 55, Combat.STOP_AND_SHOOT),
-	DIFICIL("Dificil", 290, 420, 2.6f, 0.75f, 0.45f, 12, 150, 70, Combat.STRAFE),
-	MUY_DIFICIL("Muy dificil", 170, 650, 1.2f, 0.95f, 0.75f, 30, 180, 90, Combat.STRAFE);
+	// reaction ms, turn deg/s, aim error deg, spray control, headshot chance, burst, fov deg, sight range, moves while shooting
+	FACIL(750, 140, 7f, 0.0f, 0.05f, 3, 100, 45, Combat.RUN_AND_GUN),
+	MEDIO(480, 260, 4f, 0.45f, 0.2f, 7, 120, 55, Combat.STOP_AND_SHOOT),
+	DIFICIL(290, 420, 2.6f, 0.75f, 0.45f, 12, 150, 70, Combat.STRAFE),
+	MUY_DIFICIL(170, 650, 1.2f, 0.95f, 0.75f, 30, 180, 90, Combat.STRAFE);
 
 	/** What the bot does with its legs while it fights. */
 	public enum Combat {
@@ -24,7 +25,6 @@ public enum BotDifficulty {
 		STRAFE
 	}
 
-	public final String label;
 	/** Time from first seeing an enemy to the first shot. */
 	public final long reactionMs;
 	/** Fastest the aim can turn. */
@@ -43,9 +43,8 @@ public enum BotDifficulty {
 	public final float sightRange;
 	public final Combat combat;
 
-	BotDifficulty(String label, long reactionMs, float turnSpeed, float aimError, float sprayControl,
+	BotDifficulty(long reactionMs, float turnSpeed, float aimError, float sprayControl,
 			float headshotChance, int maxBurst, float fieldOfView, float sightRange, Combat combat) {
-		this.label = label;
 		this.reactionMs = reactionMs;
 		this.turnSpeed = turnSpeed;
 		this.aimError = aimError;
@@ -55,6 +54,11 @@ public enum BotDifficulty {
 		this.fieldOfView = fieldOfView;
 		this.sightRange = sightRange;
 		this.combat = combat;
+	}
+
+	/** "Facil" / "Easy", in the current language. */
+	public String label() {
+		return Text.get("difficulty." + name());
 	}
 
 	/** The name used in commands: facil, medio, dificil, muy_dificil. */
@@ -94,11 +98,8 @@ public enum BotDifficulty {
 		}
 	}
 
-	/** "facil, medio, dificil, muy_dificil", for help texts. */
+	/** "facil, medio, dificil, muy_dificil" (or the English names), for help texts. All are understood. */
 	public static String choices() {
-		StringBuilder sb = new StringBuilder();
-		for (BotDifficulty d : values())
-			sb.append(sb.length() == 0 ? "" : ", ").append(d.id());
-		return sb.toString();
+		return Text.get("difficulty.choices");
 	}
 }
