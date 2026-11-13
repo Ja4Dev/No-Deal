@@ -14,11 +14,12 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.LongArray;
 import com.juego.guns.Gun;
 import com.juego.utils.Config;
+import com.juego.utils.Display;
 import com.juego.utils.Platform;
 
 public class HUD extends Menu {
 	private final BitmapFont font;
-	private final Image healthWidget, ammoWidget;
+	private final Image healthWidget, ammoWidget, timerWidget;
 	private final Label healthLabel;
 	private final Label ammoLabel;
 	private final Label timeLabel;
@@ -47,12 +48,11 @@ public class HUD extends Menu {
 	private final LongArray feedTimes = new LongArray();
 
 	public HUD() {
+		super(true); // by the edges of the screen, whatever its shape (see layout)
 		healthWidget = new Image(loadTexture("HUD/HealthWidget.png"));
 		healthWidget.setPosition(10, 11);
 		ammoWidget = new Image(loadTexture("HUD/AmmoWidget.png"));
-		ammoWidget.setPosition(stage.getWidth() - 150, 11);
-		Image timerWidget = new Image(loadTexture("HUD/TimerWidget.png"));
-		timerWidget.setPosition(stage.getWidth() / 2 - timerWidget.getWidth() / 2, stage.getHeight() - 60);
+		timerWidget = new Image(loadTexture("HUD/TimerWidget.png"));
 
 		// One font shared by every label; each label scales it on its own so the
 		// sizes don't overwrite each other.
@@ -63,10 +63,8 @@ public class HUD extends Menu {
 		healthLabel.setPosition(62.5f, 27.5f);
 		ammoLabel = new Label("70", style);
 		ammoLabel.setFontScale(2f);
-		ammoLabel.setPosition(stage.getWidth() - 97.5f, 27.5f);
 		timeLabel = new Label("15:00", style);
 		timeLabel.setFontScale(2f);
-		timeLabel.setPosition(stage.getWidth() / 2 - timeLabel.getPrefWidth() / 5, stage.getHeight() - 46);
 
 		feedLabel = new Label("", new Label.LabelStyle(font, Color.WHITE));
 		feedLabel.setFontScale(1.25f);
@@ -88,7 +86,6 @@ public class HUD extends Menu {
 		vignetteTexture = new Texture(createVignette(256));
 		vignetteTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 		vignette = new Image(vignetteTexture);
-		vignette.setSize(stage.getWidth(), stage.getHeight());
 		vignette.setColor(1, 1, 1, 0);
 		vignette.setTouchable(Touchable.disabled);
 		indicatorTexture = new Texture(createIndicator(256));
@@ -96,7 +93,6 @@ public class HUD extends Menu {
 		indicator = new Image(indicatorTexture);
 		indicator.setSize(340, 340); // a ring well clear of the crosshair
 		indicator.setOrigin(Align.center);
-		indicator.setPosition(stage.getWidth() / 2, stage.getHeight() / 2, Align.center);
 		indicator.setColor(1, 1, 1, 0);
 		indicator.setTouchable(Touchable.disabled);
 
@@ -114,6 +110,19 @@ public class HUD extends Menu {
 		stage.addActor(statsLabel);
 		stage.addActor(speedLabel);
 		stage.addActor(jumpLabel);
+		layout();
+	}
+
+	/** What sits by the right and top edges, or in the middle, follows the screen's size. */
+	@Override
+	protected void layout() {
+		float width = stage.getWidth(), height = stage.getHeight();
+		ammoWidget.setPosition(width - 150, 11);
+		ammoLabel.setPosition(width - 97.5f, 27.5f);
+		timerWidget.setPosition(width / 2 - timerWidget.getWidth() / 2, height - 60);
+		timeLabel.setPosition(width / 2 - timeLabel.getPrefWidth() / 5, height - 46);
+		vignette.setSize(width, height);
+		indicator.setPosition(width / 2, height / 2, Align.center);
 	}
 
 	/** The FPS and ping line (cl_showfps); null hides it. */
@@ -293,13 +302,13 @@ public class HUD extends Menu {
 
 	private void drawCrosshair() {
 		float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.1f);
-		float target = Math.min(crosshairSpread, Gdx.graphics.getHeight() * 0.12f);
+		float target = Math.min(crosshairSpread, Display.height() * 0.12f);
 		// Opens fast, closes a little slower, like CS.
 		float rate = target > shownSpread ? 30f : 12f;
 		shownSpread += (target - shownSpread) * Math.min(1f, delta * rate);
 		if (crosshairVisible)
-			crosshair.draw(Config.crosshair, Gdx.graphics.getWidth() / 2f + crosshairX,
-					Gdx.graphics.getHeight() / 2f + crosshairY, shownSpread);
+			crosshair.draw(Config.crosshair, Display.width() / 2f + crosshairX,
+					Display.height() / 2f + crosshairY, shownSpread);
 	}
 
 	@Override

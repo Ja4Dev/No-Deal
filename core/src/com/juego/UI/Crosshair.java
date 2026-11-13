@@ -9,6 +9,7 @@ import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.FloatArray;
 import com.juego.utils.CrosshairSettings;
+import com.juego.utils.Display;
 
 /**
  * Draws the crosshair from {@link CrosshairSettings}, in real screen pixels
@@ -49,7 +50,7 @@ public class Crosshair implements Disposable {
 
 	/** Pixel scale for the current window: bigger above 1080p, but never smaller, so it stays readable. */
 	public static float scale() {
-		return Math.max(1f, Gdx.graphics.getHeight() / REFERENCE_HEIGHT);
+		return Math.max(1f, Display.height() / REFERENCE_HEIGHT);
 	}
 
 	/**
@@ -58,7 +59,7 @@ public class Crosshair implements Disposable {
 	 * @param cx, cy center, in window pixels from the bottom left
 	 */
 	public void draw(CrosshairSettings s, float cx, float cy, float extraGap) {
-		int width = Gdx.graphics.getWidth(), height = Gdx.graphics.getHeight();
+		int width = Display.width(), height = Display.height();
 		layout(s, Math.round(cx), Math.round(cy), Math.round(extraGap), scale(), rects);
 		HdpiUtils.glViewport(0, 0, width, height);
 		shapes.setProjectionMatrix(projection.setToOrtho2D(0, 0, width, height));

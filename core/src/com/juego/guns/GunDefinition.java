@@ -67,6 +67,18 @@ public class GunDefinition {
 	public float worldLength = 2.5f;
 	/** Position of the view model relative to the gun camera. */
 	public float[] viewOffset = new float[3];
+	/**
+	 * Its weight: how fast you run with it in hand, in CS's units, as in CS.
+	 * 250 (the knife) is the fastest; pistols 240; rifles 190 to 235.
+	 */
+	public int maxSpeed = FASTEST;
+	/** Running with the lightest weapon (the knife): sv_maxspeed is this fast. */
+	public static final int FASTEST = 250;
+
+	/** Share of the full running speed (sv_maxspeed) with this in hand: 235 / 250 = 0.94. */
+	public float speedFactor() {
+		return maxSpeed / (float) FASTEST;
+	}
 
 	// ---- the knife ----
 	// A melee weapon has two attacks: the slash (left click: damage, range, fireDelayMs) and the

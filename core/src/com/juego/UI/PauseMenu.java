@@ -250,7 +250,7 @@ public class PauseMenu extends Menu {
 				page.dispose();
 			page = pendingPage;
 			pendingPage = null;
-			page.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+			page.resize(com.juego.utils.Display.width(), com.juego.utils.Display.height());
 		}
 	}
 

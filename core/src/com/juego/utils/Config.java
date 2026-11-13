@@ -17,6 +17,8 @@ public final class Config {
 	/** Video (see {@link Video}): window, fullscreen or borderless, and the resolution (0: the mode's default). */
 	public static Video.Mode videoMode = Video.Mode.WINDOWED;
 	public static int screenWidth, screenHeight;
+	/** In fullscreen, how a resolution of another shape than the monitor's fills it. */
+	public static Video.Scaling scaling = Video.Scaling.BLACK_BARS;
 	/** Field of view, degrees across a 4:3 screen (see Video.verticalFov). */
 	public static int fov = Video.DEFAULT_FOV;
 	public static Video.Shadows shadows = Video.Shadows.MEDIUM;
@@ -58,6 +60,7 @@ public final class Config {
 				prefs.getBoolean("fullscreen", false) ? Video.Mode.FULLSCREEN : Video.Mode.WINDOWED);
 		screenWidth = Math.max(0, prefs.getInteger("screenWidth", 0));
 		screenHeight = Math.max(0, prefs.getInteger("screenHeight", 0));
+		scaling = parse(Video.Scaling.class, prefs.getString("scaling", ""), Video.Scaling.BLACK_BARS);
 		fov = Math.max(Video.MIN_FOV, Math.min(Video.MAX_FOV, prefs.getInteger("fov", fov)));
 		// Phones start without shadows: they cost more there.
 		shadows = parse(Video.Shadows.class, prefs.getString("shadows", ""),
@@ -107,6 +110,7 @@ public final class Config {
 		prefs.remove("fullscreen"); // replaced by videoMode
 		prefs.putInteger("screenWidth", screenWidth);
 		prefs.putInteger("screenHeight", screenHeight);
+		prefs.putString("scaling", scaling.name());
 		prefs.putInteger("fov", fov);
 		prefs.putString("shadows", shadows.name());
 		prefs.putInteger("msaa", msaa);

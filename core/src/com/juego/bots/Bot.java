@@ -524,8 +524,9 @@ public class Bot {
 			return;
 		body.getPosition(stepFrom);
 		onGround = body.controller.onGround();
-		// The bot decides between running and walking; the server says how fast those are.
-		float speed = wishSpeed * movement.runSpeed() / PlayerMovement.RUN_SPEED;
+		// The bot decides between running and walking; the server says how fast those are, and its gun weighs.
+		float speed = wishSpeed * movement.runSpeed() / PlayerMovement.RUN_SPEED
+				* (gun == null ? 1 : gun.speedFactor());
 		PlayerMovement.step(velocity, wishDirection, speed, onGround, BotWorld.STEP, movement.airAccelerate,
 				movement.topSpeed());
 		commanded.set(velocity).scl(BotWorld.STEP);

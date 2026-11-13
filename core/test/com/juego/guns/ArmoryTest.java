@@ -50,6 +50,22 @@ class ArmoryTest {
 	}
 
 	@Test
+	void weaponsWeighAsInCs() {
+		Armory armory = shipped();
+		assertEquals(250, armory.get("knife").maxSpeed, "the knife is the fastest");
+		assertEquals(240, armory.get("magnum").maxSpeed);
+		assertEquals(235, armory.get("m4a1").maxSpeed);
+		assertEquals(235, armory.get("ak47").maxSpeed);
+		assertEquals(0.94f, armory.get("m4a1").speedFactor(), 1e-4f);
+		for (GunDefinition def : armory.all()) {
+			if (def.slot == GunDefinition.Slot.PRIMARY)
+				assertTrue(def.maxSpeed >= 190 && def.maxSpeed <= 235, def.id);
+			if (def.slot == GunDefinition.Slot.SECONDARY)
+				assertEquals(240, def.maxSpeed, def.id);
+		}
+	}
+
+	@Test
 	void theKnifeSlashesStabsAndBackstabs() {
 		GunDefinition knife = shipped().get("knife");
 		assertTrue(knife.isMelee());

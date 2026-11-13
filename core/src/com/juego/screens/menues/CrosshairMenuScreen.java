@@ -24,6 +24,7 @@ import com.juego.UI.Crosshair;
 import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.utils.Config;
+import com.juego.utils.Display;
 import com.juego.utils.CrosshairSettings;
 import com.juego.utils.Text;
 
@@ -184,7 +185,7 @@ public class CrosshairMenuScreen extends MenuScreen {
 		stage.getViewport().project(opposite.set(PREVIEW_X + PREVIEW_W, PREVIEW_Y + PREVIEW_H));
 		float x = corner.x, y = corner.y, w = opposite.x - corner.x, h = opposite.y - corner.y;
 
-		int width = Gdx.graphics.getWidth(), height = Gdx.graphics.getHeight();
+		int width = Display.width(), height = Display.height();
 		HdpiUtils.glViewport(0, 0, width, height);
 		shapes.setProjectionMatrix(projection.setToOrtho2D(0, 0, width, height));
 		Gdx.gl.glEnable(GL20.GL_BLEND);

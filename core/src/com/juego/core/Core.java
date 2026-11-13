@@ -16,6 +16,7 @@ import com.juego.screens.menues.MainMenuScreen;
 import com.juego.screens.menues.MenuScreen;
 import com.juego.utils.Config;
 import com.juego.utils.Controls;
+import com.juego.utils.Display;
 import com.juego.utils.MusicPlayer;
 import com.juego.utils.Platform;
 import com.juego.utils.Video;
@@ -68,8 +69,10 @@ public class Core extends ApplicationAdapter {
 			((MenuScreen) screen).back(); // in a match, back opens the pause menu instead (Controls)
 		Gdx.gl.glClearColor(0, 0, 0, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
+		Display.begin(); // at another resolution than the monitor's: off screen, then scaled (Video.Scaling)
 		if (screen != null)
 			screen.render(Gdx.graphics.getDeltaTime());
+		Display.end();
 		musicPlayer.update();
 	}
 
@@ -88,8 +91,9 @@ public class Core extends ApplicationAdapter {
 
 	@Override
 	public void resize(int width, int height) {
+		// The size of what the game draws on, which isn't the window's when it is scaled.
 		if (screen != null)
-			screen.resize(width, height);
+			screen.resize(Display.width(), Display.height());
 	}
 
 	/**
@@ -116,7 +120,7 @@ public class Core extends ApplicationAdapter {
 		screen = pendingScreen;
 		pendingScreen = null;
 		screen.show();
-		screen.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		screen.resize(Display.width(), Display.height());
 	}
 
 	/**
@@ -159,6 +163,7 @@ public class Core extends ApplicationAdapter {
 		stopHostedServer();
 		musicPlayer.dispose();
 		Assets.dispose();
+		Display.dispose();
 	}
 
 }

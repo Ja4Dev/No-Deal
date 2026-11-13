@@ -25,6 +25,7 @@ import com.juego.graphics.ImpactMarks;
 import com.juego.graphics.SkyDome;
 import com.juego.graphics.Tracers;
 import com.juego.utils.Config;
+import com.juego.utils.Display;
 import com.juego.utils.Video;
 
 public class RenderSystem extends EntitySystem {
@@ -133,6 +134,7 @@ public class RenderSystem extends EntitySystem {
 		}
 		shadowBatch.end();
 		shadowLight.end();
+		Display.resume(); // back to the scaled image, if the game is drawn scaled
 	}
 
 	private void drawModels(float delta) {
@@ -141,7 +143,7 @@ public class RenderSystem extends EntitySystem {
 			drawShadowMap();
 		// The whole window: the HUD's stages leave a letterboxed 16:9 viewport behind, which on a
 		// wider screen (phones, a resized window) would draw the scene with black bars at the sides.
-		Gdx.gl.glViewport(0, 0, Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
+		Gdx.gl.glViewport(0, 0, Display.backBufferWidth(), Display.backBufferHeight());
 		// Sky in its own pass: it never writes depth, so everything drawn after covers it.
 		batch.begin(perspectiveCamera);
 		sky.render(batch, perspectiveCamera);
