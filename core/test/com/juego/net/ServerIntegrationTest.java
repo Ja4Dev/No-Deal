@@ -24,6 +24,8 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.guns.Armory;
+import com.juego.match.GameMode;
+import com.juego.match.Team;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.FallDamage;
 import com.juego.utils.PlayerMovement;
@@ -350,6 +352,93 @@ class ServerIntegrationTest {
 		}
 		pumpFor(150);
 		assertNull(find(eventsA, GameClient.Event.Type.SET_POSITION), "not corrected");
+	}
+
+	/** Team match on the test map: its two spawn points split, Red at B's spawn (west), Blue at A's. */
+	private GameServer.Config teamMatch() {
+		GameServer.Config config = new GameServer.Config();
+		config.mode = GameMode.TEAM_DEATHMATCH;
+		return config;
+	}
+
+	private int deathsOf(GameClient c, int id) {
+		return c.getPlayer(id).deaths;
+	}
+
+	@Test
+	void teamMatchTeammatesAndScores() throws IOException {
+		server.dispose();
+		startServer(teamMatch());
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("teams known", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED
+				&& a.getPlayer(b.getLocalId()) != null && a.getPlayer(b.getLocalId()).team.isTeam()
+				&& a.getLocalTeam().isTeam());
+		assertEquals(GameMode.TEAM_DEATHMATCH, a.getMode(), "the welcome says");
+		assertEquals(Team.RED, a.getLocalTeam(), "the first one in: Red");
+		assertEquals(Team.BLUE, a.getPlayer(b.getLocalId()).team, "the next one evens it out");
+		assertEquals(SPAWN_B, a.getSpawn(), "Red starts at its end");
+
+		// An enemy: a kill for Ana and for Red.
+		a.sendFire(0, SPAWN_B, new Vector3(SPAWN_A).add(0, 2.5f, 0).sub(SPAWN_B));
+		pumpUntil("kill", 2000, () -> find(eventsB, GameClient.Event.Type.KILL) != null);
+		pumpUntil("scored", 1000, () -> a.getTeamScore(Team.RED) == 1);
+		assertEquals(0, a.getTeamScore(Team.BLUE));
+
+		// Beto joins Red (dead already: no extra death), and walks off from the spawn they now share.
+		b.sendTeam(Team.RED);
+		pumpUntil("A sees it", 2000, () -> a.getPlayer(b.getLocalId()).team == Team.RED);
+		GameClient.Event changed = find(eventsA, GameClient.Event.Type.TEAM_CHANGED);
+		assertEquals(b.getLocalId(), changed.playerId);
+		assertEquals(Team.RED, changed.team);
+		pumpUntil("B back, on Red's side", 5000, () -> find(eventsB, GameClient.Event.Type.RESPAWN) != null);
+		assertEquals(SPAWN_B, find(eventsB, GameClient.Event.Type.RESPAWN).position);
+		walk(b, SPAWN_B, SPAWN_A);
+
+		// Friendly fire is off: teammates' bullets don't hurt.
+		Vector3 atB = new Vector3(SPAWN_A).add(0, -1, 0).sub(SPAWN_B);
+		sleep(200);
+		a.sendFire(0, SPAWN_B, atB);
+		pumpFor(400);
+		assertEquals(100, a.getPlayer(b.getLocalId()).health, "no friendly fire");
+
+		// mp_friendlyfire 1: they do, and killing a teammate costs a kill.
+		assertEquals("mp_friendlyfire ahora es 1", server.command("mp_friendlyfire 1"));
+		eventsB.clear();
+		a.sendFire(0, SPAWN_B, new Vector3(SPAWN_A).add(0, 2.5f, 0).sub(SPAWN_B));
+		pumpUntil("teamkill", 2000, () -> find(eventsB, GameClient.Event.Type.KILL) != null);
+		pumpUntil("taken off", 1000, () -> a.getTeamScore(Team.RED) == 0);
+		assertEquals(0, a.getPlayer(a.getLocalId()).kills, "1 - 1");
+		assertEquals(2, deathsOf(a, b.getLocalId()), "the switch wasn't a death; the two kills were");
+
+		// Changing team alive takes you out of the fight, without a death.
+		pumpUntil("B back", 5000, () -> a.getPlayer(b.getLocalId()).alive);
+		eventsB.clear();
+		b.sendTeam(Team.NONE); // whichever needs players: Blue
+		pumpUntil("switched", 2000, () -> a.getPlayer(b.getLocalId()).team == Team.BLUE);
+		GameClient.Event left = find(eventsB, GameClient.Event.Type.KILL);
+		assertEquals(Protocol.TEAM_SWITCH, left.gun);
+		assertEquals(Protocol.WORLD, left.killerId);
+		pumpFor(200);
+		assertEquals(2, deathsOf(a, b.getLocalId()));
+	}
+
+	@Test
+	void theTeamThatGetsToTheLimitWins() throws IOException {
+		server.dispose();
+		GameServer.Config config = teamMatch();
+		config.fragLimit = 1;
+		startServer(config);
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED
+				&& a.getPlayer(b.getLocalId()) != null);
+		a.sendFire(0, SPAWN_B, new Vector3(SPAWN_A).add(0, 2.5f, 0).sub(SPAWN_B));
+		pumpUntil("match over", 3000, () -> find(eventsB, GameClient.Event.Type.MATCH_END) != null);
+		assertEquals(Team.RED, find(eventsB, GameClient.Event.Type.MATCH_END).team);
+		assertTrue(server.describeMatch().contains("Rojo 1, Azul 0"), server.describeMatch());
 	}
 
 	@Test

@@ -21,6 +21,7 @@ import com.juego.UI.TouchControls;
 import com.juego.components.PlayerComponent;
 import com.juego.core.GameWorld;
 import com.juego.match.Match;
+import com.juego.match.Team;
 import com.juego.net.GameClient;
 import com.juego.net.GameServer;
 import com.juego.net.Protocol;
@@ -136,6 +137,9 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		boolean spectating = gameWorld.deathCam().isWatching() && !intermission;
 		hud.setPlayerWidgetsVisible(!spectating);
 		showNumbers();
+		GameClient client = gameWorld.session.client;
+		hud.setTeams(client.getMode().hasTeams() ? client.getLocalTeam() : Team.NONE, client.getTeamScore(Team.RED),
+				client.getTeamScore(Team.BLUE));
 		hud.update(playerComponent.getHealth(), playerComponent.selectedGun());
 		if (spectating)
 			showDeathScreen();
@@ -155,7 +159,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 			String footer = scoreboardOverPause ? Text.get(Platform.touch ? "hud.tapBack" : "hud.clickBack")
 					: intermission ? Text.get("hud.nextMatchIn", (remaining + 999) / 1000)
 							: Text.get("hud.timeLeft", Match.formatClock(remaining));
-			scoreboard.update(gameWorld.getScoreboardTitle(), rows, footer, gameWorld.session.client.getRenames());
+			scoreboard.update(gameWorld.getScoreboardTitle(), rows, footer, gameWorld.session.client.getRenames(),
+					gameWorld.getTeamScores());
 			scoreboard.draw();
 		}
 		if (scoreboardOverPause && Gdx.input.justTouched())
@@ -212,6 +217,8 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		String own = clientVariable(words);
 		if (own != null)
 			return own;
+		if (words[0].equals("equipo") || words[0].equals("team"))
+			return teamCommand(words);
 		if (lower.startsWith("nombre") || lower.startsWith("name")) {
 			String name = line.trim().replaceFirst("(?i)^(nombre|name)\\s*", "");
 			if (name.isEmpty())
@@ -270,6 +277,23 @@ public class HudSystem extends EntitySystem implements EntityListener, Disposabl
 		}
 		Config.save();
 		return Text.get("server.cvarChanged", name, value);
+	}
+
+	/** "equipo", "equipo azul", "equipo auto": shows our team, or asks the server for another. */
+	private String teamCommand(String[] words) {
+		GameClient client = gameWorld.session.client;
+		if (!client.getMode().hasTeams())
+			return Text.get("console.noTeams");
+		Team current = client.getLocalTeam();
+		if (words.length < 2)
+			return Text.get("console.team", current.label());
+		Team wanted = Team.parse(words[1]);
+		if (wanted == null)
+			return Text.get("console.teamUsage");
+		if (wanted == current)
+			return Text.get("console.team", current.label());
+		client.sendTeam(wanted);
+		return Text.get("console.teamAsked", wanted.isTeam() ? wanted.label() : Text.get("console.teamAuto"));
 	}
 
 	/** Who killed us, with their stats, and the countdown to respawning. */

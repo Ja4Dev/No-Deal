@@ -20,6 +20,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Array;
 import com.juego.bots.BotDifficulty;
 import com.juego.core.Assets;
+import com.juego.match.GameMode;
 import com.juego.core.Core;
 import com.juego.core.GameClock;
 import com.juego.core.GameSession;
@@ -52,6 +53,8 @@ public class MultiplayerScreen extends MenuScreen {
 	private final Slider botsSlider, timeSlider, fragSlider;
 	private final Label botsValue, timeValue, fragValue;
 	private final SelectBox<String> difficultyBox;
+	/** Everyone against everyone, or teams (singleplayer and hosting). */
+	private final SelectBox<String> modeBox;
 	private final TextButton startButton, backButton;
 	private final Label statusLabel;
 	private final Table table = new Table();
@@ -102,6 +105,12 @@ public class MultiplayerScreen extends MenuScreen {
 			difficulties.add(d.label());
 		difficultyBox.setItems(difficulties);
 		difficultyBox.setSelectedIndex(Config.botDifficulty.ordinal());
+		modeBox = new SelectBox<>(Assets.skin);
+		Array<String> modes = new Array<>();
+		for (GameMode mode : GameMode.values())
+			modes.add(mode.label());
+		modeBox.setItems(modes);
+		modeBox.setSelectedIndex(Config.gameMode.ordinal());
 		startButton = new TextButton(Text.get(singleplayer ? "mp.play" : hosting ? "mp.create" : "mp.connect"), Assets.skin);
 		backButton = new TextButton(Text.get("back"), Assets.skin);
 		statusLabel = new Label("", Assets.skin);
@@ -199,6 +208,7 @@ public class MultiplayerScreen extends MenuScreen {
 				row(table, Text.get("mp.port"), portField, null);
 		}
 		if (!joining) {
+			row(table, Text.get("mp.mode"), modeBox, null);
 			row(table, Text.get("mp.bots"), botsSlider, botsValue);
 			row(table, Text.get("mp.difficulty"), difficultyBox, null);
 			row(table, Text.get("mp.duration"), timeSlider, timeValue);
@@ -422,6 +432,7 @@ public class MultiplayerScreen extends MenuScreen {
 				config.botDifficulty = difficulty;
 				config.timeLimitMinutes = (int) timeSlider.getValue();
 				config.fragLimit = (int) fragSlider.getValue();
+				config.mode = GameMode.values()[modeBox.getSelectedIndex()];
 				game.startHostedServer(config, clock);
 				serverStarted = true;
 				port = game.getHostedPort();
@@ -441,6 +452,7 @@ public class MultiplayerScreen extends MenuScreen {
 				Config.botDifficulty = difficulty;
 				Config.timeLimitMinutes = (int) timeSlider.getValue();
 				Config.fragLimit = (int) fragSlider.getValue();
+				Config.gameMode = GameMode.values()[modeBox.getSelectedIndex()];
 			}
 			showStatus(kind == GameSession.Kind.JOIN ? Text.get("mp.connectingTo", host, port)
 					: Text.get(bots > 0 ? "mp.preparingBots" : "mp.creating"));

@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
+import com.juego.match.GameMode;
+import com.juego.match.Team;
 import com.juego.utils.Text;
 import com.juego.utils.MovementSettings;
 
@@ -259,10 +261,11 @@ public final class Messages {
 	public static class Welcome implements Message {
 		public int playerId;
 		public int teleportId;
-		/** 0 = no frag limit. */
+		/** 0 = no frag limit. In a team match it is the team's kills. */
 		public int fragLimit;
 		public String map = "";
 		public final Vector3 spawn = new Vector3();
+		public GameMode mode = GameMode.DEATHMATCH;
 
 		public byte type() {
 			return Protocol.WELCOME;
@@ -272,6 +275,7 @@ public final class Messages {
 			out.put((byte) playerId).putInt(teleportId).putShort((short) fragLimit);
 			writeString(out, map, 32);
 			writeVector(out, spawn);
+			out.put((byte) mode.ordinal());
 		}
 
 		public static Welcome read(ByteBuffer in) {
@@ -281,6 +285,26 @@ public final class Messages {
 			m.fragLimit = in.getShort() & 0xFFFF;
 			m.map = readString(in);
 			readVector(in, m.spawn);
+			m.mode = GameMode.of(in.get());
+			return m;
+		}
+	}
+
+	/** Client to server: join this team (NONE: whichever needs players). */
+	public static class TeamRequest implements Message {
+		public Team team = Team.NONE;
+
+		public byte type() {
+			return Protocol.TEAM;
+		}
+
+		public void write(ByteBuffer out) {
+			out.put((byte) team.ordinal());
+		}
+
+		public static TeamRequest read(ByteBuffer in) {
+			TeamRequest m = new TeamRequest();
+			m.team = Team.of(in.get());
 			return m;
 		}
 	}
@@ -435,23 +459,26 @@ public final class Messages {
 	}
 
 	public static class MatchEnd implements Message {
-		/** {@link Protocol#WORLD} if nobody scored. */
+		/** {@link Protocol#WORLD} if nobody scored (or a team match). */
 		public int winnerId;
 		/** Ordinal of {@link com.juego.match.Match.EndReason}. */
 		public int reason;
+		/** Team match: the winning team, NONE for a draw. */
+		public Team winnerTeam = Team.NONE;
 
 		public byte type() {
 			return Protocol.MATCH_END;
 		}
 
 		public void write(ByteBuffer out) {
-			out.put((byte) winnerId).put((byte) reason);
+			out.put((byte) winnerId).put((byte) reason).put((byte) winnerTeam.ordinal());
 		}
 
 		public static MatchEnd read(ByteBuffer in) {
 			MatchEnd m = new MatchEnd();
 			m.winnerId = in.get() & 0xFF;
 			m.reason = in.get();
+			m.winnerTeam = Team.of(in.get());
 			return m;
 		}
 	}
@@ -626,6 +653,7 @@ public final class Messages {
 		public static class Entry {
 			public int playerId;
 			public boolean alive, crouched;
+			public Team team = Team.NONE;
 			public int health, kills, deaths, assists, slot;
 			public final Vector3 position = new Vector3();
 			public float yaw, pitch;
@@ -636,6 +664,8 @@ public final class Messages {
 		public int phase;
 		/** Time left in the current phase. */
 		public int remainingMs;
+		/** Team match: each team's kills (indexed by Team ordinal; NONE's is unused). */
+		public final int[] teamScores = new int[Team.values().length];
 		public final Array<Entry> players = new Array<>();
 
 		public byte type() {
@@ -643,9 +673,12 @@ public final class Messages {
 		}
 
 		public void write(ByteBuffer out) {
-			out.putInt(tick).put((byte) phase).putInt(remainingMs).put((byte) players.size);
+			out.putInt(tick).put((byte) phase).putInt(remainingMs);
+			out.putShort((short) teamScores[Team.RED.ordinal()]).putShort((short) teamScores[Team.BLUE.ordinal()]);
+			out.put((byte) players.size);
 			for (Entry e : players) {
-				out.put((byte) e.playerId).put((byte) ((e.alive ? 1 : 0) | (e.crouched ? 2 : 0))).put((byte) e.health);
+				out.put((byte) e.playerId).put((byte) ((e.alive ? 1 : 0) | (e.crouched ? 2 : 0) | e.team.ordinal() << 2))
+						.put((byte) e.health);
 				out.putShort((short) e.kills).putShort((short) e.deaths).putShort((short) e.assists).put((byte) e.slot);
 				writeVector(out, e.position);
 				out.putFloat(e.yaw).putFloat(e.pitch);
@@ -657,6 +690,8 @@ public final class Messages {
 			m.tick = in.getInt();
 			m.phase = in.get();
 			m.remainingMs = in.getInt();
+			m.teamScores[Team.RED.ordinal()] = in.getShort();
+			m.teamScores[Team.BLUE.ordinal()] = in.getShort();
 			int count = in.get() & 0xFF;
 			for (int i = 0; i < count; i++) {
 				Entry e = new Entry();
@@ -664,8 +699,9 @@ public final class Messages {
 				int flags = in.get();
 				e.alive = (flags & 1) != 0;
 				e.crouched = (flags & 2) != 0;
+				e.team = Team.of(flags >> 2 & 3);
 				e.health = in.get() & 0xFF;
-				e.kills = in.getShort() & 0xFFFF;
+				e.kills = in.getShort(); // signed: killing a teammate takes one off
 				e.deaths = in.getShort() & 0xFFFF;
 				e.assists = in.getShort() & 0xFFFF;
 				e.slot = in.get();

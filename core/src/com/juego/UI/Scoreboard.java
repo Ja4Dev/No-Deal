@@ -11,6 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
+import com.juego.match.Team;
 import com.juego.utils.Text;
 
 /** Score table shown while holding the scoreboard key, from the pause menu, and between matches. */
@@ -20,6 +21,8 @@ public class Scoreboard extends Menu {
 		public String name;
 		public int kills, deaths, assists;
 		public boolean local;
+		/** Team match: the player's team. */
+		public Team team = Team.NONE;
 
 		public Row set(String name, int kills, int deaths, int assists, boolean local) {
 			this.name = name;
@@ -68,6 +71,14 @@ public class Scoreboard extends Menu {
 	 * @param renames "Old -> New" for names changed in this match, shown in the corner (may be empty)
 	 */
 	public void update(String title, Array<Row> rows, String footer, Array<String> renames) {
+		update(title, rows, footer, renames, null);
+	}
+
+	/**
+	 * @param teamScores team match: each team's kills by Team ordinal (the
+	 *                   players are listed by team, under it); null in deathmatch
+	 */
+	public void update(String title, Array<Row> rows, String footer, Array<String> renames, int[] teamScores) {
 		rows.sort(RANKING);
 		table.clearChildren();
 		table.add(label(title, Color.WHITE, 1.6f)).colspan(5).padBottom(14).row();
@@ -77,15 +88,18 @@ public class Scoreboard extends Menu {
 		table.add(label(Text.get("score.deaths"), HEADER, 1.2f)).width(90);
 		table.add(label(Text.get("score.assists"), HEADER, 1.2f)).width(90);
 		table.row().padBottom(6);
-		for (int i = 0; i < rows.size; i++) {
-			Row row = rows.get(i);
-			Color color = row.local ? LOCAL : Color.WHITE;
-			table.add(label(Integer.toString(i + 1), color, 1.3f));
-			table.add(label(row.name, color, 1.3f)).left();
-			table.add(label(Integer.toString(row.kills), color, 1.3f));
-			table.add(label(Integer.toString(row.deaths), color, 1.3f));
-			table.add(label(Integer.toString(row.assists), color, 1.3f));
-			table.row().padBottom(4);
+		if (teamScores == null) {
+			addRows(rows, null);
+		} else {
+			// The team ahead on top.
+			Team first = teamScores[Team.BLUE.ordinal()] > teamScores[Team.RED.ordinal()] ? Team.BLUE : Team.RED;
+			for (Team team : new Team[] { first, first.other() }) {
+				table.add(label(team.label(), team.color, 1.45f)).colspan(2).left().padTop(8);
+				table.add(label(Integer.toString(teamScores[team.ordinal()]), team.color, 1.45f)).padTop(8);
+				table.add().colspan(2);
+				table.row().padBottom(4);
+				addRows(rows, team);
+			}
 		}
 		if (footer != null && !footer.isEmpty())
 			table.add(label(footer, HEADER, 1.2f)).colspan(5).padTop(14);
@@ -102,6 +116,23 @@ public class Scoreboard extends Menu {
 			// Just above the panel, aligned with its right edge.
 			renamesTag.setPosition(table.getX() + table.getWidth(), table.getY() + table.getHeight() + 4,
 					Align.bottomRight);
+		}
+	}
+
+	/** The rows of one team (or all of them, if null), numbered from 1. */
+	private void addRows(Array<Row> rows, Team team) {
+		int place = 0;
+		for (Row row : rows) {
+			if (team != null && row.team != team)
+				continue;
+			place++;
+			Color color = row.local ? LOCAL : team != null ? team.color : Color.WHITE;
+			table.add(label(Integer.toString(place), color, 1.3f));
+			table.add(label(row.name, color, 1.3f)).left();
+			table.add(label(Integer.toString(row.kills), color, 1.3f));
+			table.add(label(Integer.toString(row.deaths), color, 1.3f));
+			table.add(label(Integer.toString(row.assists), color, 1.3f));
+			table.row().padBottom(4);
 		}
 	}
 

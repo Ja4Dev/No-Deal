@@ -26,6 +26,38 @@ class MessagesTest {
 	}
 
 	@Test
+	void teamMessagesRoundTrip() {
+		Messages.Welcome w = new Messages.Welcome();
+		w.mode = com.juego.match.GameMode.TEAM_DEATHMATCH;
+		w.map = "Bank";
+		assertEquals(com.juego.match.GameMode.TEAM_DEATHMATCH, Messages.Welcome.read(roundTrip(w)).mode);
+
+		Messages.Snapshot s = new Messages.Snapshot();
+		s.teamScores[com.juego.match.Team.RED.ordinal()] = 17;
+		s.teamScores[com.juego.match.Team.BLUE.ordinal()] = -2;
+		Messages.Snapshot.Entry e = new Messages.Snapshot.Entry();
+		e.playerId = 3;
+		e.alive = true;
+		e.crouched = true;
+		e.team = com.juego.match.Team.BLUE;
+		e.kills = -1; // a teamkill
+		s.players.add(e);
+		Messages.Snapshot r = Messages.Snapshot.read(roundTrip(s));
+		assertEquals(17, r.teamScores[com.juego.match.Team.RED.ordinal()]);
+		assertEquals(-2, r.teamScores[com.juego.match.Team.BLUE.ordinal()]);
+		assertEquals(com.juego.match.Team.BLUE, r.players.first().team);
+		assertTrue(r.players.first().alive && r.players.first().crouched);
+		assertEquals(-1, r.players.first().kills);
+
+		Messages.MatchEnd end = new Messages.MatchEnd();
+		end.winnerTeam = com.juego.match.Team.RED;
+		assertEquals(com.juego.match.Team.RED, Messages.MatchEnd.read(roundTrip(end)).winnerTeam);
+		Messages.TeamRequest t = new Messages.TeamRequest();
+		t.team = com.juego.match.Team.BLUE;
+		assertEquals(com.juego.match.Team.BLUE, Messages.TeamRequest.read(roundTrip(t)).team);
+	}
+
+	@Test
 	void knifePingAndFallRoundTrip() {
 		Messages.Fire fire = new Messages.Fire();
 		fire.slot = 2;

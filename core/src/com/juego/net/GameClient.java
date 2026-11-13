@@ -11,7 +11,9 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.IntMap;
+import com.juego.match.GameMode;
 import com.juego.match.Match;
+import com.juego.match.Team;
 import com.juego.utils.Text;
 import com.juego.utils.MovementSettings;
 
@@ -37,6 +39,8 @@ public class GameClient implements Disposable {
 		public boolean alive = true;
 		public int health = 100, kills, deaths, assists, slot;
 		public boolean crouched;
+		/** Team match: Red or Blue (NONE in deathmatch, or until the first snapshot). */
+		public Team team = Team.NONE;
 		private final Array<float[]> samples = new Array<>(); // {timeMs, x, y, z, yaw, pitch}
 
 		PlayerInfo(int id, String name) {
@@ -93,7 +97,9 @@ public class GameClient implements Disposable {
 	public static class Event {
 		public enum Type {
 			JOINED, LEFT, KILL, RESPAWN, SET_POSITION, MATCH_END, MATCH_START, SHOT, WEAPON_SPAWN, WEAPON_REMOVE,
-			DAMAGE, HIT, RENAMED, MOVEMENT
+			DAMAGE, HIT, RENAMED, MOVEMENT,
+			/** Team match: a player changed sides ({@link #team}). */
+			TEAM_CHANGED
 		}
 
 		public final Type type;
@@ -112,6 +118,8 @@ public class GameClient implements Disposable {
 		public final Vector3 from = new Vector3();
 		public int weaponId, magazine, reserve;
 		public float yaw;
+		/** TEAM_CHANGED: the new team. MATCH_END of a team match: the winner (NONE: a draw). */
+		public Team team = Team.NONE;
 
 		Event(Type type) {
 			this.type = type;
@@ -133,6 +141,8 @@ public class GameClient implements Disposable {
 	private long nextPingMs;
 	private float pingMs = -1;
 	private String mapName = "";
+	private GameMode mode = GameMode.DEATHMATCH;
+	private final int[] teamScores = new int[Team.values().length];
 	private String localName = "";
 	private int fragLimit;
 	private final Vector3 spawn = new Vector3();
@@ -225,6 +235,7 @@ public class GameClient implements Disposable {
 			localId = welcome.playerId;
 			teleportId = welcome.teleportId;
 			mapName = welcome.map;
+			mode = welcome.mode;
 			fragLimit = welcome.fragLimit;
 			spawn.set(welcome.spawn);
 			players.put(localId, new PlayerInfo(localId, localName));
@@ -260,11 +271,22 @@ public class GameClient implements Disposable {
 			}
 			matchPhase = phase;
 			matchRemainingMs = snapshot.remainingMs;
+			System.arraycopy(snapshot.teamScores, 0, teamScores, 0, teamScores.length);
 			matchSampleMs = now;
 			for (Messages.Snapshot.Entry entry : snapshot.players) {
 				PlayerInfo p = players.get(entry.playerId);
 				if (p == null)
 					continue; // its PLAYER_JOINED hasn't arrived yet
+				if (entry.team != p.team) {
+					// The first snapshot just says where they are; later, it is news.
+					if (p.team.isTeam()) {
+						Event e = new Event(Event.Type.TEAM_CHANGED);
+						e.playerId = p.id;
+						e.team = entry.team;
+						events.add(e);
+					}
+					p.team = entry.team;
+				}
 				p.alive = entry.alive;
 				p.crouched = entry.crouched;
 				p.health = entry.health;
@@ -316,6 +338,7 @@ public class GameClient implements Disposable {
 			Event e = new Event(Event.Type.MATCH_END);
 			e.playerId = m.winnerId;
 			e.detail = m.reason;
+			e.team = m.winnerTeam;
 			events.add(e);
 			break;
 		}
@@ -537,6 +560,31 @@ public class GameClient implements Disposable {
 	/** 0 = no frag limit. */
 	public int getFragLimit() {
 		return fragLimit;
+	}
+
+	/** Everyone against everyone, or teams (the server says, on joining). */
+	public GameMode getMode() {
+		return mode;
+	}
+
+	/** Team match: a team's kills, as of the last snapshot. */
+	public int getTeamScore(Team team) {
+		return teamScores[team.ordinal()];
+	}
+
+	/** Team match: our side (NONE until the server says, or in deathmatch). */
+	public Team getLocalTeam() {
+		PlayerInfo me = players.get(localId);
+		return me == null ? Team.NONE : me.team;
+	}
+
+	/** Team match: asks to change sides (NONE: whichever needs players). */
+	public void sendTeam(Team team) {
+		if (status != Status.CONNECTED)
+			return;
+		Messages.TeamRequest m = new Messages.TeamRequest();
+		m.team = team;
+		connection.sendReliable(m);
 	}
 
 	public Match.Phase getMatchPhase() {
