@@ -172,6 +172,8 @@ public final class Messages {
 
 	public static class Fire implements Message {
 		public int slot;
+		/** The other attack: the knife's stab (right click) instead of its slash. */
+		public boolean alt;
 		public final Vector3 origin = new Vector3();
 		public final Vector3 direction = new Vector3();
 
@@ -180,7 +182,7 @@ public final class Messages {
 		}
 
 		public void write(ByteBuffer out) {
-			out.put((byte) slot);
+			out.put((byte) slot).put((byte) (alt ? 1 : 0));
 			writeVector(out, origin);
 			writeVector(out, direction);
 		}
@@ -188,8 +190,56 @@ public final class Messages {
 		public static Fire read(ByteBuffer in) {
 			Fire m = new Fire();
 			m.slot = in.get();
+			m.alt = in.get() != 0;
 			readVector(in, m.origin);
 			readVector(in, m.direction);
+			return m;
+		}
+	}
+
+	/**
+	 * Client to server (PING) and back (PONG, the same time): measures the
+	 * round trip, for the ping shown with cl_showfps. Unreliable.
+	 */
+	public static class Ping implements Message {
+		private final byte type;
+		/** The client's clock when it sent the ping. */
+		public long timeMs;
+
+		public Ping(byte type) {
+			this.type = type;
+		}
+
+		public byte type() {
+			return type;
+		}
+
+		public void write(ByteBuffer out) {
+			out.putLong(timeMs);
+		}
+
+		public static Ping read(byte type, ByteBuffer in) {
+			Ping m = new Ping(type);
+			m.timeMs = in.getLong();
+			return m;
+		}
+	}
+
+	/** Client to server: the local player landed this fast (units/s, downwards), for the fall damage. Reliable. */
+	public static class Fall implements Message {
+		public float speed;
+
+		public byte type() {
+			return Protocol.FALL;
+		}
+
+		public void write(ByteBuffer out) {
+			out.putFloat(speed);
+		}
+
+		public static Fall read(ByteBuffer in) {
+			Fall m = new Fall();
+			m.speed = in.getFloat();
 			return m;
 		}
 	}
@@ -303,14 +353,19 @@ public final class Messages {
 
 		public void write(ByteBuffer out) {
 			out.putShort((short) settings.gravity).putFloat(settings.airAccelerate)
-					.put((byte) (settings.autoBunnyhop ? 1 : 0));
+					.put((byte) ((settings.autoBunnyhop ? 1 : 0) | (settings.fallDamage ? 2 : 0)))
+					.putShort((short) settings.maxSpeed).putShort((short) settings.maxVelocity);
 		}
 
 		public static Movement read(ByteBuffer in) {
 			Movement m = new Movement();
 			m.settings.gravity = in.getShort();
 			m.settings.airAccelerate = in.getFloat();
-			m.settings.autoBunnyhop = in.get() != 0;
+			int flags = in.get();
+			m.settings.autoBunnyhop = (flags & 1) != 0;
+			m.settings.fallDamage = (flags & 2) != 0;
+			m.settings.maxSpeed = in.getShort();
+			m.settings.maxVelocity = in.getShort();
 			return m;
 		}
 	}

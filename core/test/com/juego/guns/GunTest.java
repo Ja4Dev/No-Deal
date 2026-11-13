@@ -107,6 +107,8 @@ class GunTest {
 	@Test
 	void everyGunReachesAcrossTheLevel() {
 		for (GunDefinition def : Armory.load(new com.badlogic.gdx.files.FileHandle(new java.io.File("assets", Armory.GUNS_FILE))).all()) {
+			if (def.isMelee())
+				continue; // the knife reaches an arm's length
 			assertTrue(def.range >= 300, def.id + " must reach across the level");
 			assertTrue(def.damageAt(150) > 0 && def.damageAt(150) < def.damage, def.id + " loses some damage at 150 units");
 		}

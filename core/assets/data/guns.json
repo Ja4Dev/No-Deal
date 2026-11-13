@@ -133,5 +133,33 @@
 			[7, -0.2],
 			[7.6, 0.3]
 		]
+	},
+	{
+		"id": "knife",
+		"name": "Knife",
+		"slot": "MELEE",
+		"damage": 34,
+		"backDamage": 90,
+		"altDamage": 65,
+		"altBackDamage": 180,
+		"range": 4.5,
+		"altRange": 3.5,
+		"fireDelayMs": 400,
+		"altFireDelayMs": 1000,
+		"magazineSize": 0,
+		"reserveAmmo": -1,
+		"automatic": true,
+		"rangeModifier": 1,
+		"punch": 0,
+		"spreadBase": 0,
+		"spreadPerShot": 0,
+		"spreadMove": 0,
+		"spreadAir": 0,
+		"hasSight": false,
+		"model": "models/Knife.g3dj",
+		"sound": "sounds/knife-swing.wav",
+		"hitSound": "sounds/knife-hitwall.wav",
+		"viewOffset": [2, -1.7, -3.8],
+		"worldLength": 1
 	}
 ]

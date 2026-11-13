@@ -14,7 +14,7 @@ package com.juego.net;
 public final class Protocol {
 	public static final short MAGIC = 0x4E44; // "ND"
 	/** Bumped on any incompatible change; checked in HELLO. */
-	public static final int VERSION = 8;
+	public static final int VERSION = 9;
 	public static final int DEFAULT_PORT = 25559;
 	public static final int MAX_PLAYERS = 4;
 	/** Keeps datagrams under the typical internet MTU to avoid IP fragmentation. */
@@ -43,8 +43,8 @@ public final class Protocol {
 	/** Remote players are drawn this far in the past, so there are always two snapshots to blend. */
 	public static final long INTERPOLATION_DELAY_MS = 100;
 
-	/** What every player spawns with: slot 0 = primary, slot 1 = secondary. */
-	public static final String[] LOADOUT = { "m4a1", "magnum" };
+	/** What every player spawns with: a primary, a secondary and the knife (see GunDefinition.Slot). */
+	public static final String[] LOADOUT = { "m4a1", "magnum", "knife" };
 
 	// Message types.
 	public static final byte HELLO = 1;
@@ -80,6 +80,13 @@ public final class Protocol {
 	public static final byte PLAYER_RENAMED = 22;
 	/** Server to clients: gravity and air acceleration (sv_gravity, sv_airaccelerate...), on joining and on changes. */
 	public static final byte MOVEMENT = 23;
+	/** Client to server, echoed back as {@link #PONG}: measures the ping. Unreliable. */
+	public static final byte PING = 24;
+	public static final byte PONG = 25;
+	/** Client to server: the player landed hard (fall damage). Reliable. */
+	public static final byte FALL = 26;
+	/** The "gun" of a death by falling, in KILL messages. */
+	public static final String FALL_KILL = "fall";
 	/** A player can change their name at most this often. */
 	public static final long RENAME_COOLDOWN_MS = 2000;
 	/** Doing more than this damage makes an assist if someone else finishes the victim off (as in CS). */
@@ -87,7 +94,7 @@ public final class Protocol {
 	/** Headshots do this many times the damage, as in CS: one is lethal with any gun up to ~85 units. */
 	public static final int HEADSHOT_MULTIPLIER = 4;
 
-	/** Player id used as "killer" when a player dies by falling out of the map. */
+	/** Player id used as "killer" when a player dies by falling (out of the map, or too hard). */
 	public static final int WORLD = 0;
 
 	private Protocol() {

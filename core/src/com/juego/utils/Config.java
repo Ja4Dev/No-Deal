@@ -33,6 +33,11 @@ public final class Config {
 	/** Match rules chosen last time for "Un jugador" and "Crear partida": minutes, and kills to win (0 = none). */
 	public static int timeLimitMinutes = Protocol.DEFAULT_TIME_LIMIT_MINUTES, fragLimit = Protocol.DEFAULT_FRAG_LIMIT;
 	public static final int MAX_TIME_LIMIT_MINUTES = 30, MAX_FRAG_LIMIT = 50;
+	/** Console: cl_showfps (FPS and ping on screen) and cl_showspeed (speedometer, for bunnyhopping). */
+	public static boolean showFps, showSpeed;
+	/** Console: fps_max. 0 follows the screen (vertical sync); otherwise the most frames per second. */
+	public static int fpsMax;
+	public static final int MAX_FPS_MAX = 1000;
 
 	private Config() {
 	}
@@ -58,6 +63,27 @@ public final class Config {
 		fragLimit = Math.max(0, Math.min(MAX_FRAG_LIMIT, prefs.getInteger("fragLimit", fragLimit)));
 		crosshair.load(prefs);
 		Controls.deserialize(prefs.getString("controls", ""));
+		showFps = prefs.getBoolean("showFps", showFps);
+		showSpeed = prefs.getBoolean("showSpeed", showSpeed);
+		fpsMax = Math.max(0, Math.min(MAX_FPS_MAX, prefs.getInteger("fpsMax", fpsMax)));
+		applyFpsMax();
+	}
+
+	/**
+	 * fps_max: 0 draws once per screen refresh (vertical sync, the default);
+	 * a number caps the frames per second at it without vertical sync, which
+	 * is what CS players use to play at 100+ FPS.
+	 */
+	public static void applyFpsMax() {
+		if (Gdx.graphics == null)
+			return;
+		if (fpsMax > 0) {
+			Gdx.graphics.setVSync(false);
+			Gdx.graphics.setForegroundFPS(fpsMax);
+		} else {
+			Gdx.graphics.setVSync(true);
+			Gdx.graphics.setForegroundFPS(Gdx.graphics.getDisplayMode().refreshRate + 1);
+		}
 	}
 
 	public static void save() {
@@ -77,6 +103,9 @@ public final class Config {
 		prefs.putInteger("fragLimit", fragLimit);
 		crosshair.save(prefs);
 		prefs.putString("controls", Controls.serialize());
+		prefs.putBoolean("showFps", showFps);
+		prefs.putBoolean("showSpeed", showSpeed);
+		prefs.putInteger("fpsMax", fpsMax);
 		prefs.flush();
 	}
 

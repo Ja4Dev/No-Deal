@@ -26,6 +26,8 @@ public final class Controls {
 		AIM(Binding.mouse(Input.Buttons.RIGHT)),
 		RELOAD(Binding.key(Input.Keys.R)),
 		SWITCH_GUN(Binding.key(Input.Keys.Q)),
+		/** Takes the knife out, or puts it away again (back to the gun). */
+		KNIFE(Binding.key(Input.Keys.NUM_3)),
 		DROP(Binding.key(Input.Keys.G)),
 		SCOREBOARD(Binding.key(Input.Keys.TAB)),
 		PAUSE(Binding.key(Input.Keys.ESCAPE)),

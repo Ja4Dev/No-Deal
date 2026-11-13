@@ -30,8 +30,13 @@ public class Armory {
 		if (def.id == null || def.id.isEmpty())
 			throw new GdxRuntimeException(file + ": a gun is missing its id");
 		if (def.slot == null)
-			throw new GdxRuntimeException(where + "has no slot (PRIMARY or SECONDARY)");
-		if (def.magazineSize <= 0)
+			throw new GdxRuntimeException(where + "has no slot (PRIMARY, SECONDARY or MELEE)");
+		if (def.isMelee()) {
+			if (def.altDamage <= 0 || def.backDamage <= 0 || def.altBackDamage <= 0 || def.altRange <= 0
+					|| def.altFireDelayMs <= 0)
+				throw new GdxRuntimeException(where + "is melee: it needs altDamage, backDamage, altBackDamage, "
+						+ "altRange and altFireDelayMs");
+		} else if (def.magazineSize <= 0)
 			throw new GdxRuntimeException(where + "needs a positive magazineSize");
 		if (def.damage <= 0 || def.range <= 0 || def.fireDelayMs < 0)
 			throw new GdxRuntimeException(where + "has invalid damage, range or fireDelayMs");
@@ -52,6 +57,12 @@ public class Armory {
 		if (def == null)
 			throw new GdxRuntimeException("Unknown gun id '" + id + "'");
 		return def;
+	}
+
+	/** The name players read for a gun id ("Cuchillo" for "knife"), or the text itself if it isn't a gun id. */
+	public String displayName(String id) {
+		GunDefinition def = definitions.get(id);
+		return def == null ? id : def.displayName();
 	}
 
 	/** Creates a new gun with a full magazine. */

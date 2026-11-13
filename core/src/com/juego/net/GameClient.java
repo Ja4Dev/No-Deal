@@ -129,6 +129,9 @@ public class GameClient implements Disposable {
 	/** The server's gravity and air control (sv_gravity...), for the local player's movement. */
 	private final MovementSettings movement = new MovementSettings();
 	private boolean movementKnown;
+	private static final long PING_INTERVAL_MS = 500;
+	private long nextPingMs;
+	private float pingMs = -1;
 	private String mapName = "";
 	private String localName = "";
 	private int fragLimit;
@@ -194,8 +197,19 @@ public class GameClient implements Disposable {
 		} else if (status == Status.CONNECTED && connection.isTimedOut(Protocol.TIMEOUT_MS)) {
 			fail(Status.DISCONNECTED, Text.get("net.lost"));
 		}
+		if (status == Status.CONNECTED && now >= nextPingMs) {
+			nextPingMs = now + PING_INTERVAL_MS;
+			Messages.Ping ping = new Messages.Ping(Protocol.PING);
+			ping.timeMs = now;
+			connection.sendUnreliable(ping);
+		}
 		if (connection != null)
 			flush();
+	}
+
+	/** Round trip to the server in milliseconds (smoothed), or -1 until known. */
+	public int getPingMs() {
+		return pingMs < 0 ? -1 : Math.round(pingMs);
 	}
 
 	private void flush() {
@@ -346,12 +360,18 @@ public class GameClient implements Disposable {
 			events.add(e);
 			break;
 		}
+		case Protocol.PONG: {
+			long rtt = clock.getAsLong() - Messages.Ping.read(Protocol.PONG, in).timeMs;
+			if (rtt >= 0 && rtt < 10_000)
+				// Smoothed, so the number shown doesn't jump around with every packet.
+				pingMs = pingMs < 0 ? rtt : pingMs + (rtt - pingMs) * 0.25f;
+			break;
+		}
 		case Protocol.MOVEMENT: {
 			MovementSettings incoming = Messages.Movement.read(in).settings;
 			// The first one comes with the welcome; later ones are changes worth telling the player.
 			if (movementKnown) {
-				for (String name : new String[] { MovementSettings.GRAVITY, MovementSettings.AIR_ACCELERATE,
-						MovementSettings.AUTO_BUNNYHOP }) {
+				for (String name : MovementSettings.NAMES) {
 					if (incoming.get(name).equals(movement.get(name)))
 						continue;
 					Event e = new Event(Event.Type.MOVEMENT);
@@ -479,13 +499,28 @@ public class GameClient implements Disposable {
 	}
 
 	public void sendFire(int slot, Vector3 origin, Vector3 direction) {
+		sendFire(slot, false, origin, direction);
+	}
+
+	/** @param alt the knife's other attack (stab) */
+	public void sendFire(int slot, boolean alt, Vector3 origin, Vector3 direction) {
 		if (status != Status.CONNECTED)
 			return;
 		Messages.Fire fire = new Messages.Fire();
 		fire.slot = slot;
+		fire.alt = alt;
 		fire.origin.set(origin);
 		fire.direction.set(direction);
 		connection.sendReliable(fire);
+	}
+
+	/** The local player landed this fast (units/s, downwards): the server decides how much it hurts. */
+	public void sendFall(float speed) {
+		if (status != Status.CONNECTED)
+			return;
+		Messages.Fall fall = new Messages.Fall();
+		fall.speed = speed;
+		connection.sendReliable(fall);
 	}
 
 	/** Tells the server we're leaving. Sent a few times because it is unreliable. */

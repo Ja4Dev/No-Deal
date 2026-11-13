@@ -10,6 +10,7 @@ import com.juego.bullet.CharacterBody;
 import com.juego.guns.GunDefinition;
 import com.juego.guns.Recoil;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.MovementSettings;
 import com.juego.utils.PlayerMovement;
 
 /**
@@ -66,6 +67,8 @@ public class Bot {
 	private float wishSpeed;
 	public float yaw, pitch;
 	private boolean onGround = true;
+	/** Fastest it has fallen since leaving the ground, and how fast it landed (see {@link #takeLandingSpeed()}). */
+	private float fallSpeed, landingSpeed;
 
 	// The gun in hand and its ammo.
 	private GunDefinition gun;
@@ -134,6 +137,7 @@ public class Bot {
 		body.warp(spawn);
 		position.set(spawn);
 		velocity.setZero();
+		fallSpeed = landingSpeed = 0;
 		this.yaw = yaw;
 		pitch = 0;
 		equip(gun);
@@ -511,13 +515,19 @@ public class Bot {
 		body.controller.setGravity(new Vector3(0, -gravity, 0));
 	}
 
-	/** Turns the decision into the body's movement for the next physics step (same rules as a player). */
-	public void move(float airAccelerate) {
+	/**
+	 * Turns the decision into the body's movement for the next physics step
+	 * (same rules as a player: the server's air control, speeds and top speed).
+	 */
+	public void move(MovementSettings movement) {
 		if (!body.isInWorld())
 			return;
 		body.getPosition(stepFrom);
 		onGround = body.controller.onGround();
-		PlayerMovement.step(velocity, wishDirection, wishSpeed, onGround, BotWorld.STEP, airAccelerate);
+		// The bot decides between running and walking; the server says how fast those are.
+		float speed = wishSpeed * movement.runSpeed() / PlayerMovement.RUN_SPEED;
+		PlayerMovement.step(velocity, wishDirection, speed, onGround, BotWorld.STEP, movement.airAccelerate,
+				movement.topSpeed());
 		commanded.set(velocity).scl(BotWorld.STEP);
 		body.controller.setWalkDirection(commanded);
 	}
@@ -528,10 +538,25 @@ public class Bot {
 			return;
 		body.getPosition(position);
 		tmp.set(position).sub(stepFrom);
+		// How fast it is falling, to know how hard it lands (see FallDamage).
+		float falling = -tmp.y / BotWorld.STEP;
+		if (!body.controller.onGround()) {
+			fallSpeed = Math.max(fallSpeed, falling);
+		} else if (fallSpeed > 0 || !onGround) {
+			landingSpeed = Math.max(fallSpeed, falling);
+			fallSpeed = 0;
+		}
 		tmp.y = 0;
 		float wanted = commanded.len();
 		if (wanted > 0.0001f && tmp.len() < wanted * 0.95f)
 			velocity.set(tmp).scl(1f / BotWorld.STEP);
+	}
+
+	/** How fast it hit the ground if it just landed, else 0 (once: it is cleared). */
+	public float takeLandingSpeed() {
+		float speed = landingSpeed;
+		landingSpeed = 0;
+		return speed;
 	}
 
 	private float speedFraction() {

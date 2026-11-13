@@ -6,6 +6,7 @@ import java.util.Random;
 import java.util.function.LongSupplier;
 
 import com.badlogic.gdx.assets.loaders.FileHandleResolver;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.collision.AllHitsRayResultCallback;
@@ -30,6 +31,7 @@ import com.juego.guns.GroundWeapons;
 import com.juego.guns.GunDefinition;
 import com.juego.match.Match;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.FallDamage;
 import com.juego.utils.Text;
 import com.juego.utils.MovementSettings;
 
@@ -56,6 +58,10 @@ public class GameServer implements Disposable {
 	private static final float FIRE_RATE_TOLERANCE = 0.75f;
 	private static final long CORRECTION_COOLDOWN_MS = 500;
 	private static final float KILL_PLANE_Y = -30f;
+	/** How long each period of {@link ServerPlayer#peakY} lasts: a fall is checked against the last 5 to 10 s. */
+	private static final long PEAK_PERIOD_MS = 5000;
+	/** A knife attack also reaches someone this many degrees off the aim (left, right, up, down). */
+	private static final float MELEE_SPREAD_DEGREES = 12f;
 	/** Extra reach allowed for pickups: the server sees players a little late. */
 	private static final float PICKUP_SLACK = 1.5f;
 	public static final int MAX_BOTS = 16;
@@ -137,6 +143,14 @@ public class GameServer implements Disposable {
 		int magazine, reserve;
 		boolean alive = true;
 		long respawnAtMs, lastCorrectionMs = Long.MIN_VALUE / 2;
+		/** When the knife can attack again (its two attacks share it). */
+		long meleeReadyMs = Long.MIN_VALUE / 2;
+		/**
+		 * Highest the player has been lately, to check the fall speeds the client
+		 * reports: the highest point of this period and of the one before.
+		 */
+		float peakY, previousPeakY;
+		long peakPeriodStartMs;
 
 		ServerPlayer(int id, String name, Connection connection) {
 			this.id = id;
@@ -388,6 +402,16 @@ public class GameServer implements Disposable {
 			case Protocol.RENAME:
 				handleRename(player, Messages.Rename.read(message.payload), now);
 				break;
+			case Protocol.PING: {
+				// Straight back: the client measures how long the round trip took.
+				Messages.Ping pong = new Messages.Ping(Protocol.PONG);
+				pong.timeMs = Messages.Ping.read(Protocol.PING, message.payload).timeMs;
+				player.connection.sendUnreliable(pong);
+				break;
+			}
+			case Protocol.FALL:
+				handleFall(player, Messages.Fall.read(message.payload), now);
+				break;
 			case Protocol.DISCONNECT:
 				event(EventType.LEAVE, Text.get("server.left", player.name));
 				removePlayer(player);
@@ -430,6 +454,7 @@ public class GameServer implements Disposable {
 		player.hitbox.setCollisionShape(hitboxShape);
 		player.hitbox.setUserValue(id);
 		resetLoadout(player);
+		player.validator.setLimits(movement.fastestSpeed(), movement.runSpeed(), now);
 		byId.put(id, player);
 		byAddress.put(connection.address, player);
 		placeAtSpawn(player, now);
@@ -486,6 +511,7 @@ public class GameServer implements Disposable {
 		}
 		if (p.validator.accept(state.position, state.clientTimeMs, now)) {
 			setPosition(p, state.position);
+			notePeak(p, state.position.y, now);
 		} else if (now - p.lastCorrectionMs >= CORRECTION_COOLDOWN_MS) {
 			p.lastCorrectionMs = now;
 			teleport(p, p.validator.getLastPosition(), Protocol.SET_POSITION, false, now);
@@ -498,11 +524,99 @@ public class GameServer implements Disposable {
 		GunDefinition gun = shooter.guns[fire.slot];
 		if (gun == null)
 			return; // that slot is empty: the gun was dropped
-		if (now - shooter.lastFireMs[fire.slot] < gun.fireDelayMs * FIRE_RATE_TOLERANCE)
-			return; // faster than the gun can shoot
 		if (fire.origin.dst(shooter.position) > MAX_FIRE_ORIGIN_DISTANCE || fire.direction.isZero())
 			return;
+		if (gun.isMelee()) {
+			if (now < shooter.meleeReadyMs)
+				return; // faster than the knife can attack
+			shooter.meleeReadyMs = now + (long) (gun.attackDelayMs(fire.alt) * FIRE_RATE_TOLERANCE);
+			meleeAttack(shooter, gun, fire.alt, fire.origin, fire.direction, now);
+			return;
+		}
+		if (now - shooter.lastFireMs[fire.slot] < gun.fireDelayMs * FIRE_RATE_TOLERANCE)
+			return; // faster than the gun can shoot
 		fireShot(shooter, fire.slot, fire.origin, fire.direction, now);
+	}
+
+	/**
+	 * A knife attack: the slash, or the stab ({@code alt}), reaches whoever is
+	 * in front within its reach, even a little off the aim. From behind it
+	 * hurts much more (a backstab).
+	 */
+	private void meleeAttack(ServerPlayer attacker, GunDefinition knife, boolean alt, Vector3 origin,
+			Vector3 direction, long now) {
+		if (!match.isPlaying() || !attacker.alive)
+			return;
+		direction.nor();
+		float reach = knife.reach(alt);
+		meleeRight.set(direction).crs(Vector3.Y);
+		if (meleeRight.isZero(0.001f))
+			meleeRight.set(Vector3.X); // looking straight up or down
+		meleeRight.nor();
+		meleeUp.set(meleeRight).crs(direction).nor();
+		ServerPlayer victim = null;
+		boolean wall = false;
+		for (int i = 0; i < MELEE_OFFSETS.length && victim == null; i++) {
+			meleeDirection.set(direction).rotate(meleeUp, MELEE_OFFSETS[i][0]).rotate(meleeRight,
+					MELEE_OFFSETS[i][1]);
+			int hit = traceMelee(attacker, origin, meleeDirection, reach, meleeHit);
+			if (hit > 0) {
+				victim = byId.get(hit);
+				if (victim != null && !victim.alive)
+					victim = null;
+			} else if (hit == Protocol.WORLD && i == 0) {
+				wall = true; // the wall right in front: the knife clinks on it
+				meleeWall.set(meleeHit);
+			}
+		}
+		// Everyone hears the swing, and the clink where it hit the wall (end = origin: no clink).
+		broadcastShot(attacker, knife, origin, victim == null && wall ? meleeWall : origin);
+		if (victim == null)
+			return;
+		// A backstab: the attacker is behind the victim's back, within 60 degrees of straight behind.
+		float yaw = victim.yaw * MathUtils.degreesToRadians;
+		meleeHit.set(attacker.position).sub(victim.position);
+		meleeHit.y = 0;
+		boolean behind = !meleeHit.isZero(0.001f)
+				&& meleeHit.nor().dot(MathUtils.sin(yaw), 0, MathUtils.cos(yaw)) < -0.5f;
+		meleeWall.set(victim.position).add(0, CharacterShape.EYE_OFFSET * 0.5f, 0); // where the blood comes out
+		hurt(victim, attacker, knife.meleeDamage(alt, behind), false, meleeWall, direction, origin, knife, now);
+	}
+
+	/** The aim, then a little to each side, up and down: degrees around up, then around right. */
+	private static final float[][] MELEE_OFFSETS = { { 0, 0 }, { MELEE_SPREAD_DEGREES, 0 },
+			{ -MELEE_SPREAD_DEGREES, 0 }, { 0, MELEE_SPREAD_DEGREES }, { 0, -MELEE_SPREAD_DEGREES } };
+	private final Vector3 meleeRight = new Vector3(), meleeUp = new Vector3(), meleeDirection = new Vector3(),
+			meleeHit = new Vector3(), meleeWall = new Vector3(), meleeTo = new Vector3();
+
+	/**
+	 * What a ray of {@code reach} hits first, besides the attacker.
+	 *
+	 * @return the player's id, {@link Protocol#WORLD} for the level (where, in {@code outHit}), or -1 for nothing
+	 */
+	private int traceMelee(ServerPlayer attacker, Vector3 origin, Vector3 direction, float reach, Vector3 outHit) {
+		meleeTo.set(direction).scl(reach).add(origin);
+		AllHitsRayResultCallback callback = new AllHitsRayResultCallback(origin, meleeTo);
+		try {
+			world.rayTest(origin, meleeTo, callback);
+			int closest = -1;
+			float closestFraction = 2f;
+			for (int i = 0; i < callback.getCollisionObjects().size(); i++) {
+				if (callback.getCollisionObjects().atConst(i).getUserValue() == attacker.id)
+					continue;
+				float fraction = callback.getHitFractions().atConst(i);
+				if (fraction < closestFraction) {
+					closestFraction = fraction;
+					closest = i;
+				}
+			}
+			if (closest < 0)
+				return -1;
+			outHit.set(callback.getHitPointWorld().at(closest));
+			return callback.getCollisionObjects().atConst(closest).getUserValue();
+		} finally {
+			callback.dispose();
+		}
 	}
 
 	/** A shot that passed the checks (or a bot's): traced against the level and the players. */
@@ -540,23 +654,89 @@ public class GameServer implements Disposable {
 			boolean headshot = end.y >= victim.position.y + CharacterShape.headOffset(victim.crouched);
 			// The farther the bullet flew, the less it hurts (see GunDefinition.rangeModifier).
 			int damage = gun.damageAt(origin.dst(end)) * (headshot ? Protocol.HEADSHOT_MULTIPLIER : 1);
-			victim.damageFrom.getAndIncrement(shooter.id, 0, Math.min(damage, Math.max(0, victim.health)));
-			victim.health -= damage;
-			broadcastHit(victim, headshot, end, direction);
-			if (victim.isBot()) {
-				victim.bot.hurtBy(shooter.id, origin, now);
-			} else {
-				Messages.Damage hurt = new Messages.Damage();
-				hurt.amount = damage;
-				hurt.source.set(origin);
-				victim.connection.sendUnreliable(hurt);
-			}
-			if (victim.health <= 0)
-				kill(victim, shooter, headshot, gun.name, now);
+			hurt(victim, shooter, damage, headshot, end, direction, origin, gun, now);
 		} finally {
 			callback.dispose();
 		}
 	}
+
+	/**
+	 * A player hurts another with a gun or the knife: blood for everyone, the
+	 * red flash for the victim, and the kill if it was enough.
+	 *
+	 * @param where  where it hit
+	 * @param source where the attacker was (the victim's HUD points there)
+	 */
+	private void hurt(ServerPlayer victim, ServerPlayer attacker, int damage, boolean headshot, Vector3 where,
+			Vector3 direction, Vector3 source, GunDefinition gun, long now) {
+		victim.damageFrom.getAndIncrement(attacker.id, 0, Math.min(damage, Math.max(0, victim.health)));
+		victim.health -= damage;
+		broadcastHit(victim, headshot, where, direction);
+		if (victim.isBot()) {
+			victim.bot.hurtBy(attacker.id, source, now);
+		} else {
+			Messages.Damage hurt = new Messages.Damage();
+			hurt.amount = damage;
+			hurt.source.set(source);
+			victim.connection.sendUnreliable(hurt);
+		}
+		if (victim.health <= 0)
+			kill(victim, attacker, headshot, gun.id, now);
+	}
+
+	// ---- falls ----
+
+	/** Remembers how high the player has been lately (see {@link ServerPlayer#peakY}). */
+	private static void notePeak(ServerPlayer p, float y, long now) {
+		if (now - p.peakPeriodStartMs >= PEAK_PERIOD_MS) {
+			p.previousPeakY = p.peakY;
+			p.peakY = y;
+			p.peakPeriodStartMs = now;
+		}
+		p.peakY = Math.max(p.peakY, y);
+	}
+
+	/** After a spawn or a correction: nothing before counts. */
+	private static void resetPeak(ServerPlayer p, float y, long now) {
+		p.peakY = p.previousPeakY = y;
+		p.peakPeriodStartMs = now;
+	}
+
+	/**
+	 * The client says its player landed this fast. It can't have been faster
+	 * than falling from the highest point it was at lately (jumping included):
+	 * that is the most it counts as.
+	 */
+	private void handleFall(ServerPlayer p, Messages.Fall fall, long now) {
+		if (!(fall.speed > 0))
+			return; // NaN or nonsense
+		float drop = Math.max(p.peakY, p.previousPeakY) - p.position.y;
+		float plausible = FallDamage.fastestLanding(drop, movement.gravityAcceleration()) * 1.1f + 2f;
+		landed(p, Math.min(fall.speed, plausible), now);
+	}
+
+	/** A player (or bot) hit the ground at {@code speed}: a hard landing hurts (if sv_falldamage). */
+	private void landed(ServerPlayer p, float speed, long now) {
+		if (!movement.fallDamage || !p.alive || !match.isPlaying())
+			return;
+		int damage = FallDamage.damage(speed);
+		if (damage <= 0)
+			return;
+		p.health -= damage;
+		// Blood on the floor at their feet.
+		broadcastHit(p, false, fallPoint.set(p.position).add(0, -CharacterShape.EYE_OFFSET * 0.5f, 0), DOWN);
+		if (!p.isBot()) {
+			Messages.Damage hurt = new Messages.Damage();
+			hurt.amount = damage;
+			hurt.source.set(p.position); // straight below: no direction to point at
+			p.connection.sendUnreliable(hurt);
+		}
+		if (p.health <= 0)
+			kill(p, null, false, Protocol.FALL_KILL, now);
+	}
+
+	private static final Vector3 DOWN = new Vector3(0, -1, 0);
+	private final Vector3 fallPoint = new Vector3();
 
 	/** Tells the other players about a shot, for its sound and tracer. */
 	private void broadcastShot(ServerPlayer shooter, GunDefinition gun, Vector3 origin, Vector3 end) {
@@ -696,7 +876,7 @@ public class GameServer implements Disposable {
 				if (p.alive)
 					p.bot.think(now, BotWorld.STEP, targets, fighting, botHost);
 				if (p.alive)
-					p.bot.move(movement.airAccelerate);
+					p.bot.move(movement);
 			}
 			botWorld.step();
 			for (ServerPlayer p : botsThisStep) {
@@ -708,8 +888,13 @@ public class GameServer implements Disposable {
 				p.pitch = p.bot.pitch;
 				p.magazine = p.bot.getMagazine();
 				p.reserve = p.bot.getReserve();
-				if (p.position.y < KILL_PLANE_Y)
+				if (p.position.y < KILL_PLANE_Y) {
 					kill(p, null, false, "", now);
+				} else {
+					float landing = p.bot.takeLandingSpeed();
+					if (landing > 0)
+						landed(p, landing, now);
+				}
 			}
 		}
 	}
@@ -755,9 +940,12 @@ public class GameServer implements Disposable {
 
 	/** After a change: bots fall with the new gravity, and every player is told. */
 	private void applyMovement() {
-		for (ServerPlayer p : byId.values())
+		long now = clock.getAsLong();
+		for (ServerPlayer p : byId.values()) {
 			if (p.isBot())
 				p.bot.setGravity(movement.gravityAcceleration());
+			p.validator.setLimits(movement.fastestSpeed(), movement.runSpeed(), now);
+		}
 		broadcastReliable(movementMessage(), null);
 	}
 
@@ -902,8 +1090,8 @@ public class GameServer implements Disposable {
 	private void handleDrop(ServerPlayer p, Messages.DropWeapon m, long now) {
 		if (!p.alive || !match.isPlaying() || m.slot < 0 || m.slot >= p.guns.length || p.guns[m.slot] == null)
 			return;
-		if (gunCount(p) < 2)
-			return; // the last gun can't be dropped
+		if (gunCount(p) < 2 || p.guns[m.slot].isMelee())
+			return; // the last gun and the knife can't be dropped
 		GunDefinition def = p.guns[m.slot];
 		p.guns[m.slot] = null;
 		weapons.toss(def, clampMagazine(def, m.magazine), clampReserve(def, m.reserve), p.position, p.yaw, p.id,
@@ -925,11 +1113,21 @@ public class GameServer implements Disposable {
 		p.guns[slot] = w.def;
 	}
 
-	/** Drops the gun a dying player had in hand, where they stood. */
+	/** Drops the gun a dying player had in hand (with the knife in hand, their first gun), where they stood. */
 	private void dropOnDeath(ServerPlayer p, long now) {
 		GunDefinition def = p.guns[p.slot];
-		if (def == null)
+		if (def == null || def.isMelee()) {
+			for (int i = 0; i < p.guns.length; i++) {
+				def = p.guns[i];
+				if (def != null && !def.isMelee()) {
+					// The ammo the client reports is the knife's: this one goes with what it starts with.
+					p.guns[i] = null;
+					weapons.dropAtFeet(def, def.magazineSize, def.reserveAmmo, p.position, p.yaw, p.id, now);
+					return;
+				}
+			}
 			return;
+		}
 		p.guns[p.slot] = null;
 		weapons.dropAtFeet(def, clampMagazine(def, p.magazine), clampReserve(def, p.reserve), p.position, p.yaw,
 				p.id, now);
@@ -1081,14 +1279,23 @@ public class GameServer implements Disposable {
 		kill.headshot = headshot;
 		kill.gun = gun;
 		broadcastReliable(kill, null);
+		boolean fallDamage = killer == null && Protocol.FALL_KILL.equals(gun);
 		// After the KILL, so the victim's client is already dead when its gun hits the floor.
-		if (killer != null)
+		if (killer != null || fallDamage)
 			dropOnDeath(victim, now); // falling out of the map takes the gun with you
 		if (killer == null)
-			event(EventType.KILL, Text.get("server.fell", victim.name));
+			event(EventType.KILL, Text.get(fallDamage ? "server.fallDied" : "server.fell", victim.name));
 		else
-			event(EventType.KILL,
-					Text.get("server.kill", killer.name, victim.name, gun, headshot ? Text.get("server.headshot") : ""));
+			event(EventType.KILL, Text.get("server.kill", killer.name, victim.name, gunName(gun),
+					headshot ? Text.get("server.headshot") : ""));
+	}
+
+	/** The name of a gun by its id ("Cuchillo"), or the id itself if it isn't one. */
+	private String gunName(String id) {
+		for (GunDefinition def : armory.all())
+			if (def.id.equals(id))
+				return def.displayName();
+		return id;
 	}
 
 	private void respawn(ServerPlayer p, long now) {
@@ -1123,6 +1330,7 @@ public class GameServer implements Disposable {
 		}
 		p.teleportId++;
 		p.validator.reset(best, now);
+		resetPeak(p, best.y, now);
 		setPosition(p, best);
 		if (p.alive && !p.hitboxInWorld) {
 			world.addCollisionObject(p.hitbox);
@@ -1152,6 +1360,7 @@ public class GameServer implements Disposable {
 		if (type == Protocol.SET_POSITION) {
 			p.teleportId++;
 			p.validator.reset(position, now);
+			resetPeak(p, position.y, now);
 		}
 		Messages.Teleport message = new Messages.Teleport(type);
 		message.playerId = p.id;

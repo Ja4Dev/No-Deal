@@ -25,6 +25,8 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.guns.Armory;
 import com.juego.utils.CharacterShape;
+import com.juego.utils.FallDamage;
+import com.juego.utils.PlayerMovement;
 import com.juego.utils.Text;
 
 /**
@@ -156,7 +158,7 @@ class ServerIntegrationTest {
 		assertEquals(a.getLocalId(), kill.killerId);
 		assertEquals(b.getLocalId(), kill.playerId);
 		assertTrue(kill.headshot);
-		assertEquals("M4A1", kill.gun);
+		assertEquals("m4a1", kill.gun, "the gun id: each client shows its name");
 		pumpUntil("scores", 2000, () -> a.getPlayer(a.getLocalId()).kills == 1 && a.getPlayer(b.getLocalId()).deaths == 1);
 		assertTrue(!b.getPlayer(b.getLocalId()).alive, "victim is dead until respawn");
 
@@ -236,6 +238,118 @@ class ServerIntegrationTest {
 		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED);
 		pumpUntil("B has them", 2000, () -> b.getMovement().gravity == 400 && b.getMovement().airAccelerate == 100);
 		assertTrue(eventsB.stream().noneMatch(e -> e.type == GameClient.Event.Type.MOVEMENT));
+	}
+
+	/** Where {@code attacker} stands to have {@code victim} at {@code distance}, on the line from A's spawn. */
+	private static Vector3 besideB(float distance) {
+		return new Vector3(SPAWN_A).sub(SPAWN_B).nor().scl(distance).add(SPAWN_B);
+	}
+
+	/** Yaw that looks from {@code from} towards {@code to} (forward = (sin, 0, cos)). */
+	private static float yawTowards(Vector3 from, Vector3 to) {
+		return (float) Math.toDegrees(Math.atan2(to.x - from.x, to.z - from.z));
+	}
+
+	@Test
+	void theKnifeSlashesAndStabsInTheBack() throws IOException {
+		GameClient a = connect("Ana");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		GameClient b = connect("Beto");
+		pumpUntil("B in", 3000, () -> b.getStatus() == GameClient.Status.CONNECTED
+				&& a.getPlayer(b.getLocalId()) != null);
+		Vector3 near = besideB(2.5f);
+		b.sendState(SPAWN_B, yawTowards(SPAWN_B, near), 0, 0);
+
+		// From A's spawn: the knife reaches an arm's length, not across the room.
+		a.sendFire(2, false, new Vector3(SPAWN_A).add(0, CharacterShape.EYE_OFFSET, 0),
+				new Vector3(SPAWN_B).sub(SPAWN_A));
+		pumpFor(300);
+		assertEquals(100, a.getPlayer(b.getLocalId()).health, "out of reach");
+
+		// Face to face: a slash, and a second one right away is too fast.
+		walk(a, SPAWN_A, near);
+		Vector3 eye = new Vector3(near).add(0, CharacterShape.EYE_OFFSET, 0);
+		Vector3 atB = new Vector3(SPAWN_B).sub(eye);
+		a.sendFire(2, false, eye, atB);
+		a.sendFire(2, false, eye, atB);
+		pumpUntil("slashed", 2000, () -> a.getPlayer(b.getLocalId()).health < 100);
+		pumpFor(200);
+		int slash = Armory.load(new FileHandle(new File(ASSETS, Armory.GUNS_FILE))).get("knife").damage;
+		assertEquals(100 - slash, a.getPlayer(b.getLocalId()).health, "one slash, not two");
+		assertNotNull(find(eventsB, GameClient.Event.Type.DAMAGE), "B felt it");
+
+		// B turns its back: a stab kills.
+		b.sendState(SPAWN_B, yawTowards(near, SPAWN_B), 0, 0);
+		pumpFor(200);
+		sleep(400);
+		a.sendFire(2, true, eye, atB);
+		pumpUntil("backstab", 2000, () -> find(eventsB, GameClient.Event.Type.KILL) != null);
+		GameClient.Event kill = find(eventsB, GameClient.Event.Type.KILL);
+		assertEquals(a.getLocalId(), kill.killerId);
+		assertEquals("knife", kill.gun);
+	}
+
+	@Test
+	void hardLandingsHurtAndCanKill() throws IOException {
+		GameClient a = connect("A");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		pumpFor(300);
+
+		// Claiming a hard landing without having been anywhere high does nothing.
+		a.sendFall(100);
+		pumpFor(300);
+		assertEquals(100, a.getPlayer(a.getLocalId()).health, "it was never up there");
+
+		// Up a 30-unit drop (climbing, as far as the server can tell), then down it.
+		Vector3 high = new Vector3(SPAWN_A).add(0, 30, 0);
+		sleep(1100);
+		a.sendState(high, 0, 0, 0);
+		pumpFor(400);
+		a.sendState(SPAWN_A, 0, 0, 0);
+		pumpFor(100);
+		float landing = FallDamage.speedAfter(30, PlayerMovement.GRAVITY);
+		a.sendFall(landing);
+		pumpUntil("hurt", 2000, () -> a.getPlayer(a.getLocalId()).health < 100);
+		assertEquals(100 - FallDamage.damage(landing), a.getPlayer(a.getLocalId()).health);
+		pumpUntil("told", 1000, () -> find(eventsA, GameClient.Event.Type.DAMAGE) != null);
+
+		// sv_falldamage 0: no harm.
+		server.command("sv_falldamage 0");
+		int before = a.getPlayer(a.getLocalId()).health;
+		a.sendFall(landing);
+		pumpFor(300);
+		assertEquals(before, a.getPlayer(a.getLocalId()).health);
+
+		// Back on: a much harder landing than possible from there is only taken as hard as possible, still enough.
+		server.command("sv_falldamage 1");
+		a.sendFall(1000);
+		pumpUntil("killed by the fall", 2000, () -> find(eventsA, GameClient.Event.Type.KILL) != null);
+		GameClient.Event kill = find(eventsA, GameClient.Event.Type.KILL);
+		assertEquals(Protocol.WORLD, kill.killerId);
+		assertEquals(Protocol.FALL_KILL, kill.gun);
+	}
+
+	@Test
+	void pingIsMeasuredAndSpeedLimitsFollowTheServer() throws IOException {
+		GameClient a = connect("A");
+		pumpUntil("A in", 3000, () -> a.getStatus() == GameClient.Status.CONNECTED);
+		pumpUntil("ping", 3000, () -> a.getPingMs() >= 0);
+		assertTrue(a.getPingMs() < 500, "local: " + a.getPingMs());
+
+		assertEquals("sv_maxvelocity ahora es 2250", server.command("sv_maxvelocity 2250"));
+		pumpUntil("A told", 2000, () -> a.getMovement().maxVelocity == 2250);
+		// 80 units/s: twice the normal top speed, fine under the new one.
+		Vector3 position = new Vector3(SPAWN_A);
+		long last = System.currentTimeMillis();
+		for (int i = 0; i < 15; i++) {
+			pumpFor(35);
+			long now = System.currentTimeMillis();
+			position.add(80f * (now - last) / 1000f, 0, 0);
+			last = now;
+			a.sendState(position, 0, 0, 0);
+		}
+		pumpFor(150);
+		assertNull(find(eventsA, GameClient.Event.Type.SET_POSITION), "not corrected");
 	}
 
 	@Test
@@ -337,14 +451,14 @@ class ServerIntegrationTest {
 				<= com.juego.guns.GroundWeapons.THROW_DISTANCE + 0.1f, "in front of A, got " + rifle.position);
 		assertTrue(!rifle.from.epsilonEquals(rifle.position, 0.01f), "thrown, so clients animate it");
 
-		// The last gun can't be dropped, and an empty slot can't shoot.
+		// The knife can't be dropped, and an empty slot can't shoot.
 		eventsA.clear();
 		eventsB.clear();
 		Vector3 bodyDirection = new Vector3(SPAWN_B).add(0, -1, 0).sub(SPAWN_A);
-		a.sendDrop(1, 6, -1);
+		a.sendDrop(2, 0, -1);
 		a.sendFire(0, SPAWN_A, bodyDirection);
 		pumpFor(300);
-		assertNull(find(eventsB, GameClient.Event.Type.WEAPON_SPAWN), "kept the last gun");
+		assertNull(find(eventsB, GameClient.Event.Type.WEAPON_SPAWN), "kept the knife");
 		assertNull(find(eventsB, GameClient.Event.Type.SHOT), "no rifle anymore");
 
 		// The magnum works: B is hurt, told where the shot came from, and sees where the bullet went.

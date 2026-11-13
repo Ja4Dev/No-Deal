@@ -1,9 +1,15 @@
 package com.juego.guns;
 
-/** Static, data-driven description of a gun. Loaded from {@code data/guns.json} by {@link Armory}. */
+import com.juego.utils.Text;
+
+/**
+ * Static, data-driven description of a gun (or the knife). Loaded from
+ * {@code data/guns.json} by {@link Armory}.
+ */
 public class GunDefinition {
+	/** Where a player carries it: one gun of each, and always the knife. */
 	public enum Slot {
-		PRIMARY, SECONDARY
+		PRIMARY, SECONDARY, MELEE
 	}
 
 	/** Longest shot: well beyond the biggest level (the Bank is about 160 units across). */
@@ -61,4 +67,43 @@ public class GunDefinition {
 	public float worldLength = 2.5f;
 	/** Position of the view model relative to the gun camera. */
 	public float[] viewOffset = new float[3];
+
+	// ---- the knife ----
+	// A melee weapon has two attacks: the slash (left click: damage, range, fireDelayMs) and the
+	// stab (right click: the alt* fields). From behind, both hurt more (a backstab).
+
+	/** Stab damage, and damage from behind of the slash and of the stab. */
+	public int altDamage, backDamage, altBackDamage;
+	/** How far the stab reaches (the slash reaches {@link #range}). */
+	public float altRange;
+	/** Time between a stab and the next attack. */
+	public long altFireDelayMs;
+	/** Internal path of the sound when it hits a wall. */
+	public String hitSound;
+
+	public boolean isMelee() {
+		return slot == Slot.MELEE;
+	}
+
+	/** How far an attack reaches: the slash, or the stab ({@code alt}). */
+	public float reach(boolean alt) {
+		return alt ? altRange : range;
+	}
+
+	/** Time after an attack before the next one. */
+	public long attackDelayMs(boolean alt) {
+		return alt ? altFireDelayMs : fireDelayMs;
+	}
+
+	/** Damage of a knife attack: slash or stab, from the front or from behind. */
+	public int meleeDamage(boolean alt, boolean fromBehind) {
+		if (alt)
+			return fromBehind ? altBackDamage : altDamage;
+		return fromBehind ? backDamage : damage;
+	}
+
+	/** The name players read: translated if Text has "gun.<id>" ("Cuchillo"), otherwise {@link #name}. */
+	public String displayName() {
+		return Text.has("gun." + id) ? Text.get("gun." + id) : name;
+	}
 }

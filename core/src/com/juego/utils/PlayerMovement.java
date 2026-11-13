@@ -26,7 +26,7 @@ public final class PlayerMovement {
 	public static final float JUMP_SPEED = 19f;
 	/** Normal gravity (sv_gravity 800). */
 	public static final float GRAVITY = 48f;
-	/** Nothing goes faster than this horizontally, however good the bunnyhop: three times running. */
+	/** Normally nothing goes faster than this horizontally, however good the bunnyhop: three times running. */
 	public static final float MAX_SPEED = RUN_SPEED * 3f;
 
 	/** Ground acceleration: full speed in about 0.2 s. */
@@ -57,18 +57,25 @@ public final class PlayerMovement {
 		step(velocity, wishDir, wishSpeed, onGround, dt, MovementSettings.DEFAULT_AIR_ACCELERATE);
 	}
 
+	/** With the normal top speed (sv_maxvelocity 750). */
+	public static void step(Vector3 velocity, Vector3 wishDir, float wishSpeed, boolean onGround, float dt,
+			float airAccelerate) {
+		step(velocity, wishDir, wishSpeed, onGround, dt, airAccelerate, MAX_SPEED);
+	}
+
 	/**
 	 * Advances the horizontal velocity by one step.
 	 *
 	 * @param velocity      horizontal velocity, updated in place (y is ignored and left at 0)
 	 * @param wishDir       direction the player presses, unit length or zero
-	 * @param wishSpeed     {@link #RUN_SPEED}, {@link #WALK_SPEED} or {@link #CROUCH_SPEED}
+	 * @param wishSpeed     running, walking or crouching speed (see {@link MovementSettings#runSpeed()})
 	 * @param onGround      false also for the step in which the player jumps: no friction then, so
 	 *                      jumping again the moment you land keeps your speed
 	 * @param airAccelerate sv_airaccelerate
+	 * @param topSpeed      nothing goes faster (sv_maxvelocity, see {@link MovementSettings#topSpeed()})
 	 */
 	public static void step(Vector3 velocity, Vector3 wishDir, float wishSpeed, boolean onGround, float dt,
-			float airAccelerate) {
+			float airAccelerate, float topSpeed) {
 		velocity.y = 0;
 		if (onGround) {
 			applyFriction(velocity, dt);
@@ -89,7 +96,7 @@ public final class PlayerMovement {
 				accelerate(velocity, airWish, Math.min(wishSpeed, AIR_WISH_SPEED), wishSpeed, airAccelerate, dt / substeps);
 			}
 		}
-		velocity.limit(MAX_SPEED);
+		velocity.limit(topSpeed);
 	}
 
 	private static void applyFriction(Vector3 velocity, float dt) {

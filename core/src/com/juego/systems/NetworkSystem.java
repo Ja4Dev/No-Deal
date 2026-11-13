@@ -15,6 +15,7 @@ import com.badlogic.gdx.utils.IntMap;
 import com.juego.UI.HUD;
 import com.juego.components.ModelComponent;
 import com.juego.components.PlayerComponent;
+import com.juego.core.Assets;
 import com.juego.core.GameWorld;
 import com.juego.graphics.SoldierModel;
 import com.juego.guns.Gun;
@@ -158,12 +159,14 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			break;
 		case KILL: {
 			String victim = name(event.playerId);
-			String line = event.killerId == Protocol.WORLD ? Text.get("feed.fell", victim)
-					: name(event.killerId) + " [" + event.gun + (event.headshot ? Text.get("feed.headshot") : "") + "] " + victim;
+			boolean fall = Protocol.FALL_KILL.equals(event.gun);
+			String gun = fall ? event.gun : Assets.armory.displayName(event.gun); // "knife" -> "Cuchillo"
+			String line = event.killerId == Protocol.WORLD ? Text.get(fall ? "feed.fallDied" : "feed.fell", victim)
+					: name(event.killerId) + " [" + gun + (event.headshot ? Text.get("feed.headshot") : "") + "] " + victim;
 			feed(line);
 			if (me) {
 				playerComponent.killedByServer();
-				gameWorld.deathCam().onKilled(event.killerId, event.gun, event.headshot);
+				gameWorld.deathCam().onKilled(event.killerId, gun, event.headshot);
 			}
 			break;
 		}
@@ -332,7 +335,22 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 	private final Vector3 sphereCenter = new Vector3(), sphereCenter2 = new Vector3(), intersection = new Vector3();
 
 	public void sendFire(Gun gun, Vector3 origin, Vector3 direction) {
-		client.sendFire(gun.def.slot.ordinal(), origin, direction);
+		sendFire(gun, false, origin, direction);
+	}
+
+	/** @param alt the knife's stab, instead of its slash */
+	public void sendFire(Gun gun, boolean alt, Vector3 origin, Vector3 direction) {
+		client.sendFire(gun.def.slot.ordinal(), alt, origin, direction);
+	}
+
+	/** We landed this fast (units/s): the server decides how much it hurts. */
+	public void sendFall(float speed) {
+		client.sendFall(speed);
+	}
+
+	/** Round trip to the server in ms, or -1 until known. */
+	public int pingMs() {
+		return client.getPingMs();
 	}
 
 	/** Asks the server to throw the gun in {@code slot}; it leaves our hands when the server confirms. */
