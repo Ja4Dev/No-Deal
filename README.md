@@ -16,6 +16,36 @@ Requirements: **JDK 17** or newer (a JRE is not enough).
 
 Run from the project root: the `run` task sets `core/assets` as the working directory so assets resolve correctly.
 
+### Phones and tablets (Android and iOS)
+The same game runs on Android 8.0+ and on iPhone/iPad, with on-screen controls:
+
+- **Left thumb:** a joystick appears wherever it touches the lower left part of the screen. Pushed a little it walks (silently), pushed to the edge it runs.
+- **Right thumb:** dragging anywhere turns the view. **FUEGO** shoots and also turns the view while dragged, so you can aim and shoot with one thumb. The other buttons are **MIRA** (aim down sights), **SALTO**, **ARMA**, **RECARGA** and **AGARRAR** (pick up a gun).
+- **Top right:** pause, scoreboard (**PTS**, held) and the console (**>_**, with a Cerrar button and the phone's keyboard).
+- Android's back button pauses the match, or goes back in the menus. Leaving the app mid-match opens the pause menu.
+- The touch sensitivity is in Opciones → Pantalla tactil.
+
+Multiplayer works between phones and PCs on the same Wi-Fi, or on a phone's hotspot: whoever creates the match shares the IP shown on screen. To try the touch controls on the PC, run `./gradlew desktop:run -Ptouch`; the mouse works as a finger.
+
+The `core` module is compiled as **Java 8** because iOS (RoboVM) only runs Java 8 bytecode, so no newer language features or APIs can be used there. Desktop, server and Android code can use Java 17.
+
+**Android** needs the Android SDK: install Android Studio, or only the [command-line tools](https://developer.android.com/studio#command-line-tools-only) with `platforms;android-35`, `build-tools;35.0.0` and `platform-tools`. Then point Gradle to it in `local.properties` (`sdk.dir=C:/Users/you/AppData/Local/Android/Sdk`) or with `ANDROID_HOME`. Without the SDK, the `android` module is skipped and everything else builds as before.
+
+```bash
+./gradlew android:assembleDebug   # android/build/outputs/apk/debug/android-debug.apk
+./gradlew android:installDebug    # install on the phone plugged in by USB (with USB debugging enabled)
+```
+
+**iOS** builds only on a Mac with Xcode (the `ios` module is skipped elsewhere). It uses [MobiVM](https://mobivm.github.io/) (RoboVM).
+
+```bash
+./gradlew ios:launchIPhoneSimulator   # run in the simulator
+./gradlew ios:launchIOSDevice         # run on an iPhone plugged in: needs an Apple signing identity and provisioning profile
+./gradlew ios:createIPA               # .ipa for TestFlight / App Store
+```
+
+To install on a real iPhone you need a free Apple ID (7-day signing) or an Apple Developer account. Set the signing identity and provisioning profile in `ios/build.gradle` (`robovm { iosSignIdentity = ...; iosProvisioningProfile = ... }`) or pass them as `-Probovm.iosSignIdentity=...`.
+
 ## Description
 <p>No Deal was an attempt to develop a simple first person shooter game I carried out as a final academic project for my technical high scool, in the year 2020.
 Unfortunately, the project couldn't end as I wanted, but I think I got a really good basic template to everyone who want to create a Java 3D First Person game.</p>

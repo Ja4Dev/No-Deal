@@ -124,7 +124,7 @@ public class GroundWeaponSystem extends EntitySystem implements EntityListener, 
 	}
 
 	private String describePickup(GroundWeapons.Weapon weapon) {
-		String key = Controls.get(Action.DROP).displayName();
+		String key = Controls.promptName(Action.DROP);
 		Gun current = playerComponent.guns[weapon.def.slot.ordinal()];
 		if (current == null)
 			return "[" + key + "] Agarrar " + weapon.def.name;

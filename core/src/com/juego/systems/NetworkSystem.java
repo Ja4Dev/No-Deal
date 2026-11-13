@@ -25,6 +25,7 @@ import com.juego.net.Protocol;
 import com.juego.utils.CharacterShape;
 import com.juego.utils.Config;
 import com.juego.utils.Controls;
+import com.juego.utils.Platform;
 
 /**
  * Bridges the online match ({@link GameClient}) and the ECS world: sends the
@@ -113,8 +114,9 @@ public class NetworkSystem extends EntitySystem implements EntityListener {
 			return;
 		greeted = true;
 		if (gameWorld.isSingleplayer()) {
-			hud().addFeedMessage("Escribi en la consola (tecla " + Controls.get(Controls.Action.CONSOLE).displayName()
-					+ ") 'bot agregar' o 'bot dificultad'");
+			String console = Platform.touch ? "boton " + Controls.promptName(Controls.Action.CONSOLE)
+					: "tecla " + Controls.promptName(Controls.Action.CONSOLE);
+			hud().addFeedMessage("Escribi en la consola (" + console + ") 'bot agregar' o 'bot dificultad'");
 		} else if (gameWorld.isHosting()) {
 			Array<String> ips = NetUtils.lanAddresses();
 			hud().addFeedMessage(ips.isEmpty() ? "Partida creada (puerto " + gameWorld.getHostedPort() + ")"

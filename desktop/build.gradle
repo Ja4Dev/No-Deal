@@ -6,7 +6,10 @@ sourceSets.main.resources.srcDirs = [ "../core/assets" ]
 def mainClassName = "com.juego.core.desktop.DesktopLauncher"
 def assetsDir = file("../core/assets")
 // LWJGL3 on macOS requires the GLFW event loop to run on the first thread.
-def macJvmArgs = OperatingSystem.current().isMacOsX() ? ["-XstartOnFirstThread"] : []
+def gameJvmArgs = OperatingSystem.current().isMacOsX() ? ["-XstartOnFirstThread"] : []
+// -Ptouch tries the phone's on-screen controls with the mouse (one finger).
+if (project.hasProperty('touch'))
+    gameJvmArgs += ["-Dnodeal.touch=true"]
 
 tasks.register("run", JavaExec) {
     group = "application"
@@ -15,7 +18,7 @@ tasks.register("run", JavaExec) {
     mainClass = mainClassName
     classpath = sourceSets.main.runtimeClasspath
     workingDir = assetsDir
-    jvmArgs = macJvmArgs
+    jvmArgs = gameJvmArgs
     standardInput = System.in
     ignoreExitValue = true
 }
@@ -27,7 +30,7 @@ tasks.register("debug", JavaExec) {
     mainClass = mainClassName
     classpath = sourceSets.main.runtimeClasspath
     workingDir = assetsDir
-    jvmArgs = macJvmArgs
+    jvmArgs = gameJvmArgs
     standardInput = System.in
     ignoreExitValue = true
     debug = true

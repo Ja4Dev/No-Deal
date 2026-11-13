@@ -14,6 +14,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.LongArray;
 import com.juego.guns.Gun;
 import com.juego.utils.Config;
+import com.juego.utils.Platform;
 
 public class HUD extends Menu {
 	private final BitmapFont font;
@@ -200,7 +201,11 @@ public class HUD extends Menu {
 		}
 		feedLabel.setText(String.join("\n", feedMessages));
 		feedLabel.pack();
-		feedLabel.setPosition(stage.getWidth() - 12, stage.getHeight() - 12, Align.topRight);
+		// On a touch screen the top right corner has the pause, scoreboard and console buttons.
+		if (Platform.touch)
+			feedLabel.setPosition(12, stage.getHeight() - 12, Align.topLeft);
+		else
+			feedLabel.setPosition(stage.getWidth() - 12, stage.getHeight() - 12, Align.topRight);
 		centerLabel.pack();
 		centerLabel.setPosition(stage.getWidth() / 2, stage.getHeight() * 0.8f, Align.center);
 		promptLabel.pack();

@@ -1,0 +1,43 @@
+// The game for iPhone and iPad, built with RoboVM (MobiVM). Included by settings.gradle on a Mac.
+//
+//   ./gradlew ios:launchIPhoneSimulator   runs it in the iPhone simulator
+//   ./gradlew ios:launchIOSDevice         installs it on the iPhone plugged in (needs signing, see README)
+//   ./gradlew ios:createIPA               builds the .ipa for TestFlight / the App Store
+
+// Loaded here, not in the root project (see android/build.gradle).
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.mobidevelop.robovm:robovm-gradle-plugin:$robovmVersion"
+    }
+}
+
+apply plugin: 'robovm'
+
+sourceSets.main.java.srcDirs = ['src']
+
+// RoboVM compiles Java 8 bytecode to native code.
+tasks.named('compileJava') {
+    options.release = 8
+}
+
+ext {
+    mainClassName = "com.juego.ios.IOSLauncher"
+}
+
+tasks.matching { it.name in ['launchIPhoneSimulator', 'launchIPadSimulator', 'launchIOSDevice', 'createIPA'] }.configureEach {
+    dependsOn 'build'
+}
+
+dependencies {
+    implementation project(':core')
+    implementation "com.mobidevelop.robovm:robovm-rt:$robovmVersion"
+    implementation "com.mobidevelop.robovm:robovm-cocoatouch:$robovmVersion"
+    implementation "com.badlogicgames.gdx:gdx-backend-robovm:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-ios"
+    implementation "com.badlogicgames.gdx:gdx-bullet-platform:$gdxVersion:natives-ios"
+}
+
+eclipse.project.name = appName + "-ios"

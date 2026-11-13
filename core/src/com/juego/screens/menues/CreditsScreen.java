@@ -28,6 +28,7 @@ public class CreditsScreen extends MenuScreen {
 	}
 
 	private void setListeners() {
+		setBackButton(backButton);
 		backButton.addListener(new ClickListener() {
 			@Override
 			public void clicked(InputEvent event, float x, float y) {

@@ -2,13 +2,17 @@ package com.juego.UI;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.utils.Array;
 import com.juego.core.Assets;
 import com.juego.core.Core;
+import com.juego.utils.Platform;
 
 /**
  * The in-game console: a line to type commands at the top of the screen and
@@ -31,6 +35,8 @@ public class Console extends Menu {
 	private final Array<String> history = new Array<>();
 	private int historyIndex;
 	private boolean open;
+	/** The Cerrar button was tapped; the HUD closes the console on its next update. */
+	private boolean closeRequested;
 
 	public Console(Executor executor) {
 		this.executor = executor;
@@ -49,11 +55,20 @@ public class Console extends Menu {
 		Table panel = new Table();
 		panel.setBackground(background);
 		panel.pad(10);
-		panel.add(log).growX().left().bottom().height(MAX_LINES * 20).row();
+		// Phones have no Esc key (and iPhones no back button): the console closes with a button.
+		TextButton close = new TextButton("Cerrar", Assets.skin);
+		close.addListener(new ClickListener() {
+			@Override
+			public void clicked(InputEvent event, float x, float y) {
+				closeRequested = true;
+			}
+		});
+		panel.add(log).colspan(2).growX().left().bottom().height(MAX_LINES * 20).row();
 		panel.add(input).growX().height(32).padTop(6);
+		panel.add(close).width(110).height(32).padTop(6).padLeft(8);
 		panel.setBounds(0, Core.VIRTUAL_HEIGHT - 320, Core.VIRTUAL_WIDTH, 320);
 		stage.addActor(panel);
-		print("Consola. Escribi 'ayuda' para ver los comandos; Esc para cerrar.");
+		print("Consola. Escribi 'ayuda' para ver los comandos; " + (Platform.touch ? "Cerrar" : "Esc") + " para cerrar.");
 	}
 
 	public boolean isOpen() {
@@ -63,15 +78,27 @@ public class Console extends Menu {
 	/** Shows the console and takes the keyboard. */
 	public void open() {
 		open = true;
+		closeRequested = false;
 		input.setText("");
 		Gdx.input.setInputProcessor(stage);
 		stage.setKeyboardFocus(input);
+		if (Platform.touch)
+			Gdx.input.setOnscreenKeyboardVisible(true);
+	}
+
+	/** True once after the Cerrar button is tapped. */
+	public boolean consumeCloseRequest() {
+		boolean requested = closeRequested;
+		closeRequested = false;
+		return requested;
 	}
 
 	/** Hides it; the caller gives the keyboard back to whoever had it. */
 	public void close() {
 		open = false;
 		stage.setKeyboardFocus(null);
+		if (Platform.touch)
+			Gdx.input.setOnscreenKeyboardVisible(false);
 	}
 
 	/** Up and down arrows walk through the commands typed before. */

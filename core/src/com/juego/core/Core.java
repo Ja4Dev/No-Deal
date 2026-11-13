@@ -12,8 +12,10 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.physics.bullet.Bullet;
 import com.juego.net.GameServer;
 import com.juego.screens.menues.MainMenuScreen;
+import com.juego.screens.menues.MenuScreen;
 import com.juego.utils.Config;
 import com.juego.utils.MusicPlayer;
+import com.juego.utils.Platform;
 
 public class Core extends ApplicationAdapter {
 	public static int VIRTUAL_WIDTH = 1280;
@@ -27,8 +29,9 @@ public class Core extends ApplicationAdapter {
 	@Override
 	public void create() {
 		Bullet.init();
+		Platform.detect();
 		Config.load();
-		if (Config.fullscreen)
+		if (Config.fullscreen && Platform.desktop)
 			Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
 		Assets.init();
 		Gdx.input.setCatchKey(Input.Keys.BACK, true);
@@ -43,11 +46,26 @@ public class Core extends ApplicationAdapter {
 		if (hostedServer != null)
 			hostedServer.update();
 		applyPendingScreen();
+		if (screen instanceof MenuScreen && Gdx.input.isKeyJustPressed(Input.Keys.BACK))
+			((MenuScreen) screen).back(); // in a match, back opens the pause menu instead (Controls)
 		Gdx.gl.glClearColor(0, 0, 0, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 		if (screen != null)
 			screen.render(Gdx.graphics.getDeltaTime());
 		musicPlayer.update();
+	}
+
+	/** The app went to the background (Android, iOS) or the window was minimized. */
+	@Override
+	public void pause() {
+		if (screen != null)
+			screen.pause();
+	}
+
+	@Override
+	public void resume() {
+		if (screen != null)
+			screen.resume();
 	}
 
 	@Override

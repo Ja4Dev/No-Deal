@@ -3,12 +3,14 @@ package com.juego.core;
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.bullet.DebugDrawer;
 import com.badlogic.gdx.physics.bullet.linearmath.btIDebugDraw;
 import com.badlogic.gdx.utils.Array;
 import com.juego.UI.HUD;
 import com.juego.UI.Scoreboard;
+import com.juego.UI.TouchControls;
 import com.juego.components.BulletComponent;
 import com.juego.components.CharacterComponent;
 import com.juego.components.PlayerComponent;
@@ -27,6 +29,8 @@ import com.juego.systems.NetworkSystem;
 import com.juego.systems.PlayerSystem;
 import com.juego.systems.RenderSystem;
 import com.juego.systems.WeaponSystem;
+import com.juego.utils.Controls;
+import com.juego.utils.Platform;
 
 /**
  * One match as this computer sees it: the ECS engine, its systems, the
@@ -54,10 +58,13 @@ public class GameWorld {
 	private HudSystem hudSystem;
 	private DebugDrawer debugDrawer;
 	private boolean leaving;
+	/** The on-screen controls on a phone or tablet; null with mouse and keyboard. */
+	private final TouchControls touchControls = Platform.touch ? new TouchControls() : null;
 
 	public GameWorld(Core game, GameSession session) {
 		this.game = game;
 		this.session = session;
+		Controls.touch = touchControls;
 		addSystems();
 		entityFactory = new EntityFactory(bulletSystem);
 		engine.addEntity(entityFactory.createLevel(LEVEL));
@@ -153,7 +160,31 @@ public class GameWorld {
 		game.leaveMatch(reason);
 	}
 
+	/** The on-screen controls, or null when playing with mouse and keyboard. */
+	public TouchControls touchControls() {
+		return touchControls;
+	}
+
+	/**
+	 * The app went to the background (a call, the home button) or the window
+	 * was minimized: open the pause menu, which in singleplayer also stops the
+	 * match clock right away.
+	 */
+	public void appPaused() {
+		hudSystem.pauseGame();
+		if (session.isSingleplayer())
+			session.clock.setPaused(true);
+	}
+
 	public void render(float delta) {
+		// The fingers are read before the systems ask for actions. While a menu covers the
+		// game (pause, console) the controls are off.
+		if (touchControls != null) {
+			if (hudSystem.isPlayerInControl())
+				touchControls.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), TouchControls.GDX);
+			else
+				touchControls.disable(TouchControls.GDX);
+		}
 		// In singleplayer the pause menu freezes the whole match, server included.
 		if (session.isSingleplayer()) {
 			boolean paused = hudSystem.isPaused();
@@ -209,6 +240,11 @@ public class GameWorld {
 			bulletSystem.destroyBody(entity);
 		engine.removeAllEntities();
 		hudSystem.dispose();
+		if (touchControls != null) {
+			touchControls.dispose();
+			if (Controls.touch == touchControls)
+				Controls.touch = null;
+		}
 		weaponSystem.dispose();
 		groundWeaponSystem.dispose();
 		footstepSystem.dispose();

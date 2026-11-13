@@ -1,1 +1,17 @@
 include 'core', 'desktop', 'server'
+
+// The mobile modules are only included where they can build, so the desktop game, the server and the
+// Windows launcher keep building on machines without the Android SDK or a Mac.
+
+// Android: needs the Android SDK, found through local.properties (sdk.dir=...) or ANDROID_HOME.
+def localProperties = new Properties()
+def localFile = file('local.properties')
+if (localFile.exists())
+    localFile.withInputStream { localProperties.load(it) }
+def androidSdk = localProperties.getProperty('sdk.dir') ?: System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT')
+if (androidSdk != null && new File(androidSdk).isDirectory())
+    include 'android'
+
+// iOS: builds only on a Mac with Xcode (RoboVM). -PwithIos includes it elsewhere, to check the build script.
+if (System.getProperty('os.name').toLowerCase().contains('mac') || startParameter.projectProperties.containsKey('withIos'))
+    include 'ios'

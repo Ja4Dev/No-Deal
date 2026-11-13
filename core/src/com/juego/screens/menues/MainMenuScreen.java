@@ -18,6 +18,7 @@ import com.juego.core.Assets;
 import com.juego.core.Core;
 import com.juego.core.GameSession;
 import com.juego.utils.MusicPlayer;
+import com.juego.utils.Platform;
 
 public class MainMenuScreen extends MenuScreen {
 	Image backgroundImage, titleImage;
@@ -100,7 +101,10 @@ public class MainMenuScreen extends MenuScreen {
 	private void configureWidgers() {
 		backgroundImage.setSize(Core.VIRTUAL_WIDTH, Core.VIRTUAL_HEIGHT);
 		titleImage.setPosition(Core.VIRTUAL_WIDTH / 2 - titleImage.getWidth() / 2, Core.VIRTUAL_HEIGHT / 1.25f);
-		TextButton[] buttons = { playButton, hostButton, joinButton, configButton, creditsButton, quitButton };
+		// iOS apps must not close themselves: no "Salir" there.
+		TextButton[] buttons = Platform.canQuit
+				? new TextButton[] { playButton, hostButton, joinButton, configButton, creditsButton, quitButton }
+				: new TextButton[] { playButton, hostButton, joinButton, configButton, creditsButton };
 		float top = Core.VIRTUAL_HEIGHT / 2 + 100;
 		for (int i = 0; i < buttons.length; i++) {
 			buttons[i].setSize(256, 56);

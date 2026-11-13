@@ -1,0 +1,98 @@
+// The game for Android phones and tablets. Included by settings.gradle when the Android SDK is installed.
+//
+//   ./gradlew android:installDebug   builds the game and installs it on the phone plugged in by USB
+//   ./gradlew android:assembleDebug  only builds it: android/build/outputs/apk/debug/android-debug.apk
+
+// The Android plugin is loaded here, not in the root project: the iOS plugin brings another
+// BouncyCastle, and both in one classloader break the APK signing.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.7.3"
+    }
+}
+
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'com.juego.android'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.juego.nodeal'
+        minSdk 26 // Android 8.0: practically every phone in use, and the game uses String.join (API 26)
+        targetSdk 35
+        versionCode 1
+        versionName project.version
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            res.srcDirs = ['res']
+            // The same assets as the desktop game.
+            assets.srcDirs = ['../core/assets']
+            jniLibs.srcDirs = [layout.buildDirectory.dir('gdx-natives').get().asFile]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/robovm/ios/robovm.xml', 'META-INF/DEPENDENCIES']
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Until there is a release key, release builds are signed with the debug key, so they install.
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+configurations {
+    natives
+}
+
+dependencies {
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
+    ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'].each { abi ->
+        natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-$abi"
+        natives "com.badlogicgames.gdx:gdx-bullet-platform:$gdxVersion:natives-$abi"
+    }
+}
+
+// libGDX ships its native libraries (libgdx.so, libgdx-bullet.so) in jars, one per CPU type:
+// unpack them where Android expects them, lib/<abi>/.
+tasks.register('copyAndroidNatives') {
+    def out = layout.buildDirectory.dir('gdx-natives')
+    inputs.files(configurations.natives)
+    outputs.dir(out)
+    doLast {
+        configurations.natives.files.each { jar ->
+            def abi = ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'].find { jar.name.endsWith("natives-${it}.jar") }
+            if (abi != null) {
+                copy {
+                    from zipTree(jar)
+                    into out.get().dir(abi)
+                    include '*.so'
+                }
+            }
+        }
+    }
+}
+
+tasks.matching { it.name.contains('merge') && it.name.contains('JniLibFolders') }.configureEach {
+    dependsOn 'copyAndroidNatives'
+}
