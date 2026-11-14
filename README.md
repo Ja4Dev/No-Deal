@@ -1,167 +1,271 @@
-# No-Deal
-A 3D First Person Shooter game template built with LibGDX, Ashley (ECS) and Bullet physics.
+<div align="center">
 
-> Originally written in 2020 with LibGDX 1.9.10 and Java 8. It has since been updated to **LibGDX 1.13.1, Java 17, Gradle 8 and the LWJGL3 desktop backend**.
+# 🚫🤝 No Deal
 
-## Building and running
-Requirements: **JDK 17** or newer (a JRE is not enough).
+**A fast, old-school 3D first-person shooter in the spirit of Counter-Strike 1.6, written in Java.**
+
+Bots, LAN and Bluetooth multiplayer, team deathmatch, bunnyhop, recoil you can learn, and the same game on Windows, Linux, macOS and Android.
+
+[![Latest release](https://img.shields.io/github/v/release/Ja4Dev/No-Deal?label=download&style=for-the-badge&color=d32f2f)](https://github.com/Ja4Dev/No-Deal/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Ja4Dev/No-Deal/total?style=for-the-badge&color=555)](https://github.com/Ja4Dev/No-Deal/releases)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20Android-1976d2?style=for-the-badge)
+
+![Java 17](https://img.shields.io/badge/Java-17-orange?logo=openjdk&logoColor=white)
+![libGDX 1.13.1](https://img.shields.io/badge/libGDX-1.13.1-e53935)
+![Ashley ECS](https://img.shields.io/badge/Ashley-ECS-7b1fa2)
+![Bullet physics](https://img.shields.io/badge/Bullet-physics-2e7d32)
+![Gradle 8](https://img.shields.io/badge/Gradle-8-02303A?logo=gradle)
+![Languages](https://img.shields.io/badge/idioma-Español%20%7C%20English-ffb300)
+
+<img src="docs/screenshots/menu.jpg" alt="No Deal main menu" width="720">
+
+[**Download**](#-download) · [**Features**](#-features) · [**How to play**](#-how-to-play) · [**Multiplayer**](#-multiplayer) · [**Console**](#-console-and-server-variables) · [**Build from source**](#%EF%B8%8F-building-from-source) · [**History**](#-history)
+
+</div>
+
+---
+
+## 📥 Download
+
+All builds come from the [latest release](https://github.com/Ja4Dev/No-Deal/releases/latest). The links below always point to the newest version.
+
+| | Build | For | How to run |
+| :---: | --- | --- | --- |
+| 🪟 | **[NoDeal-windows.zip](https://github.com/Ja4Dev/No-Deal/releases/latest/download/NoDeal-windows.zip)** (80 MB) | Windows 10 / 11 — **recommended** | Unzip it and double-click `NoDeal.exe`. Java is included. |
+| 🪟 | **[NoDeal-windows-sin-java.zip](https://github.com/Ja4Dev/No-Deal/releases/latest/download/NoDeal-windows-sin-java.zip)** (52 MB) | Windows with Java 17+ already installed | Same as above. The launcher finds your Java or helps you install it. |
+| ☕ | **[NoDeal.jar](https://github.com/Ja4Dev/No-Deal/releases/latest/download/NoDeal.jar)** (36 MB) | Windows, Linux, macOS | `java -jar NoDeal.jar` with [Java 17+](https://adoptium.net/). On macOS: `java -XstartOnFirstThread -jar NoDeal.jar`. |
+| 🤖 | **[NoDeal-android.apk](https://github.com/Ja4Dev/No-Deal/releases/latest/download/NoDeal-android.apk)** (35 MB) | Android 8.0+ phones and tablets | Open the file on the phone and allow *install unknown apps*. |
+| 🖥️ | **[NoDeal-server.jar](https://github.com/Ja4Dev/No-Deal/releases/latest/download/NoDeal-server.jar)** (16 MB) | Any PC or VPS (no GPU needed) | Double-click it for the server window, or `java -jar NoDeal-server.jar --nogui`. |
+| 🍎 | iPhone / iPad | iOS | Not published yet: it has to be built on a Mac ([see below](#phones-and-tablets)). |
+
+> [!IMPORTANT]
+> To play together, everyone needs the **same version**: the PC game, the phone app and the server. The game refuses older versions with an *incompatible version* message. The current network protocol is **v10**.
+
+<details>
+<summary><b>The game doesn't start on Windows?</b></summary>
+
+- Extract the zip first. Opening `NoDeal.exe` from inside the zip doesn't work, and the launcher tells you so.
+- If it closes with an error, the launcher comes back and explains it: Java too old, video drivers, out of memory, antivirus blocking native libraries, a crash. It shows the end of the log, with buttons to open it, copy it or try again.
+- The logs are in `%LOCALAPPDATA%\NoDeal\logs` (`cliente.log`, `servidor.log`).
+
+</details>
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/tdm-scoreboard.jpg" alt="Team deathmatch scoreboard"></td>
+<td width="50%"><img src="docs/screenshots/android.jpg" alt="The game on an Android phone"></td>
+</tr>
+<tr>
+<td align="center"><b>Team deathmatch:</b> Red against Blue, with a scoreboard grouped by team</td>
+<td align="center"><b>Android:</b> the same game with touch controls, playing against PCs</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/knife.jpg" alt="Knife, FPS and speedometer"></td>
+<td><img src="docs/screenshots/tdm-death.jpg" alt="Death camera following the killer"></td>
+</tr>
+<tr>
+<td align="center"><b>Knife, speedometer and FPS:</b> <code>cl_showspeed 1</code> while bunnyhopping</td>
+<td align="center"><b>Death camera:</b> follows whoever killed you, with their stats</td>
+</tr>
+</table>
+
+### 🎯 Gameplay
+- **Recoil like CS 1.6.** Each gun has a fixed spray pattern you can learn to pull against. Running and jumping make you inaccurate; crouching makes you steadier.
+- **CS movement.** Acceleration, friction, air strafing and **bunnyhop**, with CS's own units and mouse scale, so your CS sensitivity feels the same.
+- **Weapons:** M4A1, AK-47, Magnum and a **knife** (a slash and a stab, and a stab in the back kills). Switch with `1` `2` `3`, the mouse wheel, or `Q` for the last weapon used.
+- **Weapon weight:** 250 speed with the knife, 240 with the pistol, 235 with the rifles.
+- **Damage that drops with distance**, 4× headshots, **fall damage** that follows gravity, assists, and blood you can see and hear.
+- **Guns on the ground:** drop yours and pick up others with `G`. AK-47s respawn around the map.
+
+### 👥 Modes
+- **Deathmatch:** everyone against everyone.
+- **Team deathmatch:** Red against Blue, with auto-balance, team spawns and optional friendly fire.
+- **Singleplayer** against 1–16 bots, in either mode.
+
+### 🤖 Bots
+Four difficulties: *fácil, medio, difícil, muy difícil*. They find their way around any map without waypoints and use the same guns and physics you do. They react like people, and better or worse depending on the difficulty.
+
+### 🌐 Multiplayer
+- **Wi-Fi / LAN:** host from the game or run a dedicated server.
+- **Bluetooth:** Android phones can play without any network.
+- **Mixed:** phones and PCs play in the same match.
+
+### 🖼️ Video and settings
+- **Display:** window, fullscreen or borderless.
+- **Resolution** by aspect ratio (4:3, 16:9, 16:10, 21:9), with **black bars or stretched**.
+- **Image:** field of view, shadows (off to high), antialiasing and an FPS limit.
+- **Crosshair:** fully configurable, with a live preview.
+- **Controls:** every action can be rebound, the mouse wheel included.
+- **Languages:** Spanish and English.
+
+<p align="center"><img src="docs/screenshots/video.jpg" alt="Video options" width="640"></p>
+
+---
+
+## 🎮 How to play
+
+| Action | Key | Action | Key |
+| --- | --- | --- | --- |
+| Move | `W` `A` `S` `D` | Primary / pistol / knife | `1` / `2` / `3` |
+| Jump | `Space` | Next / previous weapon | Wheel down / up |
+| Walk (silent) | `Shift` | Last weapon used | `Q` |
+| Crouch | `Ctrl` | Drop / pick up a gun | `G` |
+| Fire / slash | Left click | Scoreboard | `Tab` (hold) |
+| Aim / stab | Right click | Pause menu | `Esc` |
+| Reload | `R` | Console | Key left of `1` |
+
+Everything can be changed in **Options → Controls**.
+
+**On a phone:**
+- **Left thumb:** a joystick appears wherever you touch. A little walks quietly; to the edge runs.
+- **Right thumb:** drag to look.
+- **Buttons:** FUEGO fires (and lets you aim while dragging), MIRA, SALTO, ARMA (cycles the three weapons), RECARGA, AGARRAR and AGACHAR.
+
+---
+
+## 🌐 Multiplayer
+
+| | How |
+| --- | --- |
+| **Host from the game** | *Crear partida*. Pick the mode, time, kill limit and bots. Others join with the IP shown on screen. |
+| **Join** | *Unirse a partida*, then type the host's IP (UDP port `25559`). |
+| **Bluetooth** (Android) | Host with *Conexion: Bluetooth*; the others choose *Bluetooth* and pick the phone. No pairing needed. |
+| **Dedicated server** | `NoDeal-server.jar`. With no options it opens a window; with options or `--nogui` it runs in a terminal. |
 
 ```bash
-./gradlew desktop:run    # run the game (use gradlew.bat on Windows cmd)
-./gradlew desktop:dist   # build a runnable jar in desktop/build/libs/
-./gradlew test           # run the unit and network tests (no window needed)
-./gradlew server:run     # run a dedicated server (see Multiplayer)
-./gradlew server:dist    # build the dedicated server jar in server/build/libs/
+java -jar NoDeal-server.jar --port 25559 --max-players 4 --mode tdm --time-limit 10 --frag-limit 20 \
+     --bots 4 --bot-difficulty dificil --friendlyfire +sv_gravity 800 +sv_airaccelerate 100 --nogui
 ```
 
-Run from the project root: the `run` task sets `core/assets` as the working directory so assets resolve correctly.
+On Windows, `NoDeal.exe --server [options]` does the same, and the launcher's **Servidor dedicado** button opens the server window.
 
-### Windows launcher (`NoDeal.exe`)
+**Match rules:** 10 minutes or 20 kills by default, both configurable. When it ends, the scoreboard shows the winner for 10 seconds and a new match starts.
+
+---
+
+## 💻 Console and server variables
+
+Open the console with the key left of `1`. It scrolls back with the wheel or `PgUp` / `PgDn`.
+
+| Command | What it does |
+| --- | --- |
+| `cl_showspeed 1` | Speedometer under the crosshair, with the gain or loss of each jump |
+| `cl_showfps 1` | FPS and ping |
+| `fps_max 300` | FPS cap (0 follows the screen) |
+| `nombre <nuevo>` | Change your name |
+| `equipo rojo\|azul\|auto` | Change team (team deathmatch) |
+| `bot agregar [n] [dificultad] [equipo]` | Add bots (`bot_add` works too) |
+| `bot quitar [nombre\|n\|todos]` | Remove bots (`bot_kick`) |
+| `bot dificultad <dificultad>` | Change every bot's difficulty (`bot_difficulty`) |
+| `bot lista` | List the bots |
+
+Run by the host or the dedicated server (typed without a value, they show the current one):
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `sv_gravity` | `800` | Gravity. Lower means higher jumps and softer falls |
+| `sv_airaccelerate` | `10` | Air strafing control (bhop servers use `100`) |
+| `sv_autobunnyhopping` | `0` | `1`: holding jump jumps again on landing |
+| `sv_maxspeed` | `250` | Running speed with the knife; the other weapons scale with it |
+| `sv_maxvelocity` | `750` | The top speed, bunnyhop included |
+| `sv_falldamage` | `1` | `0` turns fall damage off |
+| `mp_friendlyfire` | `0` | `1`: teammates can hurt each other |
+
+---
+
+## 🛠️ Building from source
+
+Requirements: **JDK 17** or newer.
+
 ```bash
-./gradlew zipWindows                 # build/distributions/NoDeal-1.0-windows.zip, Java included (~80 MB)
-./gradlew zipWindows -PwithoutJava   # NoDeal-1.0-windows-sin-java.zip, uses the Java installed on the PC
-./gradlew packageWindows             # the same, unzipped, in build/windows/NoDeal/
+./gradlew desktop:run          # play (gradlew.bat on Windows cmd)
+./gradlew server:run           # dedicated server
+./gradlew test                 # unit and network tests, no window needed
+
+./gradlew desktop:dist         # desktop/build/libs/NoDeal-1.0.jar
+./gradlew server:dist          # server/build/libs/NoDeal-server-1.0.jar
+./gradlew zipWindows           # build/distributions/NoDeal-1.0-windows.zip, Java included
+./gradlew zipWindows -PwithoutJava   # ...-windows-sin-java.zip
+./gradlew android:assembleDebug      # android/build/outputs/apk/debug/android-debug.apk
+./gradlew desktop:run -Ptouch        # try the touch controls on the PC
 ```
 
-The zip holds `NoDeal.exe`, the game and server jars in `game/` and a trimmed Java 17 runtime in `runtime/` (built with `jlink`, 43 MB). Players unzip it and double-click `NoDeal.exe`, a launcher window with **Jugar** and **Servidor dedicado**:
+<details>
+<summary><b>Windows launcher (<code>NoDeal.exe</code>)</b></summary>
+
+The zip holds `NoDeal.exe`, the game and server jars in `game/` and a trimmed Java 17 runtime in `runtime/` (built with `jlink`, 43 MB). The launcher is a window with **Jugar** and **Servidor dedicado**:
 
 - **Finding Java:** the bundled `runtime/` first, then `JAVA_HOME`, the installers' registry keys (Oracle, Temurin, Microsoft, Zulu, Liberica, Corretto...), the `PATH`, the usual install folders, IntelliJ's `~/.jdks` and the Java runtimes Minecraft downloads. If none is Java 17 or newer, it lists what it found and why each one doesn't work, opens the Temurin download page and searches again after you install it.
-- **When the game doesn't start:** the output of the game or server goes to `%LOCALAPPDATA%\NoDeal\logs` (`cliente.log`, `servidor.log`). If it closes with an error, the launcher comes back and explains it: Java too old, OpenGL/video drivers, out of memory, native libraries blocked by the antivirus, a JVM crash, damaged files, invalid server options. It also shows the end of the log, with buttons to open it, copy it or try again. It also tells you if you opened the exe from inside the zip without extracting it.
-- While the game runs, the launcher hides. It closes when you quit the game normally.
-- **Shortcuts:** `NoDeal.exe --client` opens the game straight away. `NoDeal.exe --server [options]` opens the dedicated server, passing it the server's options (`--port 25559 --bots 4`...). With `--nogui` it runs in a console window.
+- **When the game doesn't start:** it explains the error (Java too old, OpenGL drivers, out of memory, antivirus, JVM crash, damaged files, invalid server options) and shows the end of the log.
+- **While the game runs** the launcher hides. It closes when you quit the game.
+- **Shortcuts:** `NoDeal.exe --client` opens the game directly; `NoDeal.exe --server [options]` the server (`--nogui` for a console).
 
-The launcher is written in C# (`launcher/src`) and compiled with the `csc.exe` of the .NET Framework 4.x that comes with Windows 10 and 11, so it needs nothing else to build or to run. Building the package needs Windows.
+It is written in C# (`launcher/src`) and compiled with the `csc.exe` of the .NET Framework 4.x that comes with Windows 10 and 11, so it needs nothing else. Building the package needs Windows.
 
-### Phones and tablets (Android and iOS)
-The same game runs on Android 8.0+ and on iPhone/iPad, with on-screen controls:
+</details>
 
-- **Left thumb:** a joystick appears wherever it touches the lower left part of the screen. Pushed a little it walks (silently), pushed to the edge it runs.
-- **Right thumb:** dragging anywhere turns the view. **FUEGO** shoots and also turns the view while dragged, so you can aim and shoot with one thumb. The other buttons are **MIRA** (aim down sights), **SALTO**, **ARMA**, **RECARGA** and **AGARRAR** (pick up a gun).
-- **Top right:** pause, scoreboard (**PTS**, held) and the console (**>_**, with a Cerrar button and the phone's keyboard).
-- Android's back button pauses the match, or goes back in the menus. Leaving the app mid-match opens the pause menu.
-- The touch sensitivity is in Opciones → Pantalla tactil.
+<details id="phones-and-tablets">
+<summary><b>Phones and tablets (Android and iOS)</b></summary>
 
-### Languages
-The game is in Spanish and English (Opciones → Idioma; the first time it follows the system's language). Every text is in `Text` (`core/.../utils/Text.java`), both languages side by side: `Text.get("menu.options")`, with `{0}`, `{1}`... for values. `TextTest` checks that both languages have the same blanks. The images with words in them (menu titles, the credits) have an English copy named `*_en.png`. The dedicated server (window and terminal) and the Windows launcher speak both languages too: `--lang es|en` chooses one; otherwise they use the language chosen in the game on that computer (libGDX keeps it in `~/.prefs/NoDeal`), so the three agree, or else the system's.
+The `core` module is compiled as **Java 8** because iOS (RoboVM) only runs Java 8 bytecode. Desktop, server and Android code can use Java 17.
 
-Multiplayer works between phones and PCs on the same Wi-Fi, or on a phone's hotspot: whoever creates the match shares the IP shown on screen.
-
-**Bluetooth** (Android phones with Bluetooth; the option doesn't appear elsewhere): in *Crear partida* choose *Conexion: Bluetooth*. The game asks for the "nearby devices" permission, to turn Bluetooth on and to make the phone visible for 5 minutes. The others choose *Bluetooth* in *Unirse a partida* and pick that phone from the list. The phones don't need to be paired. Wi-Fi players can still join the same match by IP.
-
-How it works: the match runs exactly as over UDP. `GameServer` and `GameClient` talk through a `Transport`, which is a UDP socket (`NetSocket`) or stream links (`LinkTransport`: each packet sent as its length and its bytes, with a reader and a writer thread per link). On Android the links are insecure Bluetooth Classic RFCOMM sockets (`AndroidBluetooth`). The host's server listens on UDP and Bluetooth at once (`MultiTransport`). To try the touch controls on the PC, run `./gradlew desktop:run -Ptouch`; the mouse works as a finger.
-
-The `core` module is compiled as **Java 8** because iOS (RoboVM) only runs Java 8 bytecode, so no newer language features or APIs can be used there. Desktop, server and Android code can use Java 17.
-
-**Android** needs the Android SDK: install Android Studio, or only the [command-line tools](https://developer.android.com/studio#command-line-tools-only) with `platforms;android-35`, `build-tools;35.0.0` and `platform-tools`. Then point Gradle to it in `local.properties` (`sdk.dir=C:/Users/you/AppData/Local/Android/Sdk`) or with `ANDROID_HOME`. Without the SDK, the `android` module is skipped and everything else builds as before.
+**Android** needs the Android SDK: Android Studio, or only the [command-line tools](https://developer.android.com/studio#command-line-tools-only) with `platforms;android-35`, `build-tools;35.0.0` and `platform-tools`. Point Gradle to it in `local.properties` (`sdk.dir=C:/Users/you/AppData/Local/Android/Sdk`) or with `ANDROID_HOME`. Without the SDK the `android` module is skipped.
 
 ```bash
-./gradlew android:assembleDebug   # android/build/outputs/apk/debug/android-debug.apk
-./gradlew android:installDebug    # install on the phone plugged in by USB (with USB debugging enabled)
+./gradlew android:installDebug    # install on a phone plugged in by USB (USB debugging on)
 ```
 
-**iOS** builds only on a Mac with Xcode (the `ios` module is skipped elsewhere). It uses [MobiVM](https://mobivm.github.io/) (RoboVM).
+**iOS** builds only on a Mac with Xcode, with [MobiVM](https://mobivm.github.io/) (RoboVM):
 
 ```bash
-./gradlew ios:launchIPhoneSimulator   # run in the simulator
-./gradlew ios:launchIOSDevice         # run on an iPhone plugged in: needs an Apple signing identity and provisioning profile
+./gradlew ios:launchIPhoneSimulator   # simulator
+./gradlew ios:launchIOSDevice         # iPhone plugged in (needs signing identity and provisioning profile)
 ./gradlew ios:createIPA               # .ipa for TestFlight / App Store
 ```
 
-To install on a real iPhone you need a free Apple ID (7-day signing) or an Apple Developer account. Set the signing identity and provisioning profile in `ios/build.gradle` (`robovm { iosSignIdentity = ...; iosProvisioningProfile = ... }`) or pass them as `-Probovm.iosSignIdentity=...`.
+A free Apple ID (7-day signing) or an Apple Developer account is needed for a real iPhone. Set them in `ios/build.gradle` (`robovm { iosSignIdentity = ...; iosProvisioningProfile = ... }`) or with `-Probovm.iosSignIdentity=...`.
 
-## Description
-<p>No Deal was an attempt to develop a simple first person shooter game I carried out as a final academic project for my technical high scool, in the year 2020.
-Unfortunately, the project couldn't end as I wanted, but I think I got a really good basic template to everyone who want to create a Java 3D First Person game.</p>
+</details>
 
-**IMPORTANT ADVICE:** The menues of the game and some commentary lines in the code are writed on Spanish, but fortunately all the code is fully writen in English.
+---
 
+## 🧩 Under the hood
 
-## Code structure
-The game uses an Entity Component System ([Ashley](https://github.com/libgdx/ashley)): components only hold data, and each system owns one responsibility.
+<details>
+<summary><b>Architecture (Entity Component System)</b></summary>
+
+The game uses [Ashley](https://github.com/libgdx/ashley): components only hold data, and each system owns one job.
 
 | System | Responsibility |
 | --- | --- |
-| `RenderSystem` | Draws the world, then the gun view model with its own camera. Runs after every other system, so the frame shows this frame's movement and aim |
-| `BulletSystem` | Steps the Bullet physics world at a fixed 60 Hz; the camera is interpolated between steps, so it moves smoothly on faster monitors |
+| `RenderSystem` | Draws the world, the shadows and the gun view model with its own camera, after every other system |
+| `BulletSystem` | Steps the Bullet physics world at a fixed 60 Hz; the camera is interpolated between steps |
 | `NetworkSystem` | Syncs the match with the server, moves the other players |
-| `PlayerSystem` | Mouse look, CS-style movement (acceleration, friction, air control), jumping, respawning |
-| `WeaponSystem` | Hitscan shooting with spray recoil, headshots, reloading, switching, zoom, bullet tracers, view model bob and kick |
+| `PlayerSystem` | Mouse look, CS-style movement, jumping, falls, respawning |
+| `WeaponSystem` | Hitscan shooting with spray recoil, knife, reloading, switching, zoom, tracers, view model bob and kick |
 | `GroundWeaponSystem` | Guns on the ground: dropping and picking up (the server decides) |
-| `FootstepSystem` | Footsteps: yours when running, and everyone else's, panned and fading with distance |
-| `DeathCamSystem` | While dead, a spectator camera that follows whoever killed you |
-| `HudSystem` | HUD, configurable crosshair, pause menu, console, scoreboard toggle, damage feedback, death screen |
+| `FootstepSystem` | Your footsteps and everyone else's, panned and fading with distance |
+| `DeathCamSystem` | While dead, a camera that follows whoever killed you |
+| `HudSystem` | HUD, crosshair, pause menu, console, scoreboard, damage feedback, death screen |
 
-Every match, singleplayer included, is run by a `GameServer`: *Un jugador* starts a private one inside the game with bots, so bots, guns, kills and respawns work the same way alone and online.
+- **Every match runs on a `GameServer`**, singleplayer included, so bots, guns, kills and respawns work the same alone and online.
+- **The player systems don't call each other.** They share state through `PlayerComponent`.
+- **Guns are data:** [`core/assets/data/guns.json`](core/assets/data/guns.json) defines damage, magazine, fire rate, spray pattern, inaccuracy, weight, model and sound, so adding a gun needs no code.
+- **Settings and bindings** are kept in libGDX `Preferences`. The same settings pages work from the main menu and mid-match (`SettingsFlow`).
+- **Assets** go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
+- **All text** is in `Text.java`, Spanish and English side by side. `TextTest` checks that both languages match.
 
-The three player systems (`PlayerSystem`, `WeaponSystem`, `HudSystem`) don't call each other: they share state through `PlayerComponent` (movement, how recoil pushes the view, pause). Getting hit flashes the screen edges red, an arc around the crosshair points to where the shot came from, and the edges stay faintly red while health is low. Every setting (sound, mouse, video, controls, crosshair) can be changed from the main menu or mid-match from the pause menu: the same pages are reused in both places through `SettingsFlow`. Settings and key bindings are saved with libGDX `Preferences`, and any action can be bound to a key or a mouse button (`Controls`). Guns are data: each one is defined in [`core/assets/data/guns.json`](core/assets/data/guns.json) (damage, magazine, reserve, fire rate, spray pattern, inaccuracy, model, sound...), so adding a gun needs no code. All assets go through a reference-counted `AssetManager` (`Assets.acquire` / `Assets.release`).
+</details>
 
-### How it feels
-- **Recoil like CS 1.6.** Each gun has a fixed spray pattern (`spray` in `guns.json`): the first bullet goes where you aim, and holding the trigger the next ones climb and then wander left and right, the same way every time, so you can learn to pull the mouse against it. As in CS, the view climbs only half of the pattern and comes back down when you let go, while the bullets climb all of it; each shot also jolts the view a little. With the crosshair set to follow the recoil, it climbs the other half, so it always marks where the next bullet goes (and the tracer ends there); without it, it stays in the middle and you pull down by feel. On top of that there is a random inaccuracy: tiny when standing still or walking, large when running or jumping, and a quarter smaller when crouching. The rules live in `Recoil`, which is pure logic and unit-tested.
-- **Movement.** Quake/CS-style acceleration and friction (`PlayerMovement`): full speed in about 0.2 s, a full stop in about 0.25 s, momentum kept in the air with a little air control. The eyes are near the top of the head, and the mouse uses CS's scale (0.022 degrees per count), so a CS sensitivity feels the same here.
-- **Crosshair.** Style (classic, with a dot, dot only, T), length, thickness, gap, color, opacity and an outline, with a live preview in Settings > Mira. It can open up with the gun's real inaccuracy while moving, while spraying, or both, and it can follow the recoil.
-- **Air strafing and bunnyhop, as in CS 1.6.** Turning while strafing in the air gains speed (Quake's air acceleration), and jumping again the moment you land skips that step's friction, so a chain of jumps keeps it, up to three times the running speed (eight perfect hops at the normal settings get to about 30, from 12). The server sets the rules from its console, in CS's own units: `sv_airaccelerate` (10 is normal; above ~15 it no longer adds speed but lets you turn tighter, which is why bhop servers use 100), `sv_gravity` (800 is normal; jumps keep their strength, so at 200 they go four times higher) and `sv_autobunnyhopping 1` (holding jump jumps again on landing). Typed without a value they show the current one. Every player gets them on joining and on every change (a line in the feed), and bots follow them. The dedicated server takes them as options too: `--gravity 400 --airaccelerate 100 --autobunnyhop`. The air acceleration is worked out in 1/120 s steps, the way CS behaves at 100+ fps.
-- **Speed limits.** `sv_maxspeed` sets the running speed (250, in CS's units; walking and crouching keep their share) and `sv_maxvelocity` the top speed nobody passes, bunnyhop included (750). The server's movement check follows them. On the dedicated server's command line any of these goes as in CS: `+sv_maxvelocity 2000`.
-- **Speedometer, FPS and ping.** In the console, for each player and remembered: `cl_showspeed 1` shows your speed under the crosshair (CS units: 250 running) and the speed of your last jump, with how much it gained (green) or lost (red) on the hop before; `cl_showfps 1` shows the FPS and the ping; `fps_max 300` caps the FPS without vertical sync (0, the default, follows the screen). On someone else's server, `sv_...` shows its values. The console keeps the last 1000 lines: the wheel, Page Up / Page Down (or dragging, on a phone) scroll back, and anything new brings it to the bottom.
-- **Changing weapons as in CS.** 1, 2 and 3 take the primary, the pistol and the knife; the mouse wheel goes to the next (down) or previous (up) one; Q goes back to the last one used. All rebindable, the wheel included (`Controles` takes a turn of the wheel as a binding, so jump can go on it too). On a phone the weapon button goes round the three.
-- **Video options** (`Opciones > Video`): window, fullscreen or borderless window; the resolution, listed by aspect ratio (4:3, 16:9, 16:10, 21:9) as in CS, applied with *Aplicar*; in fullscreen and borderless the monitor keeps its own resolution and the game draws at the chosen one and scales it, with black bars or stretched (*Escalado*), so a 4:3 resolution looks the same on any computer whatever the graphics driver does; the HUD, console and scoreboard reach the edges of any screen shape; the FPS limit (VSync or a number, the same as `fps_max`); the field of view, in degrees across a 4:3 screen as CS counts it (83 is the view the game always had; wider screens see more at the sides); shadows (off, low, medium, high: the players', your own included, on the floor around you; the level casts none, since its rooms have ceilings); and antialiasing, applied when the game restarts. Phones get the field of view and the shadows (off by default there).
-- **Fall damage.** It goes by how fast you land, as in CS: about three times your height starts to hurt and about nine kills, at normal gravity. Gravity changes it: at `sv_gravity 400` the same drop hurts much less, at 1600 more. A jump on flat ground never hurts. The client says how fast it landed and the server checks it against how high it has seen the player lately. Bots get hurt too. `sv_falldamage 0` turns it off.
-- **Weapon weight, as in CS.** What you hold sets how fast you run: 250 with the knife, 240 with the pistol, 235 with the M4 and the AK (rifles may go from 190 to 235; `maxSpeed` in `guns.json`). Walking and crouching keep their share, bots too. It scales with `sv_maxspeed`, which is the speed with the knife.
-- **Team deathmatch.** Chosen in *Un jugador* and *Crear partida* (`Modo: Por equipos`), or `--mode tdm` on the dedicated server (its window has it too). Red against Blue:
-  - **Scoring:** every kill of an enemy scores for the team, and the first team to the kill limit wins (or the one ahead when time is up; even is a draw).
-  - **Joining and balance:** newcomers join the smaller team, and bots change sides to keep the teams within one player of each other.
-  - **Spawns:** each team spawns at its end of the map. A map can list them (`teamSpawns` in its JSON), or its spawn points are split across its longest side.
-  - **Friendly fire:** off by default, so teammates' bullets and knives don't hurt. With `mp_friendlyfire 1` (or `--friendlyfire`) they do, and killing a teammate takes a kill off the player and the team.
-  - **Changing team:** `Cambiar de equipo` in the pause menu, or `equipo rojo|azul|auto` in the console. Done alive, you leave the fight and come back on the other side after the usual wait (no death counted).
-  - **What you see:** uniforms in the team's color, names colored in the kill feed, the score under the clock, your team above your health, and the scoreboard grouped by team.
-  - **Bots:** they never target teammates, and `bot agregar 2 azul` adds them to a team.
-- **Knife.** Everyone carries one (key 3). Fire slashes (34, every 0.4 s), aim stabs (65, reaching less, every second); from behind they do 90 and 180, so a stab in the back kills. The server decides the hits, and it reaches a little off the aim. It can't be dropped; dying with it in hand drops your gun instead.
-- **Crouching** (hold Ctrl, or the AGACHAR touch button): slower than walking and silent, the view and the head go down (the server lowers the hitbox and the headshot line, bots aim lower and the others see the soldier kneel), and shots are tighter.
-- **Match rules.** Un jugador and Crear partida choose the match length (1-30 minutes) and the kills to win (or no limit). Assists go to whoever did more than 40 damage to someone another player finished off.
-- **The soldiers.** Players and bots are low-poly soldiers built in code (`SoldierModel`, no model file): boots, knee pads, a tactical vest with pouches, shoulder pads, a helmet with goggles, and a rifle at the shoulder. Each player's vest and pads have their own color. The legs walk as fast as the player moves, and the arms, rifle and head follow where they aim. Bullets hit a capsule that matches the model (`CharacterShape.HITBOX_RADIUS`), slimmer than the one used for walking, so a shot that looks like a miss is a miss.
-- **Changing your name mid-match.** From the pause menu (*Cambiar nombre*) or the console (`nombre <nuevo>`). Everyone sees it in the kill feed, and the scoreboard shows the match's name changes in its top-right corner.
-- **Damage and distance.** A bullet always reaches what it is aimed at, across the whole level, but it hurts less the farther it flies, as in CS: each gun keeps a fraction of its damage every 50 units (`rangeModifier` in `guns.json`: 85% for the M4, 90% for the AK-47, 75% for the magnum). An M4 body shot does 34 point blank and about 23 across the Bank. Headshots do 4 times the damage, so one is lethal up to about 85 units.
-- **Hits you can see and hear.** When a bullet hits someone, everyone near enough sees blood (a puff and drops out of the wound, a spray out the other side, and a stain on the wall behind) and hears a thud from the body; far away it is silent. The server announces each hit (`HIT` message) with where it landed and the bullet's direction.
-- **Dying.** The camera leaves your body and follows whoever killed you, from behind (`DeathCamSystem`), while a panel shows their name, the gun, whether it was a headshot, and their kills, deaths and assists, with a "Reviviendo en 3s" countdown. Assists go to anyone who did more than 40 damage to that life without finishing it, like in CS; they are also on the scoreboard and the server window.
-- **Footsteps.** Running makes noise, one step every stride; walking with Shift and being in the air are silent, and landing from a jump is louder (`Footsteps`, unit-tested). You hear everyone else's steps too, from where they are, so someone running around the corner gives themselves away.
+<details>
+<summary><b>Networking</b></summary>
 
-## Bots
-Computer-controlled players that look for you and shoot, with four difficulties: **fácil, medio, difícil and muy difícil**.
+A hand-written UDP protocol, with no networking library.
 
-- **Singleplayer** (*Un jugador*): choose how many bots (1 to 16) and their difficulty. It's a deathmatch against them; the pause menu freezes the whole match, bots included.
-- **Hosting** (*Crear partida*) and the **dedicated server** can add bots too (0 to 16, besides the people).
-- **During the match**, the console changes them: press the key left of the 1 (rebindable) if you are running the match, or type in the dedicated server's window or terminal:
-
-  | Command | What it does |
-  | --- | --- |
-  | `bot agregar [cantidad] [dificultad]` | adds bots, e.g. `bot agregar 3 dificil` |
-  | `bot quitar [nombre \| cantidad \| todos]` | takes bots out |
-  | `bot dificultad <dificultad>` | changes the difficulty of every bot |
-  | `bot lista` | lists them |
-
-  The CS names work too: `bot_add`, `bot_kick`, `bot_difficulty`.
-
-How they work:
-- **Same rules as people.** A bot (`Bot`) walks with the same physics body (`CharacterBody`) and movement code as the player, and shoots with the same gun data: fire rate, magazine and reload, spray pattern and inaccuracy. If it runs while shooting, it misses like a person would. Its shots go through the same server-side hit detection.
-- **Human limits, by difficulty** (`BotDifficulty`): reaction time (0.75 s down to 0.17 s), how fast and how precisely it turns its aim, how well it pulls down the spray, how often it goes for the head, its field of view, and how it moves in a fight. Easy bots run and gun, medium ones stop to shoot, and the hard ones strafe while they shoot. They only shoot what they can see, notice whoever shoots them even from behind, and walk towards gunfire they hear.
-- **Navigation without waypoints.** When the first bot joins, `NavGrid` samples the level's collision mesh on a 2-unit grid: every floor with room for a standing character becomes a node, linked to its neighbours when a character can walk between them. Building it takes about 0.4 s for the Bank. Bots find their way with A* and then cut corners where the straight line is clear. If they get stuck, they find another way.
-- **Tested.** `BotTest` runs bots on the real level: paths between every pair of spawns, a bot crossing the whole map to find and shoot a target, and the four difficulties against the same target. At about 40 units easy bots hit 54% of their shots and very hard ones 93%, mostly to the head, and reaction times drop from 0.76 s to 0.18 s. `BotServerTest` adds bots by command to a real server and checks that a client sees them move, hunt it down and kill it.
-
-## Multiplayer
-Deathmatch for up to 4 players (plus bots) over LAN, with a hand-written UDP protocol (no networking library).
-
-- **Host a match**: *Crear partida* in the main menu. The server runs inside your game and the other players join with your IP, which is shown in the kill feed when the match starts.
-- **Join a match**: *Unirse a partida*, enter the host's IP and port (default UDP `25559`).
-- **Dedicated server**: the same server without the game or a GPU, for a machine that only hosts. Double-click `NoDeal-server-1.0.jar` to open the server window: pick the port and match rules, start and stop the server, copy the address to join, look up your public IP, and watch the players and a colored log of joins, kills and matches. It also has a command line (`ayuda`, `estado`, `ip`, `limpiar`, `salir`...). Settings are remembered between runs.
-
-  Started with options, it starts the server right away. With `--nogui`, or on a machine without a display, it runs in the terminal instead:
-  ```bash
-  java -jar NoDeal-server-1.0.jar --port 25559 --max-players 4 --time-limit 10 --frag-limit 20 --bots 4 --bot-difficulty dificil [--nogui]
-  ```
-  Terminal commands: `status` (match clock and players), `quit` (notify everyone and stop), and the [bot commands](#bots).
-- **Guns on the ground**: press **G** (rebindable) to drop the gun in hand, or to pick up the gun you are looking at, which swaps it for the one in that slot. Walking over a gun picks it up if that slot is empty. Dead players drop the gun they were holding, and the level has AK-47 spawners that refill 30 seconds after someone takes the gun. Dropped guns keep their ammo and disappear after a minute.
-- **Match rules**: a match lasts 10 minutes or until someone reaches 20 kills. Then the scoreboard shows the winner for 10 seconds, scores reset and everyone respawns. In singleplayer the clock stops while the game is paused.
-
-### How it works
 ```
    client (game)                                server (in-game host or dedicated)
  ┌───────────────┐   PLAYER_STATE 30 Hz (unreliable)   ┌──────────────────────────┐
@@ -169,53 +273,96 @@ Deathmatch for up to 4 players (plus bots) over LAN, with a hand-written UDP pro
  │   GameClient  │   FIRE (reliable)                   │  - MovementValidator     │
  │               │ ──────────────────────────────────► │  - hitscan vs. level +   │
  │               │   SNAPSHOT 20 Hz (unreliable)       │    player hitboxes       │
- │               │ ◄────────────────────────────────── │  - health, kills, deaths │
+ │               │ ◄────────────────────────────────── │  - health, kills, teams  │
  │               │   JOIN/LEAVE/KILL/RESPAWN (reliable)│  - respawns              │
  └───────────────┘ ◄────────────────────────────────── └──────────────────────────┘
 ```
-- **Who decides what.** Each client simulates its own movement, so it feels instant, and the server checks every reported position against the maximum speed. The client's clock may not run ahead of the server's, so a client can't claim extra time to move faster. Everything that decides the match is server-authoritative: every shot is re-traced on the server against the level and the other players' hitboxes, and only the server changes health, kills, deaths and respawns.
-- **Two channels over one UDP socket** (`Connection`). Frequent state travels *unreliably*, because only the newest copy matters. Events travel on a *reliable, ordered* channel: each message has an id and is re-sent until the peer acknowledges it with a cumulative ack carried on every datagram. The receiver buffers out-of-order messages and delivers each one exactly once, in order. `ConnectionTest` checks this over a simulated link that loses 30% of the packets, duplicates 10% and shuffles the rest.
-- **Threads.** Each socket has a receiver thread that only queues raw datagrams. Everything else runs on the game/server thread, because Bullet's JNI wrappers are not thread-safe.
-- **Guns on the ground** follow the same rule: clients only *ask* to drop or pick up a gun, and the server decides, then tells everyone where it landed or who took it. The same `GroundWeapons` class runs on the server and as the client's mirror of the server. The server also knows each player's guns, so a client can't fire a gun it doesn't have.
-- **Smooth remote players.** Other players are drawn 100 ms in the past, blending between the two snapshots around that moment.
-- **Headless-friendly collision.** `MapCollision` builds the level's triangle mesh straight from the `.g3dj` vertex data. It never creates a GL `Model`, so the dedicated server runs without OpenGL. Spawn points for each level live in `core/assets/data/maps/<level>.json`.
 
-Known limitations: there is no lag compensation (you aim at where other players were about 100 ms ago, which is fine on LAN), the server does not check movement against walls, and players can walk through each other (bots bump into other bots, not into people).
+- **Who decides what.**
+  - Each client simulates its own movement, so it feels instant. The server checks each reported position against the speed limits and the client's clock.
+  - Shots, knife hits, falls, health, kills and respawns are decided by the server.
+- **Two channels over one socket** (`Connection`).
+  - State goes *unreliably*; events go on a *reliable, ordered* channel with cumulative acks.
+  - `ConnectionTest` checks it over a link that loses 30% of the packets, duplicates 10% and shuffles the rest.
+- **Transports.**
+  - `GameServer` and `GameClient` talk through a `Transport`: a UDP socket, or Bluetooth RFCOMM streams on Android (`LinkTransport`, `AndroidBluetooth`).
+  - The host listens on both at once (`MultiTransport`).
+- **Smooth remote players.** They are drawn 100 ms in the past, blending between snapshots.
+- **Headless server.** `MapCollision` builds the level's collision straight from the `.g3dj` data, so the dedicated server needs no OpenGL. Spawns live in `core/assets/data/maps/<level>.json`, with optional `teamSpawns`.
 
-## What I did
-The most important things I've made for the project are:
-  - A basic player movement and mouse looking mechanism.
-  - The essentials physics for walking, running and jumping.
-  - A raycasting shooting mechanism including the desviations for jumping or moving when shooting the gun.
-  - A versatile and simple 3D Models importing for all the project entities, including the textures and animations.
-  - A main menu music player with all its needed user controls to improve the user experience.
-  - A bot spawning and player chasing system. *(Rewritten in 2026: bots that navigate the level, aim and shoot, with four difficulties; see [Bots](#bots).)*
-  - An entity system to create character, guns, maps, props and any other interactive object in the game.
-  - A basic set of menues, including settings, credits and pause.
-  - A fully functional HUD.
+Known limitations:
+- There is no lag compensation, which is fine on LAN.
+- The server doesn't check movement against walls.
+- Players can walk through each other.
 
-## How I did it?
-<p>I based my project on the "Building a 3D Game with LibGDX" book by Sebastian Di Giussepe, but I needed to make some changes to make that works in this LibGDX version, like use the Y axis to the gravity instead of the Z axis, and some other changes to make fix the errors and complete the book tutorial, like making my own HUD system instead of the described on the book.</p>
+</details>
 
-## What I couldn't do
-Between the things that I couldn't add to the projects are:
-  - The networking. *(Added in 2026: see [Multiplayer](#multiplayer).)*
-  - The directional sound. *(Added in 2026: other players' shots are panned and attenuated by distance.)*
-  - The player's model. *(Added in 2026: animated low-poly soldiers, see [How it feels](#how-it-feels).)*
-  - The timer. *(Added in 2026: timed matches, see Multiplayer.)*
-  - The scoreboard. *(Added in 2026: hold Tab.)*
-  - The skyboxes. *(Added in 2026: a generated sky dome, visible through the openings in the roof.)*
-  - The raycasting shoots decals. *(Added in 2026: bullet holes that fade out, and faint tracers.)*
-  - The settings options saving. *(Added in 2026, along with rebindable controls, mouse sensitivity and a configurable crosshair.)*
-  - The team selection menues.
-  - The gun dropping and picking system. *(Added in 2026: press G, see Multiplayer.)*
+<details>
+<summary><b>Bots</b></summary>
 
-## Credits
+- **Same rules as people.** A `Bot` walks with the same physics body and movement code as the player, and shoots with the same gun data and server-side hit detection.
+- **Human limits by difficulty** (`BotDifficulty`):
+  - Reaction time goes from 0.75 s down to 0.17 s.
+  - Difficulty also sets how fast and how precisely they aim, how well they control the spray, how often they go for the head, their field of view and how they move in a fight.
+  - They hear gunfire and walk towards it.
+- **Navigation without waypoints.**
+  - `NavGrid` samples the level's collision mesh on a 2-unit grid, which takes about 0.4 s for the Bank.
+  - Bots plan routes with A*, cut corners where they can, and find another way when stuck.
+- **Tested.** `BotTest` runs bots on the real level. `BotServerTest` and `TeamBotTest` add them to a real server and check what a client sees.
+
+</details>
+
+<details>
+<summary><b>The details that make it feel like CS</b></summary>
+
+- **Recoil.**
+  - Each gun has a fixed spray pattern (`spray` in `guns.json`).
+  - The view climbs half of it and the bullets all of it. A crosshair set to follow the recoil climbs the other half, so it always marks the next bullet.
+  - On top of the pattern there is a random inaccuracy, which depends on moving, jumping and crouching (`Recoil`).
+- **Movement** (`PlayerMovement`).
+  - Full speed in about 0.2 s and a full stop in about 0.25 s.
+  - The mouse uses CS's scale: 0.022° per count.
+  - Air acceleration is worked out in 1/120 s steps, as CS behaves at 100+ fps.
+  - Eight perfect hops take you from 12 to about 30 units per second.
+- **Damage over distance.** Each gun keeps a fraction of its damage every 50 units: 85% for the M4, 90% for the AK-47 and 75% for the Magnum.
+- **Fall damage.** It goes by landing speed: about three times your height starts to hurt and about nine kills, at normal gravity.
+- **Knife.**
+  - Slash: 34 damage, every 0.4 s.
+  - Stab: 65 damage, every second, with shorter reach.
+  - From behind they do 90 and 180.
+- **Team deathmatch.**
+  - Newcomers join the smaller team, and bots switch sides to keep the teams within one player.
+  - Each team spawns at its own end of the map.
+  - A teamkill takes away a kill.
+  - Changing team doesn't count as a death.
+- **Soldiers.**
+  - Low-poly soldiers built in code (`SoldierModel`), wearing team colors.
+  - The legs walk as fast as the player moves, and the arms and head follow where they aim.
+  - The hitbox matches the model (`CharacterShape.HITBOX_RADIUS`).
+
+</details>
+
+---
+
+## 📜 History
+
+No Deal began in **2020** as my final project for technical high school: a first-person shooter built on the *"Building a 3D Game with LibGDX"* book by Sebastián Di Giuseppe, adapted to a newer libGDX (gravity on the Y axis, my own HUD and many fixes). Back then it had movement, physics, raycast shooting, model loading, a music player, simple bots, menus and a HUD, but it couldn't be finished.
+
+In **2026** it was brought back to life:
+- **Engine update:** libGDX 1.9.10 / Java 8 → 1.13.1 / Java 17.
+- **What the 2020 version was missing:** multiplayer, directional sound, player models, timed matches, scoreboard, sky, bullet holes and saved settings.
+- **New:** guns on the ground, smart bots, Android, Bluetooth, bunnyhop, the knife, video options and team deathmatch.
+
+## 🙏 Credits
+
+- Code and design: **Javier Leone** ([@Ja4Dev](https://github.com/Ja4Dev)).
 - Footstep and hit sounds: [Impact Sounds](https://kenney.nl/assets/impact-sounds) by Kenney (CC0), converted to mono WAV so they can be panned.
+- Built with [libGDX](https://libgdx.com/), [Ashley](https://github.com/libgdx/ashley) and [Bullet](https://pybullet.org/).
 
-## Want to help me?
-You can give the project a star, or simply share this to anyone you know is working on a Java 3D Game Project.
+<div align="center">
 
-<br>
-Thank you all for reading this and showing your interest in my project! Hope you liked it or found it useful. 
+**If you like it, give the project a ⭐ and share it with anyone making a 3D game in Java.**
 
+[⬇️ Download the latest version](https://github.com/Ja4Dev/No-Deal/releases/latest)
+
+</div>
